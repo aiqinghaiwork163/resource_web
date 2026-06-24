@@ -1780,6 +1780,70 @@ def api_admin_process_queue():
         db.close()
 
 
+
+# ==================== API 测试工具 ====================
+@app.route("/api/admin/test_apis")
+@admin_required
+def api_admin_test_apis():
+    """测试所有API端点是否正常"""
+    import time as _time
+    results = []
+    db = get_db()
+    try:
+        cur = db.cursor()
+        
+        # Test each API
+        tests = [
+            ("GET", "/api/stats", lambda: cur.execute("SELECT COUNT(*) as c FROM resources")),
+            ("GET", "/api/sources", lambda: cur.execute("SELECT DISTINCT source FROM resources LIMIT 1")),
+            ("GET", "/api/admin/settings", lambda: cur.execute("SELECT COUNT(*) as c FROM settings")),
+            ("GET", "/api/admin/import_queue", lambda: cur.execute("SELECT COUNT(*) as c FROM import_queue")),
+            ("GET", "/api/admin/stats/dashboard", lambda: cur.execute("SELECT COUNT(*) as c FROM resources")),
+            ("GET", "/api/admin/resources", lambda: cur.execute("SELECT COUNT(*) as c FROM resources")),
+            ("GET", "/api/admin/pending_imports", lambda: cur.execute("SELECT COUNT(*) as c FROM search_logs WHERE is_imported=0")),
+            ("GET", "/api/admin/logs", lambda: cur.execute("SELECT COUNT(*) as c FROM operation_logs")),
+            ("GET", "/api/admin/filter_words", lambda: cur.execute("SELECT COUNT(*) as c FROM filter_words")),
+            ("GET", "/api/tmdb/trending", lambda: None),  # External API
+            ("GET", "/api/hot_searches", lambda: cur.execute("SELECT keyword FROM search_logs LIMIT 1")),
+            ("GET", "/api/autocomplete?q=test", lambda: cur.execute("SELECT 1")),
+            ("GET", "/api/docs", lambda: None),
+        ]
+        
+        for method, path, db_check in tests:
+            start = _time.time()
+            try:
+                db_check()
+                elapsed = round((_time.time() - start) * 1000, 1)
+                results.append({"method": method, "path": path, "status": "ok", "ms": elapsed})
+            except Exception as e:
+                elapsed = round((_time.time() - start) * 1000, 1)
+                results.append({"method": method, "path": path, "status": "error", "error": str(e)[:100], "ms": elapsed})
+        
+        # DB connection test
+        start = _time.time()
+        cur.execute("SELECT 1")
+        db_ms = round((_time.time() - start) * 1000, 1)
+        
+        # Table stats
+        tables = {}
+        for table in ["resources", "users", "search_logs", "favorites", "filter_words", "settings", "import_queue", "operation_logs"]:
+            try:
+                cur.execute(f"SELECT COUNT(*) as c FROM {table}")
+                tables[table] = cur.fetchone()["c"]
+            except:
+                tables[table] = -1
+        
+        return jsonify({
+            "results": results,
+            "db_latency_ms": db_ms,
+            "tables": tables,
+            "total_ok": sum(1 for r in results if r["status"] == "ok"),
+            "total_error": sum(1 for r in results if r["status"] == "error"),
+        })
+    finally:
+        db.close()
+
+
 # ==================== API Docs Page ====================
 
 @app.route("/api-docs")
