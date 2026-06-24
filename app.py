@@ -167,7 +167,12 @@ def logout():
 # ==================== 主页 ====================
 @app.route("/")
 def index():
-    return send_from_directory(".", "index.html")
+    resp = send_from_directory(".", "index.html")
+    resp.cache_control.max_age = 0
+    resp.cache_control.no_cache = True
+    resp.cache_control.no_store = True
+    resp.cache_control.must_revalidate = True
+    return resp
 
 
 # ==================== API: 统计 ====================
@@ -403,7 +408,12 @@ def api_health():
 @app.route("/admin")
 @admin_required
 def admin_page():
-    return send_from_directory(".", "admin.html")
+    resp = send_from_directory(".", "admin.html")
+    resp.cache_control.max_age = 0
+    resp.cache_control.no_cache = True
+    resp.cache_control.no_store = True
+    resp.cache_control.must_revalidate = True
+    return resp
 
 
 # ==================== 用户管理 API ====================
@@ -650,11 +660,16 @@ def api_click(rid):
         db.commit()
         return jsonify({"ok": True})
     finally: db.close()
-
 # ==================== 个人中心页面 ====================
 @app.route("/profile")
+@app.route("/profile.html")
 def profile_page():
-    return send_from_directory(".", "profile.html")
+    resp = send_from_directory(".", "profile.html")
+    resp.cache_control.max_age = 0
+    resp.cache_control.no_cache = True
+    resp.cache_control.no_store = True
+    resp.cache_control.must_revalidate = True
+    return resp
 
 
 # ==================== 搜索日志收集（所有搜索） ====================
