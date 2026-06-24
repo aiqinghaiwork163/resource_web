@@ -782,6 +782,16 @@ a { color: var(--accent); text-decoration: none; }
 .skeleton-line.w80 { width: 80%; }
 .skeleton-line.w40 { width: 40%; }
 
+
+/* 搜索时推荐栏紧凑模式 */
+.recommend-section.compact { padding: 0.5rem 1.2rem; margin: 0.5rem auto; }
+.recommend-section.compact .recommend-header { margin-bottom: 0.3rem; }
+.recommend-section.compact .recommend-scroll { gap: 0.5rem; }
+.recommend-section.compact .rec-card { min-width: 100px; }
+.recommend-section.compact .rec-info { padding: 0.3rem; }
+.recommend-section.compact .rec-title { font-size: 0.7rem; }
+.recommend-section.compact .rec-meta { display: none; }
+.recommend-section.compact .rec-overview { display: none; }
 </style>
 </head>
 <body>
@@ -1056,6 +1066,9 @@ async function doSearch(){
   // Hide hero when searching
   var hero=document.getElementById('heroSection');
   if(hero)hero.style.display='none';
+  // Keep recommendations visible but compact
+  var rec=document.getElementById('recommendSection');
+  if(rec&&rec.style.display!=='none')rec.classList.add('compact');
   loadRes();loadSrcTags(curKw);
 }
 
@@ -1425,6 +1438,8 @@ async function loadMyFavs(){
 loadMyFavs();
 loadUserInfo();
 loadRecommendations();
+// Remove compact when no search
+if(!curKw){var r=document.getElementById('recommendSection');if(r)r.classList.remove('compact');}
 
 </script>
 </body>
