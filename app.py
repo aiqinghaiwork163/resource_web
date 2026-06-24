@@ -2001,6 +2001,7 @@ def api_admin_deadlinks_scan():
     page = int(data.get("page", 1))
     skip_checked = data.get("skip_checked", True)  # 默认跳过已检测
     only_unchecked = data.get("only_unchecked", False)  # 只检测未检测的
+    rescan_alive = data.get("rescan_alive", False)  # 重新扫描之前正常的
 
     db = get_db()
     try:
@@ -2015,6 +2016,8 @@ def api_admin_deadlinks_scan():
 
         if only_unchecked:
             conditions.append("last_checked IS NULL")
+        elif rescan_alive:
+            conditions.append("link_status = 'alive' AND last_checked < DATE_SUB(NOW(), INTERVAL 7 DAY))")
         elif skip_checked:
             conditions.append("(last_checked IS NULL OR last_checked < DATE_SUB(NOW(), INTERVAL 7 DAY))")
 

@@ -564,7 +564,8 @@ tr:hover{background:rgba(25,25,50,0.35)}
   <div id="tabDeadlinks" style="display:none">
     <div class="card">
       <h2><i class="fas fa-unlink"></i> 失效链接清理
-        <button class="btn btn-p" onclick="scanDeadLinks()" style="margin-left:auto;font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-search"></i> 开始扫描</button>
+        <button class="btn btn-p" onclick="scanDeadLinks()" style="margin-left:auto;font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-search"></i> 扫描未检测</button>
+        <button class="btn btn-s" onclick="scanDeadLinks(true)" style="font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-redo"></i> 重扫正常链</button>
         <button class="btn btn-s" onclick="selectDeadLinks()" style="font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-check-double"></i> 全选失效</button>
         <button class="btn btn-s" onclick="deleteSelectedDeadLinks()" style="font-size:0.78rem;padding:0.35rem 0.8rem;color:#ef4444;border-color:#ef4444"><i class="fas fa-trash"></i> 删除选中</button>
       </h2>
@@ -984,7 +985,7 @@ async function loadDeadlinkSources(){
   }catch(e){}
 }
 
-async function scanDeadLinks(){
+async function scanDeadLinks(rescanAlive){
   var src=document.getElementById('deadlinkSource').value;
   var limit=document.getElementById('deadlinkLimit').value;
   var el=document.getElementById('deadlinkResults');
@@ -995,6 +996,7 @@ async function scanDeadLinks(){
 
   try{
     var body={limit:parseInt(limit),page:_deadPage,skip_checked:document.getElementById("deadlinkOnlyUnchecked").checked};
+    if(rescanAlive){body.rescan_alive=true;body.skip_checked=false;}
     if(src)body.source=src;
     var r=await fetch('/api/admin/deadlinks/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok)throw new Error('HTTP '+r.status);
