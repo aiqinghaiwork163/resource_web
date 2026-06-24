@@ -1650,9 +1650,9 @@ def api_admin_import_retry():
         db.close()
 
 
-# ── 自动导入逻辑（搜索0结果时自动触发） ──
+# ── 自动导入逻辑（搜索0结果时自动触发并处理） ──
 def _auto_import_trigger(keyword):
-    """当搜索无结果时，自动加入导入队列"""
+    """当搜索无结果时，自动加入队列并立即后台处理"""
     try:
         db = get_db()
         cur = db.cursor()
@@ -1672,14 +1672,71 @@ def _auto_import_trigger(keyword):
             return False
         # 加入队列
         cur.execute(
-            "INSERT INTO import_queue (keyword, status) VALUES (%s, 'pending')",
+            "INSERT INTO import_queue (keyword, status) VALUES (%s, 'processing')",
             (keyword,)
         )
+        qid = cur.lastrowid
         db.commit()
         db.close()
+        # 后台线程立即处理
+        import threading
+        t = threading.Thread(target=_process_import, args=(keyword, qid), daemon=True)
+        t.start()
         return True
     except Exception:
         return False
+
+
+def _process_import(keyword, queue_id):
+    """后台处理单个导入任务"""
+    import requests as http_requests
+    try:
+        db = get_db()
+        cur = db.cursor()
+        # 获取API配置
+        cur.execute("SELECT value FROM settings WHERE `key`='import_api_url'")
+        row = cur.fetchone()
+        api_url = row["value"] if row else "https://ps.aiqinghaiwork.cn/api/search"
+        cur.execute("SELECT value FROM settings WHERE `key`='import_api_limit'")
+        row = cur.fetchone()
+        limit = int(row["value"]) if row else 30
+
+        # 调用搜索API
+        resp = http_requests.post(api_url, json={"kw": keyword, "limit": limit}, timeout=60)
+        api_data = resp.json()
+        if api_data.get("code") != 0:
+            cur.execute("UPDATE import_queue SET status='failed', error_msg=%s WHERE id=%s",
+                       (api_data.get("msg", "API错误"), queue_id))
+            db.commit()
+            db.close()
+            return
+
+        merged = api_data["data"].get("merged_by_type", {})
+        imported = 0
+        for source, items in merged.items():
+            for item in items:
+                cur.execute("""INSERT IGNORE INTO resources
+                    (keyword, source, url, title, note, password, datetime, quality, type, year, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
+                    (keyword, source, item.get("url", ""), item.get("note", "") or item.get("title", ""),
+                     item.get("note", ""), item.get("password", ""), item.get("datetime", ""), "", "", 0))
+                imported += 1
+
+        cur.execute("UPDATE import_queue SET status='done', result_count=%s WHERE id=%s",
+                   (imported, queue_id))
+        cur.execute("UPDATE search_logs SET is_imported=1 WHERE keyword=%s", (keyword,))
+        db.commit()
+        db.close()
+    except Exception as e:
+        try:
+            db = get_db()
+            cur = db.cursor()
+            cur.execute("UPDATE import_queue SET status='failed', error_msg=%s WHERE id=%s",
+                       (str(e)[:200], queue_id))
+            db.commit()
+            db.close()
+        except:
+            pass
 
 
 # ── 用户端：检查导入状态 ──
