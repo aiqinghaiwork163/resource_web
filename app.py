@@ -878,6 +878,375 @@ def api_filter_words_del(fid):
         db.close()
 
 
+
+# ==================== 新功能 API ====================
+
+# ── ① 热门搜索排行 ──
+@app.route("/api/hot_searches")
+def api_hot_searches():
+    """返回 Top 10 热搜词"""
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "SELECT keyword, hit_count as count FROM search_suggestions "
+            "ORDER BY hit_count DESC LIMIT 10"
+        )
+        return jsonify({"items": cur.fetchall()})
+    finally:
+        db.close()
+
+
+# ── ② 搜索自动补全 ──
+@app.route("/api/autocomplete")
+def api_autocomplete():
+    """输入时返回匹配的搜索建议"""
+    q = request.args.get("q", "").strip()
+    if not q or len(q) < 1:
+        return jsonify({"items": []})
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "SELECT keyword, hit_count FROM search_suggestions "
+            "WHERE keyword LIKE %s ORDER BY hit_count DESC LIMIT 8",
+            (f"%{q}%",)
+        )
+        return jsonify({"items": cur.fetchall()})
+    finally:
+        db.close()
+
+
+# ── ③ 资源详情面板 ──
+@app.route("/api/resource/<int:rid>/detail")
+def api_resource_detail(rid):
+    """返回资源完整详情（含TMDB数据）"""
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "SELECT id, keyword, source, url, title, note, password, "
+            "quality, type, year, rating, datetime, images, "
+            "tmdb_id, created_at "
+            "FROM resources WHERE id = %s", (rid,)
+        )
+        item = cur.fetchone()
+        if not item:
+            return jsonify({"error": "资源不存在"}), 404
+        return jsonify({"item": item})
+    finally:
+        db.close()
+
+
+# ── ④ 推荐系统 ──
+@app.route("/api/recommendations")
+def api_recommendations():
+    """基于用户搜索/收藏历史推荐资源"""
+    limit = min(int(request.args.get("limit", 12)), 30)
+    uid = session.get("user_id")
+    db = get_db()
+    try:
+        cur = db.cursor()
+        # 从用户搜索历史提取关键词
+        if uid:
+            cur.execute(
+                "SELECT keyword FROM search_history ORDER BY created_at DESC LIMIT 20"
+            )
+            kws = [r["keyword"] for r in cur.fetchall()]
+        else:
+            cur.execute(
+                "SELECT keyword FROM search_suggestions ORDER BY hit_count DESC LIMIT 5"
+            )
+            kws = [r["keyword"] for r in cur.fetchall()]
+
+        f_sql, f_params = _filter_words_condition(cur)
+        where_extra = f" AND {f_sql}" if f_sql else ""
+
+        if not kws:
+            cur.execute(
+                "SELECT id, title, note, source, url, quality, type, year, rating "
+                "FROM resources WHERE rating IS NOT NULL AND rating > 0 "
+                f"{where_extra} "
+                "ORDER BY rating DESC LIMIT %s",
+                f_params + [limit],
+            )
+            return jsonify({"items": cur.fetchall(), "strategy": "top_rated"})
+
+        # 基于关键词推荐 - 逐个关键词拼OR
+        or_conds = []
+        params = []
+        for kw in kws:
+            or_conds.append("(title LIKE %s OR note LIKE %s)")
+            params.extend(["%" + kw + "%", "%" + kw + "%"])
+
+        where_clause = " OR ".join(or_conds)
+        params.extend(f_params)
+        params.append(limit)
+
+        cur.execute(
+            f"SELECT id, title, note, source, url, quality, type, year, rating "
+            f"FROM resources WHERE ({where_clause}){where_extra} "
+            f"ORDER BY RAND() LIMIT %s",
+            params,
+        )
+        return jsonify({"items": cur.fetchall(), "strategy": "keyword_based"})
+    finally:
+        db.close()
+
+
+# ── ⑤ 关键词订阅 ──
+@app.route("/api/subscriptions")
+def api_subscriptions():
+    """获取当前用户的关键词订阅"""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"items": []})
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "SELECT id, keyword, created_at FROM subscriptions "
+            "WHERE user_id = %s ORDER BY created_at DESC", (uid,)
+        )
+        return jsonify({"items": cur.fetchall()})
+    finally:
+        db.close()
+
+
+@app.route("/api/subscriptions", methods=["POST"])
+def api_subscription_add():
+    """添加关键词订阅"""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "请先登录"}), 401
+    data = request.get_json() or {}
+    keyword = (data.get("keyword") or "").strip()
+    if not keyword:
+        return jsonify({"error": "请输入关键词"}), 400
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "INSERT IGNORE INTO subscriptions (user_id, keyword) VALUES (%s, %s)",
+            (uid, keyword)
+        )
+        db.commit()
+        return jsonify({"ok": True})
+    finally:
+        db.close()
+
+
+@app.route("/api/subscriptions/<int:sid>", methods=["DELETE"])
+def api_subscription_del(sid):
+    """取消关键词订阅"""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "请先登录"}), 401
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("DELETE FROM subscriptions WHERE id = %s AND user_id = %s", (sid, uid))
+        db.commit()
+        return jsonify({"ok": True})
+    finally:
+        db.close()
+
+
+# ── ⑧ 资源分享 ──
+@app.route("/api/resource/<int:rid>/share", methods=["POST"])
+def api_resource_share(rid):
+    """生成分享链接"""
+    import secrets
+    token = secrets.token_urlsafe(16)
+    uid = session.get("user_id")
+    db = get_db()
+    try:
+        cur = db.cursor()
+        # 检查资源是否存在
+        cur.execute("SELECT id FROM resources WHERE id = %s", (rid,))
+        if not cur.fetchone():
+            return jsonify({"error": "资源不存在"}), 404
+        cur.execute(
+            "INSERT INTO share_links (resource_id, token, created_by) VALUES (%s, %s, %s)",
+            (rid, token, uid)
+        )
+        db.commit()
+        share_url = f"{request.host_url}s/{token}"
+        return jsonify({"ok": True, "url": share_url, "token": token})
+    finally:
+        db.close()
+
+
+@app.route("/s/<token>")
+def api_shared_resource(token):
+    """通过分享链接访问资源"""
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "SELECT sl.resource_id, sl.click_count, "
+            "r.id, r.title, r.note, r.source, r.url, r.quality, r.type, "
+            "r.year, r.rating, r.poster_url, r.password "
+            "FROM share_links sl "
+            "JOIN resources r ON r.id = sl.resource_id "
+            "WHERE sl.token = %s", (token,)
+        )
+        item = cur.fetchone()
+        if not item:
+            return "链接无效或已过期", 404
+        # 更新点击数
+        cur.execute(
+            "UPDATE share_links SET click_count = click_count + 1 WHERE token = %s", (token,)
+        )
+        db.commit()
+        # 返回简洁的分享页面
+        title = item.get("title") or item.get("note") or "网盘资源"
+        url = item.get("url", "")
+        source = item.get("source", "")
+        quality = item.get("quality", "")
+        password = item.get("password", "")
+        poster = item.get("poster_url", "")
+
+        poster_html = ""
+        if poster:
+            poster_html = '<img src="' + poster + '" style="max-width:200px;border-radius:8px;margin-bottom:1rem">'
+
+        quality_html = ""
+        if quality:
+            quality_html = '<span class="tag">' + quality + '</span>'
+
+        pw_html = ""
+        if password:
+            pw_html = '<div class="pw">🔑 提取码: ' + password + '</div>'
+
+        html = (
+            '<!DOCTYPE html><html><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>' + title + ' - 分享</title>'
+            '<style>'
+            '*{margin:0;padding:0;box-sizing:border-box}'
+            'body{background:#0f0f14;color:#e4e4e7;font-family:-apple-system,sans-serif;'
+            'display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}'
+            '.card{background:#1a1a24;border:1px solid #2a2a3e;border-radius:16px;padding:2rem;max-width:480px;width:100%;text-align:center}'
+            'h2{font-size:1.2rem;margin-bottom:0.5rem}'
+            '.tag{display:inline-block;background:#6366f1;color:white;padding:0.2rem 0.6rem;border-radius:6px;font-size:0.75rem;margin:0.2rem}'
+            '.url{background:#12121c;border:1px solid #2a2a3e;border-radius:8px;padding:0.8rem;word-break:break-all;margin:1rem 0;font-size:0.85rem;user-select:all}'
+            '.pw{color:#f59e0b;font-weight:600;margin:0.5rem 0}'
+            '.btn{display:inline-block;background:#6366f1;color:white;padding:0.7rem 2rem;border:none;border-radius:8px;font-size:0.9rem;cursor:pointer;text-decoration:none;margin:0.3rem}'
+            '.btn:hover{background:#4f46e5}'
+            '.btn2{background:#374151}'
+            '</style></head><body><div class="card">'
+            + poster_html
+            + '<h2>' + title + '</h2>'
+            '<div><span class="tag">' + source + '</span>' + quality_html + '</div>'
+            '<div class="url" id="u">' + url + '</div>'
+            + pw_html
+            + '<button class="btn" onclick="copyU()">📋 复制链接</button>'
+            '<a class="btn btn2" href="' + url + '" target="_blank">🔗 打开网盘</a>'
+            '<a class="btn btn2" href="/" style="text-decoration:none">🏠 更多资源</a>'
+            '<script>function copyU(){var u=document.getElementById("u").innerText;'
+            'navigator.clipboard.writeText(u).then(function(){alert("已复制！")})}</script>'
+            '</div></body></html>'
+        )
+        return html
+    finally:
+        db.close()
+
+
+# ── ⑨ 后台数据统计面板 ──
+@app.route("/api/admin/stats/dashboard")
+@admin_required
+def api_admin_dashboard():
+    """后台统计数据（图表用）"""
+    db = get_db()
+    try:
+        cur = db.cursor()
+
+        # 1. 每日新增资源（最近30天）
+        cur.execute(
+            "SELECT DATE(created_at) as date, COUNT(*) as count "
+            "FROM resources WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) "
+            "GROUP BY DATE(created_at) ORDER BY date"
+        )
+        daily_resources = cur.fetchall()
+
+        # 2. 每日搜索量（最近30天）
+        cur.execute(
+            "SELECT DATE(created_at) as date, COUNT(*) as count "
+            "FROM search_logs WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) "
+            "GROUP BY DATE(created_at) ORDER BY date"
+        )
+        daily_searches = cur.fetchall()
+
+        # 3. Top 20 搜索词
+        cur.execute(
+            "SELECT keyword, COUNT(*) as count FROM search_logs "
+            "GROUP BY keyword ORDER BY count DESC LIMIT 20"
+        )
+        top_searches = cur.fetchall()
+
+        # 4. 资源类型分布
+        cur.execute(
+            "SELECT COALESCE(type, '未分类') as type, COUNT(*) as count "
+            "FROM resources GROUP BY type ORDER BY count DESC"
+        )
+        type_dist = cur.fetchall()
+
+        # 5. 来源分布
+        cur.execute(
+            "SELECT source, COUNT(*) as count FROM resources "
+            "GROUP BY source ORDER BY count DESC LIMIT 10"
+        )
+        source_dist = cur.fetchall()
+
+        # 6. 画质分布
+        cur.execute(
+            "SELECT COALESCE(quality, '未知') as quality, COUNT(*) as count "
+            "FROM resources GROUP BY quality ORDER BY count DESC"
+        )
+        quality_dist = cur.fetchall()
+
+        # 7. 总览数据
+        stats = {}
+        for tbl in ["resources", "users", "search_logs", "favorites", "filter_words"]:
+            cur.execute(f"SELECT COUNT(*) as c FROM {tbl}")
+            stats[tbl] = cur.fetchone()["c"]
+
+        return jsonify({
+            "daily_resources": daily_resources,
+            "daily_searches": daily_searches,
+            "top_searches": top_searches,
+            "type_dist": type_dist,
+            "source_dist": source_dist,
+            "quality_dist": quality_dist,
+            "overview": stats,
+        })
+    finally:
+        db.close()
+
+
+# ── ⑩ API 文档 ──
+@app.route("/api/docs")
+def api_docs():
+    """自动生成 API 文档"""
+    docs = []
+    for rule in app.url_map.iter_rules():
+        if rule.endpoint == "static":
+            continue
+        func = app.view_functions.get(rule.endpoint)
+        if not func:
+            continue
+        doc = {
+            "path": rule.rule,
+            "methods": sorted(rule.methods - {"OPTIONS", "HEAD"}),
+            "name": func.__name__,
+            "doc": (func.__doc__ or "").strip(),
+            "auth": hasattr(func, "__wrapped__"),
+        }
+        docs.append(doc)
+    docs.sort(key=lambda d: d["path"])
+    return jsonify({"docs": docs, "total": len(docs)})
+
 # ==================== Favicon ====================
 
 @app.route("/favicon.ico")
