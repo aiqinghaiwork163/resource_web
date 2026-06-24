@@ -1896,6 +1896,20 @@ def api_admin_process_queue():
 
 
 
+
+@app.route("/api/admin/logs/clear", methods=["POST"])
+@admin_required
+def api_admin_logs_clear():
+    """清空操作日志"""
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("DELETE FROM operation_logs")
+        db.commit()
+        return jsonify({"ok": True, "deleted": cur.rowcount})
+    finally:
+        db.close()
+
 # ==================== API 测试工具 ====================
 @app.route("/api/admin/test_apis")
 @admin_required

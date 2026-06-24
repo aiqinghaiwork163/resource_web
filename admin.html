@@ -474,7 +474,10 @@ tr:hover{background:rgba(25,25,50,0.35)}
   <!-- Operation Logs Tab -->
   <div id="tabLogs" style="display:none">
     <div class="card">
-      <h2><i class="fas fa-history"></i> 操作日志</h2>
+      <h2><i class="fas fa-history"></i> 操作日志
+        <button class="btn btn-s" onclick="exportLogs()" style="margin-left:auto;font-size:0.75rem;padding:0.3rem 0.6rem"><i class="fas fa-download"></i> 导出</button>
+        <button class="btn btn-s" onclick="clearLogs()" style="font-size:0.75rem;padding:0.3rem 0.6rem;color:#ef4444;border-color:#ef4444"><i class="fas fa-trash"></i> 清空</button>
+      </h2>
       <div class="fbar">
         <select id="logActionFilter" onchange="loadLogs(1)">
           <option value="">全部操作</option>
@@ -909,6 +912,36 @@ async function loadLogs(page){
     tb.innerHTML='<div class="empty" style="color:var(--err)"><i class="fas fa-exclamation-triangle"></i> 加载失败: '+esc(e.message)+'</div>';
     document.getElementById('logPager').innerHTML='';
   }
+}
+
+
+/* ========== Log Actions ========== */
+async function clearLogs(){
+  if(!confirm('确认清空所有操作日志？此操作不可恢复！'))return;
+  try{
+    var r=await fetch('/api/admin/logs/clear',{method:'POST'});
+    var d=await r.json();
+    if(d.ok){loadLogs(1);}
+    else{alert('清空失败: '+(d.error||'未知错误'));}
+  }catch(e){alert('清空失败: '+e.message);}
+}
+async function exportLogs(){
+  try{
+    var r=await fetch('/api/admin/logs?per_page=9999');
+    if(!r.ok)throw 0;
+    var d=await r.json();
+    var items=d.items||[];
+    if(!items.length){alert('暂无日志可导出');return;}
+    var csv='时间,用户,操作,详情,IP\n';
+    items.forEach(function(l){
+      csv+=('"'+(l.created_at||'')+'","'+(l.username||l.user_id||'')+'","'+(l.action||'')+'","'+(l.detail||'').replace(/"/g,'""')+'","'+(l.ip||'')+'"\n');
+    });
+    var blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+    var a=document.createElement('a');
+    a.href=URL.createObjectURL(blob);
+    a.download='operation_logs_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click();
+  }catch(e){alert('导出失败: '+e.message);}
 }
 
 /* ========== Filter Words ========== */
