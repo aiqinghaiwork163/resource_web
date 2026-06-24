@@ -223,6 +223,12 @@ def api_resources():
             conditions.append("source = %s")
             params.append(source_filter)
 
+        # 过滤词：排除含过滤词的资源
+        f_sql, f_params = _filter_words_condition(cur)
+        if f_sql:
+            conditions.append(f_sql)
+            params.extend(f_params)
+
         where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
 
         cur.execute(f"SELECT COUNT(*) as total FROM resources {where}", params)
@@ -257,6 +263,19 @@ def _merge_source(src):
         return "other"
     return src
 
+def _filter_words_condition(cur):
+    """返回 (sql_fragment, params) 用于排除含过滤词的资源"""
+    cur.execute("SELECT word FROM filter_words")
+    fwords = [r["word"] for r in cur.fetchall()]
+    if not fwords:
+        return "", []
+    conds = []
+    params = []
+    for w in fwords:
+        conds.append("(title NOT LIKE %s AND note NOT LIKE %s AND keyword NOT LIKE %s)")
+        params.extend([f"%{w}%", f"%{w}%", f"%{w}%"])
+    return "(" + " AND ".join(conds) + ")", params
+
 
 @app.route("/api/sources")
 def api_sources():
@@ -265,16 +284,22 @@ def api_sources():
     db = get_db()
     try:
         cur = db.cursor()
+        f_sql, f_params = _filter_words_condition(cur)
+        f_where = "AND " + f_sql if f_sql else ""
+
         if query:
             cur.execute(
                 "SELECT source, COUNT(*) as count FROM resources "
-                "WHERE (title LIKE %s OR note LIKE %s) "
+                "WHERE (title LIKE %s OR note LIKE %s) " + f_where + " "
                 "GROUP BY source ORDER BY count DESC",
-                (f"%{query}%", f"%{query}%"),
+                [f"%{query}%", f"%{query}%"] + f_params,
             )
         else:
             cur.execute(
-                "SELECT source, COUNT(*) as count FROM resources GROUP BY source ORDER BY count DESC"
+                "SELECT source, COUNT(*) as count FROM resources "
+                "WHERE 1=1 " + f_where + " "
+                "GROUP BY source ORDER BY count DESC",
+                f_params,
             )
         rows = cur.fetchall()
 
