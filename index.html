@@ -497,22 +497,50 @@ body {
 }
 [data-theme="light"] .bg-fx { opacity: 0.03; }
 
-/* 推荐区域 */
+/* 推荐区域 - TMDB 海报风格 */
 .recommend-section {
   max-width: 1200px; margin: 1.5rem auto; padding: 0 1.2rem;
 }
 .recommend-title {
-  font-size: 1rem; color: var(--text); margin-bottom: 0.8rem;
-  display: flex; align-items: center; gap: 0.5rem;
+  font-size: 1.1rem; color: var(--text); margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.5rem; font-weight: 600;
 }
+.recommend-tabs {
+  display: flex; gap: 0.5rem; margin-left: auto;
+}
+.rec-tab {
+  padding: 0.3rem 0.8rem; border-radius: 20px; border: 1px solid var(--border);
+  background: transparent; color: var(--text3); cursor: pointer; font-size: 0.75rem;
+  transition: all 0.2s;
+}
+.rec-tab.active { background: var(--accent); border-color: var(--accent); color: white; }
 .recommend-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 0.8rem;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem;
 }
 .rec-card {
-  background: var(--card-bg); border: 1px solid var(--border); border-radius: 10px;
-  padding: 0.8rem; cursor: pointer; transition: all 0.2s;
+  background: var(--card-bg); border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; cursor: pointer; transition: all 0.25s; position: relative;
 }
-.rec-card:hover { border-color: var(--accent); transform: translateY(-2px); box-shadow: 0 4px 12px var(--shadow); }
+.rec-card:hover { border-color: var(--accent); transform: translateY(-4px); box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.rec-poster {
+  width: 100%; aspect-ratio: 2/3; object-fit: cover; display: block;
+  background: linear-gradient(135deg, #1a1a2e, #2a2a4e);
+}
+.rec-info { padding: 0.6rem; }
+.rec-title { font-size: 0.82rem; font-weight: 500; color: var(--text); line-height: 1.3;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec-meta { display: flex; align-items: center; gap: 0.3rem; margin-top: 0.3rem; }
+.rec-rating { font-size: 0.72rem; color: #f59e0b; font-weight: 600; }
+.rec-type { font-size: 0.65rem; background: rgba(99,102,241,0.15); color: var(--accent);
+  padding: 0.1rem 0.4rem; border-radius: 4px; }
+.rec-year { font-size: 0.68rem; color: var(--text3); }
+.rec-overview {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.9));
+  padding: 2rem 0.6rem 0.6rem; font-size: 0.72rem; color: #ccc;
+  opacity: 0; transition: opacity 0.3s; max-height: 80px; overflow: hidden;
+}
+.rec-card:hover .rec-overview { opacity: 1; }
 
 /* 详情面板 */
 .detail-modal {
@@ -656,7 +684,14 @@ body {
 
 <!-- Recommendations -->
 <div class="recommend-section" id="recommendSection" style="display:none">
-  <div class="recommend-title"><i class="fas fa-magic" style="color:var(--accent)"></i> 猜你喜欢</div>
+  <div class="recommend-title"><i class="fas fa-fire" style="color:#ef4444"></i> 热门推荐
+    <div class="recommend-tabs">
+      <button class="rec-tab active" onclick="switchRecTab(this,'week')">本周热榜</button>
+      <button class="rec-tab" onclick="switchRecTab(this,'day')">今日热榜</button>
+      <button class="rec-tab" onclick="switchRecTab(this,'movie')">电影</button>
+      <button class="rec-tab" onclick="switchRecTab(this,'tv')">剧集</button>
+    </div>
+  </div>
   <div class="recommend-grid" id="recommendGrid"></div>
 </div>
 
@@ -1029,34 +1064,48 @@ function acSelect(kw){
 }
 
 /* 推荐系统 */
-async function loadRecommendations(){
+async function loadRecommendations(media,time){
+  media=media||'all';time=time||'week';
   try{
-    var r=await fetch('/api/recommendations?limit=6');if(!r.ok)return;
+    var r=await fetch('/api/tmdb/trending?media='+media+'&time='+time);if(!r.ok)return;
     var d=await r.json(),items=d.items||[];
     if(!items.length)return;
     var el=document.getElementById('recommendGrid');
     el.innerHTML=items.map(function(it){
-      var title=esc(it.title||it.note||'未知');
-      var src=esc(it.source||'');
-      var qual=esc(it.quality||'');
-      var type=esc(it.type||'');
-      var year=esc(it.year||'');
-      var rating=it.rating?it.rating:'';
-      return '<div class="rec-card" data-rid="'+it.id+'" data-url="'+escA(it.url||'')+'" onclick="copyModal(this.dataset.url)">'+
-        '<div style="display:flex;justify-content:space-between;align-items:start;gap:0.3rem">'+
-          '<div style="font-size:0.88rem;font-weight:500;color:var(--text)">'+title+'</div>'+
-          (rating?'<span style="font-size:0.72rem;color:#f59e0b;font-weight:600">★'+rating+'</span>':'')+
+      var title=esc(it.title||'未知');
+      var poster=it.poster||'';
+      var rating=it.rating||0;
+      var mediaType=it.media_type==='tv'?'剧集':'电影';
+      var year=it.year||'';
+      var overview=esc(it.overview||'');
+      return '<div class="rec-card" onclick="searchFromRec('+JSON.stringify(it.title)+')">'+
+        (poster?'<img class="rec-poster" src="'+esc(poster)+'" loading="lazy" onerror="this.src=\'\';this.style.height=\'200px\'">':'<div class="rec-poster" style="display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:2rem">🎬</div>')+
+        '<div class="rec-info">'+
+          '<div class="rec-title" title="'+title+'">'+title+'</div>'+
+          '<div class="rec-meta">'+
+            (rating?'<span class="rec-rating">★'+rating+'</span>':'')+
+            '<span class="rec-type">'+mediaType+'</span>'+
+            (year?'<span class="rec-year">'+year+'</span>':'')+
+          '</div>'+
         '</div>'+
-        '<div style="display:flex;flex-wrap:wrap;gap:0.25rem;margin-top:0.4rem">'+
-          (src?'<span class="tag '+src.toLowerCase()+'">'+src+'</span>':'')+
-          (type?'<span class="tag">'+type+'</span>':'')+
-          (qual?'<span class="tag">'+qual+'</span>':'')+
-          (year?'<span class="tag">'+year+'</span>':'')+
-        '</div>'+
+        (overview?'<div class="rec-overview">'+overview+'</div>':'')+
       '</div>';
     }).join('');
     document.getElementById('recommendSection').style.display='';
   }catch(e){}
+}
+function switchRecTab(btn,param){
+  document.querySelectorAll('.rec-tab').forEach(function(b){b.classList.remove('active')});
+  btn.classList.add('active');
+  var media='all',time='week';
+  if(param==='day')time='day';
+  else if(param==='movie'){media='movie';time='week';}
+  else if(param==='tv'){media='tv';time='week';}
+  loadRecommendations(media,time);
+}
+function searchFromRec(title){
+  document.getElementById('searchInput').value=title;
+  doSearch();
 }
 
 /* 资源详情面板 */

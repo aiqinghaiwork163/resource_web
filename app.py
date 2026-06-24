@@ -740,14 +740,18 @@ def _log_op(uid, username, action, detail, ip=None):
 @app.route("/api/admin/pending_imports")
 @admin_required
 def api_pending_imports():
-    """获取待导入的搜索关键词（聚合去重）"""
+    """获取待导入的搜索关键词（聚合去重，排除已有资源的关键词）"""
     db = get_db()
     try:
         cur = db.cursor()
         cur.execute("""
-            SELECT keyword, COUNT(*) as search_count, MAX(created_at) as last_search
-            FROM search_logs WHERE is_imported = 0
-            GROUP BY keyword ORDER BY search_count DESC, last_search DESC
+            SELECT sl.keyword, COUNT(*) as search_count, MAX(created_at) as last_search
+            FROM search_logs sl
+            WHERE sl.is_imported = 0
+              AND NOT EXISTS (
+                  SELECT 1 FROM resources r WHERE r.keyword = sl.keyword
+              )
+            GROUP BY sl.keyword ORDER BY search_count DESC, last_search DESC
             LIMIT 100
         """)
         items = cur.fetchall()
@@ -938,58 +942,98 @@ def api_resource_detail(rid):
         db.close()
 
 
+# ── ④ TMDB 热门排行 ──
+@app.route("/api/tmdb/trending")
+def api_tmdb_trending():
+    """TMDB 热门排行（绕GFW直连）"""
+    import socket, ssl as _ssl, json as _json
+    media = request.args.get("media", "all")  # all/movie/tv
+    time_window = request.args.get("time", "week")  # day/week
+    page = min(int(request.args.get("page", 1)), 10)
+    API_KEY = os.environ.get("TMDB_API_KEY", "91f75e1241354f2503a397fc7a276408")
+
+    ep = f"trending/{media}/{time_window}"
+    path = f"/3/{ep}?api_key={API_KEY}&language=zh-CN&page={page}"
+    try:
+        ip = socket.getaddrinfo("www.themoviedb.org", 443, socket.AF_INET)[0][4][0]
+        s = socket.create_connection((str(ip), 443), 10)
+        ss = _ssl.create_default_context().wrap_socket(s, server_hostname="api.themoviedb.org")
+        ss.sendall(
+            f"GET {path} HTTP/1.1\r\nHost: api.themoviedb.org\r\n"
+            f"Accept: application/json\r\nConnection: close\r\n\r\n".encode()
+        )
+        r = b""
+        while True:
+            c = ss.recv(65536)
+            if not c:
+                break
+            r += c
+        ss.close()
+        h = r.find(b"\r\n\r\n")
+        if h < 0:
+            return jsonify({"items": [], "error": "no response"})
+        body = r[h + 4:]
+        if b"chunked" in r[:h]:
+            r2 = body; body = b""
+            while r2:
+                e = r2.find(b"\r\n")
+                if e < 0:
+                    break
+                try:
+                    sz = int(r2[:e], 16)
+                except ValueError:
+                    break
+                if sz == 0:
+                    break
+                body += r2[e + 2:e + 2 + sz]
+                r2 = r2[e + 2 + sz + 2:]
+        data = _json.loads(body)
+        items = []
+        for it in data.get("results", [])[:20]:
+            items.append({
+                "title": it.get("title") or it.get("name") or "",
+                "overview": (it.get("overview") or "")[:200],
+                "poster": ("https://image.tmdb.org/t/p/w500" + it["poster_path"]) if it.get("poster_path") else "",
+                "backdrop": ("https://image.tmdb.org/t/p/w780" + it["backdrop_path"]) if it.get("backdrop_path") else "",
+                "rating": round(it.get("vote_average", 0), 1),
+                "media_type": it.get("media_type", ""),
+                "year": (it.get("release_date") or it.get("first_air_date") or "")[:4],
+                "tmdb_id": it.get("id"),
+            })
+        return jsonify({"items": items, "total": data.get("total_results", 0)})
+    except Exception as e:
+        return jsonify({"items": [], "error": str(e)})
+
+
 # ── ④ 推荐系统 ──
 @app.route("/api/recommendations")
 def api_recommendations():
-    """基于用户搜索/收藏历史推荐资源"""
+    """TMDB 热门排行 + 本地有图资源混合推荐"""
     limit = min(int(request.args.get("limit", 12)), 30)
-    uid = session.get("user_id")
     db = get_db()
     try:
         cur = db.cursor()
-        # 从用户搜索历史提取关键词
-        if uid:
-            cur.execute(
-                "SELECT keyword FROM search_history ORDER BY created_at DESC LIMIT 20"
-            )
-            kws = [r["keyword"] for r in cur.fetchall()]
-        else:
-            cur.execute(
-                "SELECT keyword FROM search_suggestions ORDER BY hit_count DESC LIMIT 5"
-            )
-            kws = [r["keyword"] for r in cur.fetchall()]
-
-        f_sql, f_params = _filter_words_condition(cur)
-        where_extra = f" AND {f_sql}" if f_sql else ""
-
-        if not kws:
-            cur.execute(
-                "SELECT id, title, note, source, url, quality, type, year, rating "
-                "FROM resources WHERE rating IS NOT NULL AND rating > 0 "
-                f"{where_extra} "
-                "ORDER BY rating DESC LIMIT %s",
-                f_params + [limit],
-            )
-            return jsonify({"items": cur.fetchall(), "strategy": "top_rated"})
-
-        # 基于关键词推荐 - 逐个关键词拼OR
-        or_conds = []
-        params = []
-        for kw in kws:
-            or_conds.append("(title LIKE %s OR note LIKE %s)")
-            params.extend(["%" + kw + "%", "%" + kw + "%"])
-
-        where_clause = " OR ".join(or_conds)
-        params.extend(f_params)
-        params.append(limit)
-
+        # 1. 先取有图片的本地热门资源
         cur.execute(
-            f"SELECT id, title, note, source, url, quality, type, year, rating "
-            f"FROM resources WHERE ({where_clause}){where_extra} "
-            f"ORDER BY RAND() LIMIT %s",
-            params,
+            "SELECT id, title, note, source, url, quality, type, year, rating, images "
+            "FROM resources WHERE images IS NOT NULL AND images != '' "
+            "ORDER BY created_at DESC LIMIT %s", (limit,)
         )
-        return jsonify({"items": cur.fetchall(), "strategy": "keyword_based"})
+        local_items = cur.fetchall()
+        for it in local_items:
+            it["source_type"] = "local"
+            # 解析 images JSON 获取海报
+            imgs = it.get("images", "")
+            if imgs:
+                try:
+                    import json as _j
+                    arr = _j.loads(imgs)
+                    it["poster"] = arr[0] if arr else ""
+                except Exception:
+                    it["poster"] = imgs
+            else:
+                it["poster"] = ""
+        return jsonify({"items": local_items, "strategy": "local_with_posters"})
     finally:
         db.close()
 
