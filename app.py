@@ -228,27 +228,53 @@ def login_page():
             return jsonify({"ok": True, "role": user["role"]})
         return redirect("/admin" if user["role"] == "admin" else "/")
     return """<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>登录</title>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>登录 - 网盘资源浏览器</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 <style>
-body{background:#0f0f14;color:#e4e4e7;font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}
-.box{background:#1a1a24;border:1px solid #2a2a3e;border-radius:14px;padding:2rem;width:320px}
-h2{text-align:center;margin-bottom:1.5rem}
-input{width:100%;padding:.7rem;margin-bottom:1rem;border:1px solid #2a2a3e;border-radius:8px;background:#12121c;color:#e4e4e7;font-size:.9rem;box-sizing:border-box}
-button{width:100%;padding:.7rem;border:none;border-radius:8px;background:#6366f1;color:white;font-size:.9rem;cursor:pointer}
-button:hover{background:#4f46e5}
-.err{color:#ef4444;font-size:.85rem;text-align:center;margin-bottom:.5rem;display:none}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:linear-gradient(135deg,#032541 0%,#0d253f 50%,#01b4e4 150%);color:#fff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}
+.login-card{background:rgba(10,22,40,0.95);border:1px solid rgba(1,180,228,0.15);border-radius:16px;padding:2.5rem;width:100%;max-width:380px;backdrop-filter:blur(20px);box-shadow:0 20px 60px rgba(0,0,0,0.5)}
+.logo-area{text-align:center;margin-bottom:2rem}
+.logo-area h1{font-size:1.5rem;font-weight:700;margin-bottom:0.3rem}
+.logo-area h1 i{color:#01b4e4;margin-right:0.5rem}
+.logo-area p{color:#999;font-size:0.85rem}
+.input-group{position:relative;margin-bottom:1.2rem}
+.input-group i{position:absolute;left:1rem;top:50%;transform:translateY(-50%);color:#999;font-size:0.9rem}
+.input-group input{width:100%;padding:0.85rem 1rem 0.85rem 2.8rem;border:1px solid #1a3a5c;border-radius:10px;background:#0a1628;color:#fff;font-size:0.95rem;outline:none;transition:border-color 0.2s}
+.input-group input:focus{border-color:#01b4e4}
+.input-group input::placeholder{color:#557}
+.btn-login{width:100%;padding:0.85rem;border:none;border-radius:10px;background:linear-gradient(135deg,#01b4e4,#0189a8);color:white;font-size:1rem;font-weight:600;cursor:pointer;transition:all 0.3s;margin-top:0.5rem}
+.btn-login:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(1,180,228,0.3)}
+.btn-login:active{transform:translateY(0)}
+.error-msg{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.3);color:#ef4444;padding:0.6rem 1rem;border-radius:8px;font-size:0.85rem;text-align:center;margin-bottom:1rem;display:none}
+.back-link{display:block;text-align:center;margin-top:1.5rem;color:#999;font-size:0.85rem;text-decoration:none;transition:color 0.2s}
+.back-link:hover{color:#01b4e4}
 </style></head><body>
-<div class="box">
-<h2>🔐 后台登录</h2>
-<div class="err" id="err"></div>
-<input id="u" placeholder="用户名" autofocus>
-<input id="p" type="password" placeholder="密码" onkeydown="if(event.key==='Enter')doLogin()">
-<button onclick="doLogin()">登录</button><a href="/" style="display:block;text-align:center;margin-top:0.8rem;color:#8888a8;font-size:0.85rem;text-decoration:none;transition:color 0.2s">← 返回首页</a>
+<div class="login-card">
+  <div class="logo-area">
+    <h1><i class="fas fa-cloud"></i>网盘资源浏览器</h1>
+    <p>登录后台管理</p>
+  </div>
+  <div class="error-msg" id="err"></div>
+  <div class="input-group">
+    <i class="fas fa-user"></i>
+    <input id="u" placeholder="用户名" autofocus>
+  </div>
+  <div class="input-group">
+    <i class="fas fa-lock"></i>
+    <input id="p" type="password" placeholder="密码" onkeydown="if(event.key==='Enter')doLogin()">
+  </div>
+  <button class="btn-login" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> 登录</button>
+  <a href="/" class="back-link"><i class="fas fa-arrow-left"></i> 返回首页</a>
 </div>
 <script>
 async function doLogin(){
-const r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:document.getElementById('u').value,password:document.getElementById('p').value})});
-if(r.ok){const d=await r.json();location.href=d.role==='admin'?'/admin':'/'}else{const d=await r.json();document.getElementById('err').style.display='block';document.getElementById('err').textContent=d.error||'登录失败'}
+  var err=document.getElementById('err');err.style.display='none';
+  var r=await fetch('/login',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({username:document.getElementById('u').value,password:document.getElementById('p').value})});
+  if(r.ok){var d=await r.json();location.href=d.role==='admin'?'/admin':'/'}
+  else{var d=await r.json();err.style.display='block';err.textContent=d.error||'登录失败';}
 }
 </script></body></html>"""
 
