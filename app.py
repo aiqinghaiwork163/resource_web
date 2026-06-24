@@ -123,7 +123,13 @@ _pool = PooledDB(
 
 
 def get_db():
-    return _pool.connection()
+    conn = _pool.connection()
+    try:
+        with conn.cursor() as _cur:
+            _cur.execute("SET time_zone = '+08:00'")
+    except Exception:
+        pass
+    return conn
 
 
 # ==================== 限流 ====================
