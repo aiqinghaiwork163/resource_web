@@ -1247,6 +1247,14 @@ def api_docs():
     docs.sort(key=lambda d: d["path"])
     return jsonify({"docs": docs, "total": len(docs)})
 
+# ==================== API Docs Page ====================
+
+@app.route("/api-docs")
+@app.route("/api-docs.html")
+def api_docs_page():
+    return send_from_directory(".", "api-docs.html")
+
+
 # ==================== Favicon ====================
 
 @app.route("/favicon.ico")
