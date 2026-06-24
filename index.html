@@ -799,8 +799,8 @@ a { color: var(--accent); text-decoration: none; }
 <!-- Nav -->
 <div class="nav">
   <div class="nav-inner">
-    <div class="logo"><i class="fas fa-cloud"></i> 网盘资源浏览器</div>
-    <div class="search-wrap">
+    <div class="logo" style="cursor:pointer" onclick="goHome()"><i class="fas fa-cloud"></i> 网盘资源浏览器</div>
+    <div class="search-wrap" id="navSearchWrap" style="display:none">
       <input type="text" id="searchInput" placeholder="搜索电影、剧集、动漫、软件..." onkeydown="if(event.key==='Enter')doSearch()">
       <div class="autocomplete-dropdown" id="acDropdown"></div>
       <i class="fas fa-search si"></i>
@@ -1066,6 +1066,11 @@ async function doSearch(){
   // Hide hero when searching
   var hero=document.getElementById('heroSection');
   if(hero)hero.style.display='none';
+  var navS=document.getElementById('navSearchWrap');
+  if(navS)navS.style.display='';
+  // Sync hero input to nav input
+  var navInput=document.getElementById('searchInput');
+  if(navInput&&curKw)navInput.value=curKw;
   // Keep recommendations visible but compact
   var rec=document.getElementById('recommendSection');
   if(rec&&rec.style.display!=='none')rec.classList.add('compact');
