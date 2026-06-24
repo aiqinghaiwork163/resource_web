@@ -574,14 +574,27 @@ tr:hover{background:rgba(25,25,50,0.35)}
           <option value="">全部网盘</option>
         </select>
         <select id="deadlinkLimit">
-          <option value="20">每次检测20条</option>
-          <option value="50">每次检测50条</option>
-          <option value="100" selected>每次检测100条</option>
+          <option value="50">50条</option>
+          <option value="100" selected>100条</option>
+          <option value="200">200条</option>
+          <option value="500">500条</option>
         </select>
         <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;cursor:pointer">
           <input type="checkbox" id="deadlinkOnlyUnchecked" checked> 跳过已检测
         </label>
         <span id="deadlinkUncheckedInfo" style="font-size:0.78rem;color:#f59e0b"></span>
+        <div style="display:flex;gap:0.5rem;align-items:center;margin-left:auto;flex-wrap:wrap">
+          <select id="autoScanBatches" style="font-size:0.78rem;padding:0.3rem 0.5rem">
+            <option value="5">5批(约500条)</option>
+            <option value="10" selected>10批(约1000条)</option>
+            <option value="20">20批(约2000条)</option>
+            <option value="50">50批(约5000条)</option>
+          </select>
+          <label style="font-size:0.78rem;display:flex;align-items:center;gap:0.2rem;cursor:pointer">
+            <input type="checkbox" id="autoDeleteDead"> 自动删除失效
+          </label>
+          <button class="btn btn-p" onclick="startAutoScan()" style="font-size:0.78rem;padding:0.35rem 0.8rem;background:linear-gradient(135deg,#ef4444,#dc2626)"><i class="fas fa-rocket"></i> 一键全自动</button>
+        </div>
         <span id="deadlinkStats" style="font-size:0.82rem;color:var(--text3)"></span>
       </div>
       <div id="deadlinkResults"><div class="empty">选择来源和数量，点击"开始扫描"检测失效链接</div></div>
@@ -1087,6 +1100,32 @@ async function deleteSelectedDeadLinks(){
 // Load sources when tab opens
 if(document.getElementById('deadlinkSource'))loadDeadlinkSources();
 
+
+/* ========== Auto Scan ========== */
+async function startAutoScan(){
+  var batches=parseInt(document.getElementById('autoScanBatches').value);
+  var autoDelete=document.getElementById('autoDeleteDead').checked;
+  var limit=parseInt(document.getElementById('deadlinkLimit').value);
+
+  var msg='即将启动自动检测：\n\n';
+  msg+='• 每批 '+limit+' 条\n';
+  msg+='• 共 '+batches+' 批（约 '+limit*batches+' 条）\n';
+  msg+='• 自动删除失效链接：'+(autoDelete?'是 ✓':'否')+'\n\n';
+  msg+='启动后在后台运行，可继续操作其他功能。';
+  if(!confirm(msg))return;
+
+  try{
+    var r=await fetch('/api/admin/deadlinks/auto_scan',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({batch_size:limit,max_batches:batches,auto_delete:autoDelete})
+    });
+    var d=await r.json();
+    if(d.ok){
+      alert('✅ '+d.message+'\n\n可在"操作日志"中查看进度。');
+    }else{alert('启动失败: '+(d.error||''));}
+  }catch(e){alert('启动失败: '+e.message);}
+}
 /* ========== Queue Actions ========== */
 async function deleteQueueItem(id){
   if(!confirm('确认删除此队列记录？'))return;

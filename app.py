@@ -1997,7 +1997,7 @@ def api_admin_deadlinks_scan():
 
     data = request.get_json() or {}
     source_filter = data.get("source", "")
-    limit = min(int(data.get("limit", 50)), 200)
+    limit = min(int(data.get("limit", 50)), 1000)
     page = int(data.get("page", 1))
     skip_checked = data.get("skip_checked", True)  # 默认跳过已检测
     only_unchecked = data.get("only_unchecked", False)  # 只检测未检测的
@@ -2247,6 +2247,118 @@ def api_admin_deadlinks_unchecked_count():
         return jsonify({"items": items, "total": total})
     finally:
         db.close()
+
+
+@app.route("/api/admin/deadlinks/auto_scan", methods=["POST"])
+@admin_required
+def api_admin_deadlinks_auto_scan():
+    """一键自动检测：批量扫描+标记+删除失效链接"""
+    import threading
+
+    data = request.get_json() or {}
+    batch_size = min(int(data.get("batch_size", 100)), 500)
+    max_batches = min(int(data.get("max_batches", 10)), 50)  # 最多几轮
+    auto_delete = data.get("auto_delete", False)  # 自动删除失效链接
+
+    def _auto_scan_worker(batch_size, max_batches, auto_delete):
+        import requests as http_requests
+        total_scanned = 0
+        total_dead = 0
+        total_alive = 0
+
+        for batch_num in range(max_batches):
+            try:
+                db = get_db()
+                cur = db.cursor()
+                # 取未检测的链接
+                cur.execute(
+                    "SELECT id, title, source, url, password FROM resources "
+                    "WHERE source NOT IN ('magnet', 'ed2k', 'other') AND last_checked IS NULL "
+                    "ORDER BY id LIMIT %s", (batch_size,)
+                )
+                items = cur.fetchall()
+                db.close()
+
+                if not items:
+                    break  # 全部检测完毕
+
+                # 逐条检测
+                dead_ids = []
+                for item in items:
+                    url = item.get("url", "")
+                    source = (item.get("source") or "").lower()
+                    status, code, msg = _check_single_link(url, source)
+
+                    # 标记
+                    try:
+                        db = get_db()
+                        cur = db.cursor()
+                        cur.execute(
+                            "UPDATE resources SET last_checked=NOW(), link_status=%s WHERE id=%s",
+                            (status, item["id"])
+                        )
+                        db.commit()
+                        db.close()
+                    except:
+                        pass
+
+                    if status == "dead":
+                        total_dead += 1
+                        dead_ids.append(item["id"])
+                    elif status == "alive":
+                        total_alive += 1
+                    total_scanned += 1
+
+                # 自动删除失效链接
+                if auto_delete and dead_ids:
+                    try:
+                        db = get_db()
+                        cur = db.cursor()
+                        placeholders = ",".join(["%s"] * len(dead_ids))
+                        cur.execute(f"DELETE FROM resources WHERE id IN ({placeholders})", dead_ids)
+                        db.commit()
+                        db.close()
+                    except:
+                        pass
+
+                # 记录日志
+                try:
+                    db = get_db()
+                    cur = db.cursor()
+                    cur.execute(
+                        "INSERT INTO operation_logs (action, detail) VALUES (%s, %s)",
+                        ("auto_scan", f"批次{batch_num+1}: 扫描{len(items)}条, 存活{len(items)-len(dead_ids)}, 失效{len(dead_ids)}")
+                    )
+                    db.commit()
+                    db.close()
+                except:
+                    pass
+
+            except Exception as e:
+                pass
+
+        # 最终日志
+        try:
+            db = get_db()
+            cur = db.cursor()
+            cur.execute(
+                "INSERT INTO operation_logs (action, detail) VALUES (%s, %s)",
+                ("auto_scan_done", f"完成: 共扫描{total_scanned}条, 存活{total_alive}, 失效{total_dead}" + (f", 已删除{total_dead}" if auto_delete else ""))
+            )
+            db.commit()
+            db.close()
+        except:
+            pass
+
+    # 启动后台线程
+    t = threading.Thread(target=_auto_scan_worker, args=(batch_size, max_batches, auto_delete), daemon=True)
+    t.start()
+
+    return jsonify({
+        "ok": True,
+        "message": f"自动检测已启动：每批{batch_size}条, 最多{max_batches}批",
+        "auto_delete": auto_delete
+    })
 
 # ==================== API Docs Page ====================
 
