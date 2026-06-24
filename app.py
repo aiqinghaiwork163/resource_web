@@ -1693,40 +1693,83 @@ def _auto_import_trigger(keyword):
         return False
 
 
-def _process_import(keyword, queue_id):
-    """后台处理单个导入任务"""
+def _fetch_api(api_url, keyword, limit):
+    """从单个API搜索资源"""
     import requests as http_requests
+    try:
+        resp = http_requests.post(api_url, json={"kw": keyword, "limit": limit}, timeout=60)
+        data = resp.json()
+        if data.get("code") != 0:
+            return []
+        merged = data.get("data", {}).get("merged_by_type", {})
+        results = []
+        for source, items in merged.items():
+            for item in items:
+                results.append({"source": source, "item": item})
+        return results
+    except Exception:
+        return []
+
+
+def _process_import(keyword, queue_id):
+    """后台处理单个导入任务（支持多API并发）"""
+    import threading
     try:
         db = get_db()
         cur = db.cursor()
-        # 获取API配置
+        # 获取API配置（支持多个，换行分隔）
         cur.execute("SELECT value FROM settings WHERE `key`='import_api_url'")
         row = cur.fetchone()
-        api_url = row["value"] if row else "https://ps.aiqinghaiwork.cn/api/search"
+        api_urls_raw = row["value"] if row else "https://ps.aiqinghaiwork.cn/api/search"
+        api_urls = [u.strip() for u in api_urls_raw.split("\n") if u.strip()]
+        if not api_urls:
+            api_urls = [api_urls_raw]
+
         cur.execute("SELECT value FROM settings WHERE `key`='import_api_limit'")
         row = cur.fetchone()
         limit = int(row["value"]) if row else 30
+        db.close()
 
-        # 调用搜索API
-        resp = http_requests.post(api_url, json={"kw": keyword, "limit": limit}, timeout=60)
-        api_data = resp.json()
-        if api_data.get("code") != 0:
-            cur.execute("UPDATE import_queue SET status='failed', error_msg=%s WHERE id=%s",
-                       (api_data.get("msg", "API错误"), queue_id))
-            db.commit()
-            db.close()
-            return
+        # 并发请求所有API
+        all_results = []
+        if len(api_urls) == 1:
+            all_results = _fetch_api(api_urls[0], keyword, limit)
+        else:
+            threads = []
+            results_map = {}
+            def fetch_one(url, idx):
+                results_map[idx] = _fetch_api(url, keyword, limit)
+            for i, url in enumerate(api_urls):
+                t = threading.Thread(target=fetch_one, args=(url, i))
+                threads.append(t)
+                t.start()
+            for t in threads:
+                t.join(timeout=90)
+            for i in range(len(api_urls)):
+                all_results.extend(results_map.get(i, []))
 
-        merged = api_data["data"].get("merged_by_type", {})
+        # 去重（按URL）
+        seen_urls = set()
+        unique_results = []
+        for r in all_results:
+            url = r["item"].get("url", "")
+            if url and url not in seen_urls:
+                seen_urls.add(url)
+                unique_results.append(r)
+
+        # 写入数据库
+        db = get_db()
+        cur = db.cursor()
         imported = 0
-        for source, items in merged.items():
-            for item in items:
-                cur.execute("""INSERT IGNORE INTO resources
-                    (keyword, source, url, title, note, password, datetime, quality, type, year, created_at)
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
-                    (keyword, source, item.get("url", ""), item.get("note", "") or item.get("title", ""),
-                     item.get("note", ""), item.get("password", ""), item.get("datetime", ""), "", "", 0))
-                imported += 1
+        for r in unique_results:
+            item = r["item"]
+            source = r["source"]
+            cur.execute("""INSERT IGNORE INTO resources
+                (keyword, source, url, title, note, password, datetime, quality, type, year, created_at)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
+                (keyword, source, item.get("url", ""), item.get("note", "") or item.get("title", ""),
+                 item.get("note", ""), item.get("password", ""), item.get("datetime", ""), "", "", 0))
+            imported += 1
 
         cur.execute("UPDATE import_queue SET status='done', result_count=%s WHERE id=%s",
                    (imported, queue_id))
