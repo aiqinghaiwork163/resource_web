@@ -172,6 +172,17 @@ def cached(ttl=300):
     return decorator
 
 
+
+@app.route("/api/debug/session")
+def debug_session():
+    """Debug: check session state"""
+    return jsonify({
+        "is_admin": session.get("is_admin"),
+        "user_id": session.get("user_id"),
+        "username": session.get("username"),
+        "session_keys": list(session.keys()),
+    })
+
 # ==================== Admin 认证 ====================
 def admin_required(f):
     @wraps(f)
@@ -555,18 +566,16 @@ def api_health():
 @app.route("/admin")
 @admin_required
 def admin_page():
-    import hashlib as _hl
+    # Force no-cache with version-busting
+    from flask import make_response
     with open("admin.html", "rb") as _f:
         _data = _f.read()
-    _etag = _hl.md5(_data).hexdigest()
-    from flask import make_response
     resp = make_response(_data)
     resp.content_type = "text/html; charset=utf-8"
-    resp.cache_control.max_age = 0
-    resp.cache_control.no_cache = True
-    resp.cache_control.no_store = True
-    resp.cache_control.must_revalidate = True
-    resp.headers["ETag"] = _etag
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    resp.headers["X-Version"] = "1782288805"
     return resp
 
 

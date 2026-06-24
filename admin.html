@@ -462,6 +462,11 @@ async function retryQueue(ids){
 </script>
 </head>
 <body>
+<div id="debugBar" style="background:#ef4444;color:white;padding:0.5rem 1rem;font-size:0.82rem;display:none;position:fixed;top:0;left:0;right:0;z-index:9999">
+  <span id="debugMsg"></span>
+  <button onclick="document.getElementById('debugBar').style.display='none'" style="float:right;background:none;border:none;color:white;cursor:pointer">✕</button>
+</div>
+
 
 <div class="bg-fx"></div>
 
@@ -730,7 +735,19 @@ function switchTab(n){
   });
   if(n==='settings')loadSettings();
   if(n==='queue')loadQueue();
-  if(n==='users')loadUsers();
+  if(n==='users')
+// Debug: check session on load
+fetch('/api/debug/session').then(function(r){return r.json()}).then(function(d){
+  if(!d.is_admin){
+    document.getElementById('debugBar').style.display='';
+    document.getElementById('debugMsg').textContent='⚠️ 会话已过期，请重新登录！当前状态: is_admin='+d.is_admin+', user='+d.username;
+  }else{
+    console.log('Session OK:', d);
+    // Now load the default tab
+    loadUsers();
+  }
+}).catch(function(e){console.error('Session check failed:', e)});
+
   if(n==='res')loadResStats();
   if(n==='pending')loadPending();
   if(n==='logs')loadLogs(1);
