@@ -2259,7 +2259,7 @@ def api_admin_deadlinks_auto_scan():
 
     data = request.get_json() or {}
     batch_size = min(int(data.get("batch_size", 100)), 500)
-    max_batches = min(int(data.get("max_batches", 10)), 50)  # 最多几轮
+    max_batches = min(int(data.get("max_batches", 10)), 500)  # 最多500轮
     auto_delete = data.get("auto_delete", False)  # 自动删除失效链接
 
     def _auto_scan_worker(batch_size, max_batches, auto_delete):
