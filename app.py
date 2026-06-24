@@ -77,6 +77,30 @@ def check_rate_limit(key):
     return True
 
 
+# ==================== 内存缓存 ====================
+_cache = {}  # key -> (data, expire_time)
+
+
+def cached(ttl=300):
+    """简单内存缓存装饰器，ttl秒内返回缓存数据"""
+    def decorator(f):
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            key = request.url
+            now = time.time()
+            if key in _cache:
+                data, expire = _cache[key]
+                if now < expire:
+                    return data
+            result = f(*args, **kwargs)
+            _cache[key] = (result, now + ttl)
+            return result
+        wrapper.__name__ = f.__name__
+        wrapper.__doc__ = f.__doc__
+        return wrapper
+    return decorator
+
+
 # ==================== Admin 认证 ====================
 def admin_required(f):
     @wraps(f)

@@ -698,8 +698,8 @@ body {
   <div class="grid" id="grid" style="display:none"></div>
   <div class="empty" id="empty">
     <div class="empty-icon"><i class="fas fa-inbox"></i></div>
-    <div class="empty-title">输入关键词开始搜索</div>
-    <div class="empty-sub">或选择上方网盘类型浏览资源</div>
+    <div class="empty-title"></div>
+    
   </div>
   <div class="pagi" id="pagi"></div>
 </div>
@@ -1075,7 +1075,7 @@ async function loadRecommendations(media,time){
       var mediaType=it.media_type==='tv'?'剧集':'电影';
       var year=it.year||'';
       var overview=esc(it.overview||'');
-      return '<div class="rec-card" onclick="searchFromRec('+JSON.stringify(it.title)+')">'+
+      return '<div class="rec-card" data-search="'+escA(it.title)+'" onclick="searchFromRec(this.dataset.search)">'+
         (poster?'<img class="rec-poster" src="'+esc(poster)+'" loading="lazy" onerror="this.src=\'\';this.style.height=\'200px\'">':'<div class="rec-poster" style="display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:2rem">🎬</div>')+
         '<div class="rec-info">'+
           '<div class="rec-title" title="'+title+'">'+title+'</div>'+
