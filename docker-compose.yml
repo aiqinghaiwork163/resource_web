@@ -6,6 +6,7 @@ services:
       - "5000:5000"
     restart: unless-stopped
     environment:
+      - TZ=Asia/Shanghai
       - DB_HOST=172.23.0.2
       - DB_PORT=3306
       - DB_USER=root
