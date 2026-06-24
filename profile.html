@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>个人中心 - 网盘资源</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👤</text></svg>">
+<link rel="stylesheet" href="/static/css/all.min.css">
+<style>
+/* ═══════════════ Design System v2 ═══════════════ */
+:root {
+  --bg: #07070f;
+  --bg2: #0c0c18;
+  --bg3: #101020;
+  --surface: rgba(14,14,30,0.75);
+  --surface2: rgba(20,20,42,0.6);
+  --surface3: rgba(28,28,55,0.45);
+  --glass: rgba(20,20,48,0.45);
+  --border: rgba(120,100,255,0.07);
+  --border-h: rgba(140,120,255,0.22);
+  --border-focus: rgba(140,120,255,0.45);
+  --accent: #8b7fff;
+  --accent2: #6c5cff;
+  --accent3: #b49aff;
+  --accent4: #d4bfff;
+  --glow: rgba(139,127,255,0.12);
+  --glow2: rgba(139,127,255,0.25);
+  --text: #eaeaf5;
+  --text2: #9494b8;
+  --text3: #5a5a78;
+  --text4: #3a3a55;
+  --ok: #3ddc97;
+  --warn: #ffc857;
+  --err: #ff6b7a;
+  --r: 16px; --r2: 12px; --r3: 8px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.35);
+  --shadow-lg: 0 16px 64px rgba(0,0,0,0.5);
+  --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+  --spring: 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;line-height:1.7;font-size:14px;
+}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(139,127,255,0.12);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:rgba(139,127,255,0.22)}
+::selection{background:rgba(139,127,255,0.25);color:#fff}
+a{color:var(--accent);text-decoration:none}
+
+/* Background FX */
+.bg-fx{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.bg-fx::before{content:'';position:absolute;top:-20%;left:-10%;width:60vw;height:60vw;background:radial-gradient(circle,rgba(100,80,255,0.06) 0%,transparent 60%);animation:drift1 25s ease-in-out infinite alternate}
+.bg-fx::after{content:'';position:absolute;bottom:-20%;right:-10%;width:50vw;height:50vw;background:radial-gradient(circle,rgba(160,100,255,0.04) 0%,transparent 60%);animation:drift2 30s ease-in-out infinite alternate}
+@keyframes drift1{0%{transform:translate(0,0)}100%{transform:translate(8vw,6vw)}}
+@keyframes drift2{0%{transform:translate(0,0)}100%{transform:translate(-6vw,-8vw)}}
+
+/* ─── Navigation ─── */
+.nav{
+  position:sticky;top:0;z-index:100;
+  background:rgba(8,8,18,0.7);
+  backdrop-filter:blur(30px) saturate(1.6);
+  -webkit-backdrop-filter:blur(30px) saturate(1.6);
+  border-bottom:1px solid var(--border);
+  padding:0 2rem;height:64px;
+  display:flex;align-items:center;
+}
+.nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent 5%,var(--accent2) 50%,transparent 95%);opacity:0.15}
+.nav-inner{max-width:1080px;margin:0 auto;width:100%;display:flex;align-items:center;gap:1rem}
+.logo{
+  font-size:1.15rem;font-weight:800;
+  background:linear-gradient(135deg,var(--accent4),var(--accent),var(--accent3));
+  background-size:200% 200%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  display:flex;align-items:center;gap:0.55rem;
+  letter-spacing:-0.02em;
+  animation:gradShift 6s ease-in-out infinite;
+}
+@keyframes gradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.logo i{-webkit-text-fill-color:var(--accent);font-size:1rem;filter:drop-shadow(0 0 6px var(--glow2))}
+.nav-spacer{flex:1}
+.nav-btn{
+  width:40px;height:40px;border-radius:var(--r2);
+  border:1px solid var(--border);background:var(--glass);
+  color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all var(--transition);font-size:0.88rem;flex-shrink:0;text-decoration:none;
+  backdrop-filter:blur(10px);
+}
+.nav-btn:hover{border-color:var(--accent2);color:var(--accent);background:rgba(139,127,255,0.08);box-shadow:0 0 12px var(--glow);transform:translateY(-1px)}
+
+/* ─── Container ─── */
+.container{max-width:1080px;margin:1.2rem auto;padding:0 2rem 2.5rem}
+
+/* ─── Card ─── */
+.card{
+  background:var(--surface);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:1.3rem;margin-bottom:1rem;
+  position:relative;overflow:hidden;
+  transition:all var(--transition);
+}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent 10%,var(--accent2),transparent 90%);opacity:0;transition:opacity var(--transition)}
+.card:hover::before{opacity:0.4}
+.card h2{font-size:0.98rem;font-weight:700;margin-bottom:1rem;display:flex;align-items:center;gap:0.55rem}
+.card h2 i{color:var(--accent);font-size:0.92rem}
+
+/* ─── User Header ─── */
+.user-header{display:flex;align-items:center;gap:1.2rem;margin-bottom:0.5rem}
+.avatar{
+  width:64px;height:64px;border-radius:var(--r);
+  background:linear-gradient(135deg,var(--accent2),var(--accent3),var(--accent));
+  background-size:200% 200%;
+  animation:gradShift 6s ease-in-out infinite;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.6rem;color:white;flex-shrink:0;
+  box-shadow:0 4px 20px var(--glow2);
+}
+.user-info h3{font-size:1.15rem;font-weight:700;letter-spacing:-0.01em}
+.user-info p{font-size:0.82rem;color:var(--text3);font-weight:500}
+
+/* ─── Keyword Tags ─── */
+.kw-tags{display:flex;flex-wrap:wrap;gap:0.45rem}
+.kw-tag{
+  display:inline-flex;align-items:center;gap:0.35rem;
+  padding:0.35rem 0.8rem;border-radius:100px;
+  font-size:0.78rem;cursor:pointer;
+  border:1px solid var(--border);
+  background:var(--surface2);
+  color:var(--text2);
+  transition:all var(--spring);
+  font-weight:500;
+}
+.kw-tag:hover{
+  border-color:var(--accent2);color:var(--accent);
+  background:rgba(139,127,255,0.07);
+  transform:translateY(-1px);
+  box-shadow:0 2px 8px var(--glow);
+}
+
+/* ─── Favorites Grid ─── */
+.fav-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(300px,1fr));
+  gap:0.8rem;
+}
+.fav-card{
+  background:var(--surface2);
+  border:1px solid var(--border);border-radius:var(--r2);
+  padding:0.9rem;display:flex;flex-direction:column;gap:0.35rem;
+  transition:all var(--spring);
+  position:relative;overflow:hidden;
+}
+.fav-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent2),transparent);opacity:0;transition:opacity var(--transition)}
+.fav-card:hover{
+  border-color:var(--border-h);
+  transform:translateY(-2px);
+  box-shadow:0 4px 20px var(--glow);
+}
+.fav-card:hover::before{opacity:0.5}
+.fav-title{font-size:0.86rem;font-weight:600;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.5}
+.fav-meta{display:flex;gap:0.3rem;flex-wrap:wrap}
+.fav-meta .tag{font-size:0.65rem;padding:0.1rem 0.45rem;border-radius:var(--r3);background:rgba(255,255,255,0.03);color:var(--text3);font-weight:500}
+.fav-url{font-size:0.68rem;color:var(--text3);font-family:'SF Mono','Cascadia Code',Consolas,monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fav-actions{display:flex;gap:0.35rem;margin-top:0.35rem}
+.fav-actions button,.fav-actions a{
+  padding:0.32rem 0.65rem;border-radius:var(--r3);
+  border:1px solid var(--border);background:transparent;
+  color:var(--text2);font-size:0.72rem;cursor:pointer;
+  transition:all var(--transition);text-decoration:none;
+  display:inline-flex;align-items:center;gap:0.25rem;font-weight:500;
+}
+.fav-actions button:hover,.fav-actions a:hover{border-color:var(--accent2);color:var(--accent);background:rgba(139,127,255,0.06)}
+.fav-actions .del{color:var(--err);border-color:rgba(255,107,122,0.15)}
+.fav-actions .del:hover{background:rgba(255,107,122,0.08);border-color:rgba(255,107,122,0.3)}
+
+/* ─── Password Form ─── */
+.pw-form{display:flex;flex-direction:column;gap:0.65rem;max-width:380px}
+.pw-form input{
+  padding:0.6rem 0.9rem;
+  border:1px solid var(--border);border-radius:var(--r2);
+  background:rgba(10,10,22,0.6);color:var(--text);
+  font-size:0.85rem;outline:none;transition:all var(--transition);
+}
+.pw-form input:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px var(--glow)}
+.pw-form input::placeholder{color:var(--text4)}
+.pw-form button{
+  padding:0.65rem;border:none;border-radius:var(--r2);
+  background:linear-gradient(135deg,var(--accent2),var(--accent3));
+  color:white;font-size:0.85rem;cursor:pointer;
+  transition:all var(--transition);font-weight:600;
+}
+.pw-form button:hover{transform:translateY(-1px);box-shadow:0 4px 16px var(--glow2)}
+.msg{font-size:0.82rem;margin-top:0.35rem;display:none;font-weight:500}
+.msg.ok{color:var(--ok);display:block}.msg.err{color:var(--err);display:block}
+
+/* ─── Empty ─── */
+.empty{text-align:center;padding:2.5rem;color:var(--text3);font-size:0.85rem}
+
+/* ─── Responsive ─── */
+@media(max-width:1024px){
+  .nav{padding:0 1.2rem}
+  .container{padding:0 1.2rem 2rem}
+  .fav-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+}
+@media(max-width:640px){
+  .nav{padding:0 0.85rem;height:58px}
+  .container{padding:0 0.85rem 1.5rem}
+  .card{padding:1rem;border-radius:var(--r2)}
+  .user-header{flex-direction:column;text-align:center;gap:0.8rem}
+  .fav-grid{grid-template-columns:1fr}
+  .pw-form{max-width:100%}
+  .avatar{width:56px;height:56px}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-fx"></div>
+
+<div class="nav">
+  <div class="nav-inner">
+    <div class="logo"><i class="fas fa-cloud"></i>网盘资源浏览器</div>
+    <div class="nav-spacer"></div>
+    <a class="nav-btn" href="/" title="返回首页"><i class="fas fa-home"></i></a>
+  </div>
+</div>
+
+<div class="container">
+  <!-- User Info -->
+  <div class="card">
+    <div class="user-header">
+      <div class="avatar"><i class="fas fa-user"></i></div>
+      <div class="user-info">
+        <h3 id="userName">...</h3>
+        <p id="userRole">...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Search History -->
+  <div class="card">
+    <h2><i class="fas fa-history"></i> 搜索历史 <button onclick="clearHistory()" style="margin-left:auto;font-size:0.75rem;padding:0.22rem 0.65rem;border:1px solid var(--border);border-radius:var(--r3);background:transparent;color:var(--err);cursor:pointer;transition:all var(--transition);font-weight:500">清空</button></h2>
+    <div id="historyArea" class="kw-tags"><div class="empty">暂无搜索历史</div></div>
+  </div>
+
+  <!-- Favorites -->
+  <div class="card">
+    <h2><i class="fas fa-heart"></i> 我的收藏 <span id="favCount" style="font-size:0.78rem;color:var(--text3);margin-left:0.3rem"></span></h2>
+    <div id="favArea" class="fav-grid"><div class="empty">暂无收藏</div></div>
+  </div>
+
+  <!-- Change Password -->
+  <div class="card">
+    <h2><i class="fas fa-key"></i> 修改密码</h2>
+    <div class="pw-form">
+      <input type="password" id="newPw" placeholder="新密码">
+      <input type="password" id="newPw2" placeholder="确认新密码">
+      <button onclick="changePw()">修改密码</button>
+      <div class="msg" id="pwMsg"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+
+async function init(){
+  try{
+    var r=await fetch('/api/me');if(!r.ok)throw 0;
+    var me=await r.json();
+    if(!me.logged_in){location.href='/login';return}
+    document.getElementById('userName').textContent=me.username;
+    document.getElementById('userRole').textContent=me.is_admin?'管理员':'普通用户';
+    loadHistory();
+    loadFavorites();
+  }catch(e){location.href='/login'}
+}
+
+async function loadHistory(){
+  try{
+    var r=await fetch('/api/search_history');if(!r.ok)throw 0;
+    var d=await r.json(),items=d.items||[];
+    var el=document.getElementById('historyArea');
+    if(!items.length){el.innerHTML='<div class="empty">暂无搜索历史</div>';return}
+    el.innerHTML=items.map(function(i){
+      return '<span class="kw-tag" onclick="location.href=\'/?q='+encodeURIComponent(i.keyword)+'\'"><i class="fas fa-search" style="font-size:0.65rem"></i>'+esc(i.keyword)+'<span style="font-size:0.65rem;color:var(--text3)">'+i.cnt+'</span></span>';
+    }).join('');
+  }catch(e){}
+}
+
+async function clearHistory(){
+  if(!confirm('确认清空搜索历史？'))return;
+  await fetch('/api/search_history',{method:'DELETE'});
+  loadHistory();
+}
+
+async function loadFavorites(){
+  try{
+    var r=await fetch('/api/favorites');if(!r.ok)throw 0;
+    var d=await r.json(),items=d.items||[];
+    document.getElementById('favCount').textContent='('+items.length+')';
+    var el=document.getElementById('favArea');
+    if(!items.length){el.innerHTML='<div class="empty">暂无收藏</div>';return}
+    el.innerHTML=items.map(function(i){
+      var src=(i.source||'other').toLowerCase();
+      return '<div class="fav-card">'+
+        '<div class="fav-title">'+esc(i.title||'未知')+'</div>'+
+        '<div class="fav-meta"><span class="tag">'+esc(src)+'</span>'+(i.type?'<span class="tag">'+esc(i.type)+'</span>':'')+'</div>'+
+        '<div class="fav-url">'+esc(i.url||'')+'</div>'+
+        '<div class="fav-actions">'+
+          '<button onclick="copyUrl(\''+esc(i.url||'')+'\')"><i class="fas fa-copy"></i> 复制</button>'+
+          '<a href="'+esc(i.url||'#')+'" target="_blank"><i class="fas fa-external-link-alt"></i> 打开</a>'+
+          '<button class="del" onclick="removeFav('+i.resource_id+')"><i class="fas fa-trash"></i> 取消收藏</button>'+
+        '</div>'+
+      '</div>';
+    }).join('');
+  }catch(e){}
+}
+
+function copyUrl(url){
+  if(navigator.clipboard)navigator.clipboard.writeText(url);else{var a=document.createElement('textarea');a.value=url;a.style.cssText='position:fixed;left:-9999px';document.body.appendChild(a);a.select();document.execCommand('copy');document.body.removeChild(a)}
+  alert('已复制');
+}
+
+async function removeFav(rid){
+  await fetch('/api/favorites/'+rid,{method:'DELETE'});
+  loadFavorites();
+}
+
+async function changePw(){
+  var msg=document.getElementById('pwMsg');
+  var nw=document.getElementById('newPw').value;
+  var nw2=document.getElementById('newPw2').value;
+  msg.className='msg';
+  if(!nw){msg.textContent='请输入新密码';msg.className='msg err';return}
+  if(nw!==nw2){msg.textContent='两次密码不一致';msg.className='msg err';return}
+  if(nw.length<6){msg.textContent='密码至少6位';msg.className='msg err';return}
+  try{
+    var r=await fetch('/api/change_password',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({new_password:nw})});
+    var d=await r.json();
+    if(d.ok){msg.textContent='✅ 修改成功，下次登录生效';msg.className='msg ok';document.getElementById('newPw').value='';document.getElementById('newPw2').value='';}
+    else{msg.textContent=d.error||'修改失败';msg.className='msg err'}
+  }catch(e){msg.textContent='请求失败';msg.className='msg err'}
+}
+
+var _meId=0;
+(async function(){
+  var r=await fetch('/api/me');var d=await r.json();
+  if(!d.logged_in){location.href='/login';return}
+  _meId=d.user_id;
+  init();
+})();
+</script>
+</body>
+</html>

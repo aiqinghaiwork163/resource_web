@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>后台管理 - 网盘资源</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚙️</text></svg>">
+<link rel="stylesheet" href="/static/css/all.min.css">
+<style>
+/* ═══════════════ Design System v2 ═══════════════ */
+:root {
+  --bg: #07070f;
+  --bg2: #0c0c18;
+  --bg3: #101020;
+  --surface: rgba(14,14,30,0.75);
+  --surface2: rgba(20,20,42,0.6);
+  --surface3: rgba(28,28,55,0.45);
+  --glass: rgba(20,20,48,0.45);
+  --border: rgba(120,100,255,0.07);
+  --border-h: rgba(140,120,255,0.22);
+  --border-focus: rgba(140,120,255,0.45);
+  --accent: #8b7fff;
+  --accent2: #6c5cff;
+  --accent3: #b49aff;
+  --accent4: #d4bfff;
+  --glow: rgba(139,127,255,0.12);
+  --glow2: rgba(139,127,255,0.25);
+  --text: #eaeaf5;
+  --text2: #9494b8;
+  --text3: #5a5a78;
+  --text4: #3a3a55;
+  --ok: #3ddc97;
+  --warn: #ffc857;
+  --err: #ff6b7a;
+  --r: 16px; --r2: 12px; --r3: 8px;
+  --shadow: 0 8px 32px rgba(0,0,0,0.35);
+  --shadow-lg: 0 16px 64px rgba(0,0,0,0.5);
+  --transition: 0.3s cubic-bezier(0.4,0,0.2,1);
+  --spring: 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei','Noto Sans SC',sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;line-height:1.7;font-size:14px;
+}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(139,127,255,0.12);border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:rgba(139,127,255,0.22)}
+::selection{background:rgba(139,127,255,0.25);color:#fff}
+
+/* Background FX */
+.bg-fx{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.bg-fx::before{content:'';position:absolute;top:-20%;left:-10%;width:60vw;height:60vw;background:radial-gradient(circle,rgba(100,80,255,0.06) 0%,transparent 60%);animation:drift1 25s ease-in-out infinite alternate}
+.bg-fx::after{content:'';position:absolute;bottom:-20%;right:-10%;width:50vw;height:50vw;background:radial-gradient(circle,rgba(160,100,255,0.04) 0%,transparent 60%);animation:drift2 30s ease-in-out infinite alternate}
+@keyframes drift1{0%{transform:translate(0,0)}100%{transform:translate(8vw,6vw)}}
+@keyframes drift2{0%{transform:translate(0,0)}100%{transform:translate(-6vw,-8vw)}}
+
+/* ─── Navigation ─── */
+.nav {
+  position:sticky;top:0;z-index:100;
+  background:rgba(8,8,18,0.7);
+  backdrop-filter:blur(30px) saturate(1.6);
+  -webkit-backdrop-filter:blur(30px) saturate(1.6);
+  border-bottom:1px solid var(--border);
+  padding:0 2rem;height:64px;
+  display:flex;align-items:center;
+}
+.nav::after{content:'';position:absolute;bottom:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent 5%,var(--accent2) 50%,transparent 95%);opacity:0.15}
+.nav-inner{max-width:1280px;margin:0 auto;width:100%;display:flex;align-items:center;gap:1rem}
+.logo{
+  font-size:1.15rem;font-weight:800;flex-shrink:0;
+  background:linear-gradient(135deg,var(--accent4),var(--accent),var(--accent3));
+  background-size:200% 200%;
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  display:flex;align-items:center;gap:0.55rem;
+  letter-spacing:-0.02em;
+  animation:gradShift 6s ease-in-out infinite;
+}
+@keyframes gradShift{0%,100%{background-position:0% 50%}50%{background-position:100% 50%}}
+.logo i{-webkit-text-fill-color:var(--accent);font-size:1rem;filter:drop-shadow(0 0 6px var(--glow2))}
+.nav-title{font-size:0.95rem;font-weight:600;display:flex;align-items:center;gap:0.5rem;color:var(--text)}
+.nav-title i{color:var(--accent)}
+.nav-links{display:flex;align-items:center;gap:0.5rem;margin-left:auto}
+.nav-link{
+  color:var(--text2);font-size:0.85rem;display:flex;align-items:center;gap:0.35rem;
+  transition:color var(--transition);white-space:nowrap;text-decoration:none;
+  padding:0.4rem 0.7rem;border-radius:var(--r3);
+}
+.nav-link:hover{color:var(--accent);background:rgba(139,127,255,0.06)}
+.nav-link.danger{color:var(--err)}.nav-link.danger:hover{background:rgba(255,107,122,0.08)}
+.nav-btn{
+  width:40px;height:40px;border-radius:var(--r2);
+  border:1px solid var(--border);background:var(--glass);
+  color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:all var(--transition);font-size:0.88rem;flex-shrink:0;text-decoration:none;
+  backdrop-filter:blur(10px);
+}
+.nav-btn:hover{border-color:var(--accent2);color:var(--accent);background:rgba(139,127,255,0.08);box-shadow:0 0 12px var(--glow);transform:translateY(-1px)}
+
+/* ─── Container ─── */
+.container{max-width:1280px;margin:1.2rem auto;padding:0 2rem 2.5rem}
+
+/* ─── Card ─── */
+.card{
+  background:var(--surface);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  border:1px solid var(--border);border-radius:var(--r);
+  padding:1.3rem;margin-bottom:1rem;
+  position:relative;overflow:hidden;
+  transition:all var(--transition);
+}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent 10%,var(--accent2),transparent 90%);opacity:0;transition:opacity var(--transition)}
+.card:hover::before{opacity:0.4}
+.card h2{
+  font-size:0.98rem;font-weight:700;margin-bottom:1rem;
+  display:flex;align-items:center;gap:0.55rem;flex-wrap:wrap;
+}
+.card h2 i{color:var(--accent);font-size:0.92rem}
+
+/* ─── Tabs ─── */
+.tabs{
+  display:flex;gap:0.25rem;margin-bottom:1.2rem;
+  background:rgba(14,14,30,0.6);border-radius:var(--r);padding:0.25rem;
+  border:1px solid var(--border);
+  overflow-x:auto;-webkit-overflow-scrolling:touch;
+}
+.tab{
+  flex:1;min-width:0;padding:0.55rem 0.6rem;border-radius:var(--r2);cursor:pointer;
+  font-size:0.82rem;border:none;background:none;color:var(--text2);
+  transition:all var(--transition);text-align:center;font-weight:500;
+  white-space:nowrap;
+}
+.tab.active{
+  background:linear-gradient(135deg,var(--accent2),var(--accent3));
+  color:white;box-shadow:0 2px 12px var(--glow2);
+}
+.tab:hover:not(.active){color:var(--text);background:rgba(139,127,255,0.05)}
+
+/* ─── Stats Grid ─── */
+.sgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:0.7rem;margin-bottom:1rem}
+.sbox{
+  background:rgba(10,10,22,0.6);border:1px solid var(--border);
+  border-radius:var(--r2);padding:0.9rem;text-align:center;
+  transition:all var(--transition);position:relative;overflow:hidden;
+}
+.sbox::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--accent2),transparent);opacity:0;transition:opacity var(--transition)}
+.sbox:hover{border-color:var(--border-h);transform:translateY(-2px);box-shadow:0 4px 20px var(--glow)}
+.sbox:hover::before{opacity:0.5}
+.sbox .num{
+  font-size:1.5rem;font-weight:800;letter-spacing:-0.03em;
+  background:linear-gradient(135deg,var(--accent4),var(--accent),var(--accent3));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+.sbox .lbl{font-size:0.72rem;color:var(--text3);margin-top:0.2rem;font-weight:500;text-transform:uppercase;letter-spacing:0.06em}
+
+/* ─── Table ─── */
+.tw{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--r2)}
+table{width:100%;border-collapse:collapse;font-size:0.82rem}
+th,td{padding:0.6rem 0.7rem;text-align:left;border-bottom:1px solid var(--border)}
+th{color:var(--text3);font-weight:600;font-size:0.72rem;text-transform:uppercase;letter-spacing:0.06em;background:rgba(10,10,22,0.4)}
+tr{transition:background var(--transition)}
+tr:hover{background:rgba(25,25,50,0.35)}
+.badge{
+  background:rgba(25,25,50,0.6);padding:0.12rem 0.45rem;border-radius:var(--r3);
+  font-size:0.72rem;color:var(--text2);font-weight:500;
+}
+
+/* ─── Form ─── */
+.igroup{display:flex;gap:0.55rem;margin:0.9rem 0;flex-wrap:wrap}
+.igroup input,.igroup select{
+  flex:1;min-width:170px;padding:0.6rem 0.9rem;
+  border:1px solid var(--border);border-radius:var(--r2);
+  background:rgba(10,10,22,0.6);color:var(--text);font-size:0.85rem;
+  outline:none;transition:all var(--transition);
+}
+.igroup select{cursor:pointer;appearance:auto}
+.igroup input:focus,.igroup select:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px var(--glow)}
+.igroup input::placeholder{color:var(--text4)}
+.igroup button,.btn{
+  padding:0.6rem 1.1rem;border:none;border-radius:var(--r2);cursor:pointer;
+  font-size:0.85rem;transition:all var(--transition);white-space:nowrap;
+  display:inline-flex;align-items:center;gap:0.35rem;font-weight:500;
+}
+.btn-p{
+  background:linear-gradient(135deg,var(--accent2),var(--accent3));
+  color:white;
+}
+.btn-p:hover{transform:translateY(-1px);box-shadow:0 4px 16px var(--glow2)}
+.btn-s{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.btn-s:hover{color:var(--text);background:rgba(25,25,50,0.8);border-color:var(--border-h)}
+
+/* ─── Import Log ─── */
+.log{
+  background:rgba(8,8,20,0.6);border-radius:var(--r2);
+  padding:0.9rem;font-family:'SF Mono','Cascadia Code',Consolas,monospace;font-size:0.78rem;
+  max-height:240px;overflow-y:auto;white-space:pre-wrap;
+  color:var(--text3);margin-top:0.6rem;
+  border:1px solid var(--border);
+}
+
+/* ─── Modal ─── */
+.modal-bg{
+  position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);z-index:999;
+  display:none;align-items:center;justify-content:center;padding:1rem;
+}
+.modal-bg.show{display:flex}
+.modal{
+  background:linear-gradient(155deg,rgba(18,18,42,0.97),rgba(10,10,26,0.97));
+  backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+  border:1px solid var(--border-h);
+  border-radius:20px;padding:1.8rem;max-width:420px;width:100%;
+  box-shadow:0 24px 80px rgba(0,0,0,0.55),0 0 48px var(--glow);
+  animation:modalIn 0.35s var(--spring);position:relative;
+}
+@keyframes modalIn{from{transform:scale(0.88) translateY(20px);opacity:0}to{transform:none;opacity:1}}
+.modal h3{font-size:1.05rem;margin-bottom:1.1rem;display:flex;align-items:center;gap:0.55rem;font-weight:700}
+.modal h3 i{color:var(--accent)}
+.modal label{display:block;font-size:0.78rem;color:var(--text3);margin:0.7rem 0 0.25rem;font-weight:500}
+.modal input,.modal select{
+  width:100%;padding:0.55rem 0.8rem;
+  border:1px solid var(--border);border-radius:var(--r2);
+  background:rgba(10,10,22,0.6);color:var(--text);
+  font-size:0.85rem;outline:none;transition:all var(--transition);
+}
+.modal input:focus,.modal select:focus{border-color:var(--border-focus);box-shadow:0 0 0 3px var(--glow)}
+.modal .mrow{display:flex;gap:0.55rem;margin-top:1.3rem}
+.modal .mrow button{flex:1;padding:0.65rem;border:none;border-radius:var(--r2);cursor:pointer;font-size:0.85rem;font-weight:500;transition:all var(--transition)}
+.modal .mrow .mbtn-p{background:linear-gradient(135deg,var(--accent2),var(--accent3));color:white}
+.modal .mrow .mbtn-p:hover{transform:translateY(-1px);box-shadow:0 4px 16px var(--glow2)}
+.modal .mrow .mbtn-s{background:var(--surface2);color:var(--text2);border:1px solid var(--border)}
+.modal .mrow .mbtn-s:hover{color:var(--text);border-color:var(--border-h)}
+
+/* ─── Empty ─── */
+.empty{text-align:center;padding:1.8rem;color:var(--text3);font-size:0.85rem}
+
+/* ─── Pagination ─── */
+.pager{display:flex;align-items:center;justify-content:center;gap:0.4rem;margin-top:0.9rem;flex-wrap:wrap}
+.pager button{
+  min-width:34px;height:34px;border:1px solid var(--border);border-radius:var(--r3);
+  background:rgba(10,10,22,0.5);color:var(--text2);cursor:pointer;
+  font-size:0.78rem;display:flex;align-items:center;justify-content:center;
+  transition:all var(--transition);padding:0 0.4rem;
+}
+.pager button:hover{border-color:var(--border-h);color:var(--text)}
+.pager button.active{background:linear-gradient(135deg,var(--accent2),var(--accent3));color:#fff;border-color:transparent}
+.pager button:disabled{opacity:0.35;cursor:not-allowed}
+.pager .pinfo{font-size:0.72rem;color:var(--text3);margin:0 0.3rem}
+
+/* ─── Filter bar ─── */
+.fbar{display:flex;align-items:center;gap:0.55rem;margin-bottom:0.8rem;flex-wrap:wrap}
+.fbar select{
+  padding:0.45rem 0.7rem;border:1px solid var(--border);border-radius:var(--r2);
+  background:rgba(10,10,22,0.6);color:var(--text);font-size:0.82rem;
+  outline:none;transition:all var(--transition);cursor:pointer;
+}
+.fbar select:focus{border-color:var(--border-focus)}
+
+/* ─── Checkbox ─── */
+.chk{width:16px;height:16px;accent-color:var(--accent);cursor:pointer}
+
+/* ─── Responsive ─── */
+@media(min-width:641px){
+  .nav-inner .logo-area{display:flex;align-items:center;gap:0.8rem;flex-shrink:0}
+}
+@media(max-width:1024px){
+  .nav{padding:0 1.2rem}
+  .container{padding:0 1.2rem 2rem}
+  .sgrid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+}
+@media(max-width:640px){
+  .nav{height:auto;padding:0.7rem 0.85rem;flex-wrap:wrap;gap:0.5rem}
+  .nav-inner{flex-wrap:wrap;gap:0.5rem}
+  .nav-title{font-size:0.88rem}
+  .container{padding:0 0.85rem 1.5rem}
+  .card{padding:1rem;border-radius:var(--r2)}
+  .tabs{border-radius:var(--r2)}
+  .tab{padding:0.45rem 0.55rem;font-size:0.75rem}
+  .sgrid{grid-template-columns:repeat(2,1fr);gap:0.5rem}
+  .sbox{padding:0.7rem}
+  .sbox .num{font-size:1.25rem}
+  table{font-size:0.75rem}
+  th,td{padding:0.45rem}
+  .igroup{flex-direction:column}
+  .igroup input,.igroup select{min-width:100%}
+  .igroup button,.btn{width:100%;justify-content:center}
+  .modal{padding:1.3rem;border-radius:16px;margin:0 0.6rem}
+  .fbar{flex-direction:column;align-items:stretch}
+  .fbar select{width:100%}
+  .pager button{min-width:30px;height:30px;font-size:0.72rem}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-fx"></div>
+
+<div class="nav">
+  <div class="nav-inner">
+    <div class="logo-area" style="display:flex;align-items:center;gap:0.8rem;flex-shrink:0">
+      <div class="logo"><i class="fas fa-cloud"></i>网盘资源浏览器</div>
+      <span style="color:var(--text4);font-size:0.8rem">|</span>
+      <span class="nav-title"><i class="fas fa-cog"></i> 后台管理</span>
+    </div>
+    <div class="nav-links">
+      <a class="nav-link" href="/"><i class="fas fa-arrow-left"></i> 返回首页</a>
+      <a class="nav-link danger" href="/logout"><i class="fas fa-sign-out-alt"></i> 退出</a>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('users')"><i class="fas fa-users"></i> 用户管理</button>
+    <button class="tab" onclick="switchTab('res')"><i class="fas fa-database"></i> 资源管理</button>
+    <button class="tab" onclick="switchTab('pending')"><i class="fas fa-download"></i> 待导入</button>
+    <button class="tab" onclick="switchTab('logs')"><i class="fas fa-history"></i> 操作日志</button>
+    <button class="tab" onclick="switchTab('filter')"><i class="fas fa-shield-alt"></i> 过滤词</button>
+  </div>
+
+  <!-- Users Tab -->
+  <div id="tabUsers">
+    <div class="card">
+      <h2><i class="fas fa-users"></i> 用户列表 <button class="btn btn-p" onclick="addUser()" style="margin-left:auto;font-size:0.78rem;padding:0.35rem 0.8rem">+ 添加用户</button></h2>
+      <div class="sgrid">
+        <div class="sbox"><div class="num" id="userTotal">0</div><div class="lbl">总用户</div></div>
+        <div class="sbox"><div class="num" id="userActive">0</div><div class="lbl">活跃用户</div></div>
+      </div>
+      <div class="tw"><div id="userTable"><div class="empty"><i class="fas fa-inbox"></i> 暂无用户数据</div></div></div>
+    </div>
+  </div>
+
+  <!-- Resources Tab -->
+  <div id="tabRes" style="display:none">
+    <div class="card">
+      <h2><i class="fas fa-database"></i> 数据库概览</h2>
+      <div class="sgrid">
+        <div class="sbox"><div class="num" id="resTotal">0</div><div class="lbl">总资源</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h2><i class="fas fa-cloud-download-alt"></i> 数据导入</h2>
+      <p style="color:var(--text3);margin-bottom:0.6rem;font-size:0.82rem">从 ps.aiqinghaiwork.cn API 搜索并导入资源</p>
+      <div class="igroup">
+        <input type="text" id="importKw" placeholder="关键词，逗号分隔（如：蜘蛛侠, 漫威）">
+        <button class="btn btn-p" onclick="doImport()"><i class="fas fa-cloud-download-alt"></i> 开始导入</button>
+        <button class="btn btn-s" onclick="document.getElementById('importLog').textContent='💡 已清空'">清空日志</button>
+      </div>
+      <div class="log" id="importLog">💡 在上方输入关键词，点击"开始导入"</div>
+    </div>
+  </div>
+
+  <!-- Pending Import Tab -->
+  <div id="tabPending" style="display:none">
+    <div class="card">
+      <h2><i class="fas fa-download"></i> 待导入关键词
+        <button class="btn btn-p" onclick="importSelected()" style="margin-left:auto;font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-file-import"></i> 导入选中</button>
+        <button class="btn btn-s" onclick="toggleSelectAll()" id="btnSelectAll" style="font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-check-double"></i> 全选</button>
+      </h2>
+      <div class="sgrid">
+        <div class="sbox"><div class="num" id="pendingTotal">0</div><div class="lbl">待导入</div></div>
+      </div>
+      <div class="tw"><div id="pendingTable"><div class="empty"><i class="fas fa-inbox"></i> 暂无待导入关键词</div></div></div>
+      <div class="log" id="pendingLog" style="display:none"></div>
+    </div>
+  </div>
+
+  <!-- Operation Logs Tab -->
+  <div id="tabLogs" style="display:none">
+    <div class="card">
+      <h2><i class="fas fa-history"></i> 操作日志</h2>
+      <div class="fbar">
+        <select id="logActionFilter" onchange="loadLogs(1)">
+          <option value="">全部操作</option>
+          <option value="login">登录</option>
+          <option value="search">搜索</option>
+          <option value="download">下载</option>
+          <option value="import">导入</option>
+          <option value="admin">管理</option>
+          <option value="delete">删除</option>
+        </select>
+      </div>
+      <div class="tw"><div id="logTable"><div class="empty"><i class="fas fa-inbox"></i> 暂无日志</div></div></div>
+      <div class="pager" id="logPager"></div>
+    </div>
+  </div>
+
+  <!-- Filter Words Tab -->
+  <div id="tabFilter" style="display:none">
+    <div class="card">
+      <h2><i class="fas fa-shield-alt"></i> 过滤词管理</h2>
+      <div class="igroup">
+        <input type="text" id="filterWordInput" placeholder="输入过滤词">
+        <select id="filterCategoryInput" style="min-width:120px">
+          <option value="general">通用</option>
+          <option value="色情">色情</option>
+          <option value="推特">推特</option>
+          <option value="TG">TG</option>
+          <option value="翻墙">翻墙</option>
+          <option value="赌博">赌博</option>
+          <option value="毒品">毒品</option>
+        </select>
+        <button class="btn btn-p" onclick="addFilterWord()"><i class="fas fa-plus"></i> 添加</button>
+      </div>
+      <div class="sgrid">
+        <div class="sbox"><div class="num" id="filterTotal">0</div><div class="lbl">过滤词总数</div></div>
+      </div>
+      <div class="tw"><div id="filterTable"><div class="empty"><i class="fas fa-inbox"></i> 暂无过滤词</div></div></div>
+      <div class="pager" id="filterPager"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal-bg" id="editModal" onclick="if(event.target===this)closeEdit()">
+  <div class="modal">
+    <h3><i class="fas fa-user-edit"></i> 编辑用户</h3>
+    <label>用户名</label>
+    <input type="text" id="editUsername">
+    <label>邮箱</label>
+    <input type="text" id="editEmail">
+    <label>新密码（留空不修改）</label>
+    <input type="password" id="editPassword" placeholder="留空不修改">
+    <label>角色</label>
+    <select id="editRole">
+      <option value="user">普通用户</option>
+      <option value="admin">管理员</option>
+    </select>
+    <div class="mrow">
+      <button class="mbtn-s" onclick="closeEdit()">取消</button>
+      <button class="mbtn-p" onclick="saveUser()"><i class="fas fa-save"></i> 保存</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _editUid=0;
+
+/* ========== Utils ========== */
+function esc(s){return s?String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+function escA(s){return s?String(s).replace(/&/g,'&amp;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;').replace(/</g,'&lt;').replace(/>/g,'&gt;'):''}
+
+/* ========== Edit User ========== */
+function editUser(u,un,em,rl){
+  _editUid=u;
+  document.getElementById('editUsername').value=un||'';
+  document.getElementById('editEmail').value=em||'';
+  document.getElementById('editPassword').value='';
+  document.getElementById('editRole').value=rl||'user';
+  document.getElementById('editModal').classList.add('show');
+}
+function closeEdit(){document.getElementById('editModal').classList.remove('show')}
+async function saveUser(){
+  var d={};
+  var un=document.getElementById('editUsername').value.trim();
+  var em=document.getElementById('editEmail').value.trim();
+  var pw=document.getElementById('editPassword').value;
+  var rl=document.getElementById('editRole').value;
+  if(un)d.username=un;
+  if(em!==undefined)d.email=em;
+  if(pw)d.password=pw;
+  if(rl)d.role=rl;
+  try{
+    var r=await fetch('/api/users/'+_editUid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+    var res=await r.json();
+    if(res.ok){closeEdit();loadUsers()}
+    else alert(res.error||'保存失败');
+  }catch(e){alert('请求失败: '+e.message)}
+}
+
+/* ========== Tabs ========== */
+var _allTabs=['users','res','pending','logs','filter'];
+var _tabLabels={'users':'用户','res':'资源','pending':'待导入','logs':'操作日志','filter':'过滤词'};
+var _tabLoaded={users:false,res:false,pending:false,logs:false,filter:false};
+
+function switchTab(n){
+  document.querySelectorAll('.tab').forEach(function(t){
+    var isActive=false;
+    for(var k in _tabLabels){if(n===k && t.textContent.includes(_tabLabels[k]))isActive=true;}
+    t.classList.toggle('active',isActive);
+  });
+  _allTabs.forEach(function(t){
+    var el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(el)el.style.display=t===n?'':'none';
+  });
+  if(n==='users')loadUsers();
+  if(n==='res')loadResStats();
+  if(n==='pending'&&!_tabLoaded.pending){_tabLoaded.pending=true;loadPending();}
+  if(n==='logs'&&!_tabLoaded.logs){_tabLoaded.logs=true;loadLogs(1);}
+  if(n==='filter'&&!_tabLoaded.filter){_tabLoaded.filter=true;loadFilterWords(1);}
+}
+
+/* ========== Load Users ========== */
+async function loadUsers(){
+  try{
+    var r=await fetch('/api/users');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var d=await r.json(),items=d.items||[];
+    document.getElementById('userTotal').textContent=d.total||items.length;
+    document.getElementById('userActive').textContent=items.filter(function(u){return u.status===1}).length;
+    var tb=document.getElementById('userTable');
+    if(!items.length){tb.innerHTML='<div class="empty"><i class="fas fa-inbox"></i> 暂无用户</div>';return}
+    var h='<table><thead><tr><th>ID</th><th>用户名</th><th>邮箱</th><th>角色</th><th>状态</th><th>操作</th></tr></thead><tbody>';
+    items.forEach(function(u){
+      var sl=u.status===1?'<span class="badge" style="background:rgba(61,220,153,0.1);color:var(--ok)">正常</span>':'<span class="badge" style="background:rgba(255,107,122,0.1);color:var(--err)">禁用</span>';
+      var rl=u.role==='admin'?'<span class="badge" style="background:rgba(255,200,87,0.1);color:var(--warn)">管理员</span>':'<span class="badge">用户</span>';
+      h+='<tr><td>'+u.id+'</td><td><strong>'+esc(u.username)+'</strong></td><td>'+esc(u.email||'-')+'</td><td>'+rl+'</td><td>'+sl+'</td>'+
+        '<td style="white-space:nowrap">'+
+          '<button class="btn btn-p" style="font-size:0.72rem;padding:0.22rem 0.55rem;margin-right:4px" onclick="editUser('+u.id+',\''+escA(u.username)+'\',\''+escA(u.email||'')+'\',\''+escA(u.role)+'\')">编辑</button>'+
+          '<button class="btn btn-s" style="font-size:0.72rem;padding:0.22rem 0.55rem" onclick="toggleUser('+u.id+','+u.status+')">'+(u.status===1?'禁用':'启用')+'</button>'+
+          (u.role!=='admin'?' <button class="btn" style="font-size:0.72rem;padding:0.22rem 0.55rem;color:var(--err);border-color:rgba(255,107,122,0.2)" onclick="deleteUser('+u.id+',\''+escA(u.username)+'\')">删除</button>':'')+
+        '</td></tr>';
+    });
+    h+='</tbody></table>';tb.innerHTML=h;
+  }catch(e){
+    document.getElementById('userTable').innerHTML='<div class="empty" style="color:var(--err)"><i class="fas fa-exclamation-triangle"></i> 加载失败: '+esc(e.message)+'</div>';
+  }
+}
+
+/* ========== Toggle User ========== */
+async function deleteUser(uid,name){
+  if(!confirm('确认删除用户 "'+name+'" ？此操作不可恢复！'))return;
+  try{
+    var r=await fetch('/api/users/'+uid,{method:'DELETE'});
+    var d=await r.json();
+    if(d.ok){loadUsers()}
+    else alert(d.error||'删除失败');
+  }catch(e){alert('请求失败: '+e.message)}
+}
+
+async function toggleUser(uid,s){
+  if(!confirm('确认'+(s===1?'禁用':'启用')+'该用户？'))return;
+  try{
+    var r=await fetch('/api/users/'+uid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:s===1?0:1})});
+    var d=await r.json();
+    if(d.ok)loadUsers();else alert('操作失败');
+  }catch(e){alert('请求失败: '+e.message)}
+}
+
+/* ========== Add User ========== */
+async function addUser(){
+  var name=prompt('输入新用户名：');
+  if(!name)return;
+  try{
+    var r=await fetch('/api/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:name})});
+    var d=await r.json();
+    if(d.ok){loadUsers();alert('✅ 用户已添加')}
+    else alert('❌ '+(d.error||'添加失败'));
+  }catch(e){alert('请求失败: '+e.message)}
+}
+
+/* ========== Resource Stats ========== */
+async function loadResStats(){
+  try{
+    var r=await fetch('/api/stats');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var d=await r.json();
+    document.getElementById('resTotal').textContent=d.total.toLocaleString();
+  }catch(e){console.error(e)}
+}
+
+/* ========== Import ========== */
+async function doImport(){
+  var input=document.getElementById('importKw');
+  var log=document.getElementById('importLog');
+  var raw=input.value.trim();
+  if(!raw){log.textContent='⚠️ 请先输入关键词';return}
+  var kws=raw.split(/[,，、\s]+/).filter(Boolean);
+  if(!kws.length){log.textContent='⚠️ 未检测到有效关键词';return}
+  log.textContent='开始导入 '+kws.length+' 个关键词...\n';
+  for(var i=0;i<kws.length;i++){
+    var kw=kws[i];
+    log.textContent+='\n🔍 正在搜索: '+kw+'\n';
+    try{
+      var r=await fetch('/api/import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords:[kw],limit:50})});
+      if(r.status===401){log.textContent+='❌ 未登录，请刷新页面重新登录\n';break}
+      var d=await r.json();
+      log.textContent+='✅ '+kw+': 导入 '+(d.total_imported||0)+' 条';
+      if(d.errors&&d.errors.length)log.textContent+=' ⚠️ '+d.errors.join(', ');
+      log.textContent+='\n';
+    }catch(e){log.textContent+='❌ '+kw+': 请求失败 - '+e.message+'\n'}
+  }
+  log.textContent+='\n✅ 全部完成！';
+  loadResStats();
+}
+
+/* ========== Pending Imports ========== */
+var _pendingItems=[];
+var _pendingSelected=new Set();
+
+async function loadPending(){
+  var tb=document.getElementById('pendingTable');
+  tb.innerHTML='<div class="empty"><i class="fas fa-spinner fa-spin"></i> 加载中...</div>';
+  try{
+    var r=await fetch('/api/admin/pending_imports');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var d=await r.json();
+    _pendingItems=d.items||[];
+    _pendingSelected.clear();
+    document.getElementById('pendingTotal').textContent=d.total||_pendingItems.length;
+    renderPending();
+  }catch(e){
+    tb.innerHTML='<div class="empty" style="color:var(--err)"><i class="fas fa-exclamation-triangle"></i> 加载失败: '+esc(e.message)+'</div>';
+  }
+}
+
+function renderPending(){
+  var tb=document.getElementById('pendingTable');
+  if(!_pendingItems.length){tb.innerHTML='<div class="empty"><i class="fas fa-check-circle"></i> 暂无待导入关键词</div>';return}
+  var h='<table><thead><tr><th style="width:36px"><input type="checkbox" class="chk" onchange="toggleAllChk(this)" id="chkAll"></th><th>关键词</th><th>搜索次数</th><th>最近搜索</th></tr></thead><tbody>';
+  _pendingItems.forEach(function(item,idx){
+    var checked=_pendingSelected.has(idx)?'checked':'';
+    h+='<tr><td><input type="checkbox" class="chk" '+checked+' onchange="togglePendingChk('+idx+',this)"></td><td><strong>'+esc(item.keyword)+'</strong></td><td><span class="badge">'+item.search_count+'</span></td><td style="color:var(--text3);font-size:0.78rem">'+esc(item.last_search||'-')+'</td></tr>';
+  });
+  h+='</tbody></table>';tb.innerHTML=h;
+  updateSelectAllBtn();
+}
+
+function togglePendingChk(idx,el){
+  if(el.checked)_pendingSelected.add(idx);else _pendingSelected.delete(idx);
+  updateSelectAllBtn();
+}
+
+function toggleAllChk(el){
+  _pendingItems.forEach(function(_,idx){
+    if(el.checked)_pendingSelected.add(idx);else _pendingSelected.delete(idx);
+  });
+  renderPending();
+}
+
+function toggleSelectAll(){
+  if(_pendingSelected.size===_pendingItems.length){
+    _pendingSelected.clear();
+  }else{
+    _pendingItems.forEach(function(_,idx){_pendingSelected.add(idx)});
+  }
+  renderPending();
+}
+
+function updateSelectAllBtn(){
+  var btn=document.getElementById('btnSelectAll');
+  if(_pendingSelected.size===_pendingItems.length&&_pendingItems.length>0){
+    btn.innerHTML='<i class="fas fa-times-circle"></i> 取消全选';
+  }else{
+    btn.innerHTML='<i class="fas fa-check-double"></i> 全选';
+  }
+}
+
+async function importSelected(){
+  if(!_pendingSelected.size){alert('请先选择要导入的关键词');return}
+  var keywords=[];
+  _pendingSelected.forEach(function(idx){
+    if(_pendingItems[idx])keywords.push(_pendingItems[idx].keyword);
+  });
+  var logEl=document.getElementById('pendingLog');
+  logEl.style.display='block';
+  logEl.textContent='🚀 开始导入 '+keywords.length+' 个关键词...\n';
+  try{
+    var r=await fetch('/api/admin/confirm_import',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keywords:keywords})});
+    if(r.status===401){logEl.textContent+='❌ 未登录，请刷新页面重新登录\n';return}
+    var d=await r.json();
+    logEl.textContent+='✅ 导入完成！共导入 '+(d.total_imported||0)+' 条\n';
+    if(d.details&&d.details.length){d.details.forEach(function(det){logEl.textContent+='  '+JSON.stringify(det)+'\n'});}
+    _pendingSelected.clear();
+    loadPending();
+  }catch(e){
+    logEl.textContent+='❌ 导入失败: '+e.message+'\n';
+  }
+}
+
+/* ========== Operation Logs ========== */
+var _logPage=1;
+var _logPerPage=20;
+
+async function loadLogs(page){
+  _logPage=page||1;
+  var tb=document.getElementById('logTable');
+  tb.innerHTML='<div class="empty"><i class="fas fa-spinner fa-spin"></i> 加载中...</div>';
+  var action=document.getElementById('logActionFilter').value;
+  var url='/api/admin/logs?page='+_logPage+'&per_page='+_logPerPage;
+  if(action)url+='&action='+encodeURIComponent(action);
+  try{
+    var r=await fetch(url);
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var d=await r.json();
+    var items=d.items||[];
+    var total=d.total||0;
+    if(!items.length){tb.innerHTML='<div class="empty"><i class="fas fa-inbox"></i> 暂无日志</div>';document.getElementById('logPager').innerHTML='';return}
+    var h='<table><thead><tr><th>时间</th><th>用户</th><th>操作</th><th>详情</th><th>IP</th></tr></thead><tbody>';
+    items.forEach(function(log){
+      var actBadge='<span class="badge">'+esc(log.action)+'</span>';
+      h+='<tr><td style="white-space:nowrap;font-size:0.78rem;color:var(--text3)">'+esc(log.created_at)+'</td><td>'+esc(log.username||log.user_id||'-')+'</td><td>'+actBadge+'</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escA(log.detail||'')+'">'+esc(log.detail||'-')+'</td><td style="color:var(--text3)">'+esc(log.ip||'-')+'</td></tr>';
+    });
+    h+='</tbody></table>';tb.innerHTML=h;
+    renderPager('logPager',total,_logPage,_logPerPage,loadLogs);
+  }catch(e){
+    tb.innerHTML='<div class="empty" style="color:var(--err)"><i class="fas fa-exclamation-triangle"></i> 加载失败: '+esc(e.message)+'</div>';
+    document.getElementById('logPager').innerHTML='';
+  }
+}
+
+/* ========== Filter Words ========== */
+var _filterPage=1;
+var _filterPerPage=20;
+
+async function loadFilterWords(page){
+  _filterPage=page||1;
+  var tb=document.getElementById('filterTable');
+  tb.innerHTML='<div class="empty"><i class="fas fa-spinner fa-spin"></i> 加载中...</div>';
+  try{
+    var r=await fetch('/api/admin/filter_words?page='+_filterPage+'&per_page='+_filterPerPage);
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var d=await r.json();
+    var items=d.items||[];
+    var total=d.total||0;
+    document.getElementById('filterTotal').textContent=total;
+    if(!items.length){tb.innerHTML='<div class="empty"><i class="fas fa-check-circle"></i> 暂无过滤词</div>';document.getElementById('filterPager').innerHTML='';return}
+    var h='<table><thead><tr><th>ID</th><th>过滤词</th><th>分类</th><th>添加时间</th><th>操作</th></tr></thead><tbody>';
+    items.forEach(function(w){
+      var catColor='var(--accent)';
+      var catMap={'色情':'var(--err)','推特':'#1da1f2','TG':'#0088cc','翻墙':'var(--warn)','赌博':'var(--err)','毒品':'var(--err)'};
+      if(catMap[w.category])catColor=catMap[w.category];
+      h+='<tr><td>'+w.id+'</td><td><strong>'+esc(w.word)+'</strong></td><td><span class="badge" style="background:rgba(139,127,255,0.08);color:'+catColor+'">'+esc(w.category)+'</span></td><td style="font-size:0.78rem;color:var(--text3)">'+esc(w.created_at||'-')+'</td><td><button class="btn btn-s" style="font-size:0.72rem;padding:0.22rem 0.55rem;color:var(--err);border-color:rgba(255,107,122,0.2)" onclick="deleteFilterWord('+w.id+',\''+escA(w.word)+'\')"><i class="fas fa-trash-alt"></i> 删除</button></td></tr>';
+    });
+    h+='</tbody></table>';tb.innerHTML=h;
+    renderPager('filterPager',total,_filterPage,_filterPerPage,loadFilterWords);
+  }catch(e){
+    tb.innerHTML='<div class="empty" style="color:var(--err)"><i class="fas fa-exclamation-triangle"></i> 加载失败: '+esc(e.message)+'</div>';
+    document.getElementById('filterPager').innerHTML='';
+  }
+}
+
+async function addFilterWord(){
+  var word=document.getElementById('filterWordInput').value.trim();
+  var category=document.getElementById('filterCategoryInput').value;
+  if(!word){alert('请输入过滤词');return}
+  try{
+    var r=await fetch('/api/admin/filter_words',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({word:word,category:category})});
+    if(!r.ok){var err=await r.json().catch(function(){return{};});throw new Error(err.error||'HTTP '+r.status)}
+    document.getElementById('filterWordInput').value='';
+    loadFilterWords(1);
+  }catch(e){alert('添加失败: '+e.message)}
+}
+
+async function deleteFilterWord(id,word){
+  if(!confirm('确认删除过滤词 "'+word+'" ？'))return;
+  try{
+    var r=await fetch('/api/admin/filter_words/'+id,{method:'DELETE'});
+    if(!r.ok){var err=await r.json().catch(function(){return{};});throw new Error(err.error||'HTTP '+r.status)}
+    loadFilterWords(_filterPage);
+  }catch(e){alert('删除失败: '+e.message)}
+}
+
+/* ========== Pagination Helper ========== */
+function renderPager(containerId,total,page,perPage,callback){
+  var el=document.getElementById(containerId);
+  var totalPages=Math.ceil(total/perPage)||1;
+  if(totalPages<=1){el.innerHTML='';return}
+  var h='<button '+(page<=1?'disabled':'')+' onclick="'+callback.name+'('+(page-1)+')"><i class="fas fa-chevron-left"></i></button>';
+  var start=Math.max(1,page-3);
+  var end=Math.min(totalPages,page+3);
+  if(start>1){h+='<button onclick="'+callback.name+'(1)">1</button>';if(start>2)h+='<span class="pinfo">...</span>';}
+  for(var i=start;i<=end;i++){
+    h+='<button class="'+(i===page?'active':'')+'" onclick="'+callback.name+'('+i+')">'+i+'</button>';
+  }
+  if(end<totalPages){if(end<totalPages-1)h+='<span class="pinfo">...</span>';h+='<button onclick="'+callback.name+'('+totalPages+')">'+totalPages+'</button>';}
+  h+='<button '+(page>=totalPages?'disabled':'')+' onclick="'+callback.name+'('+(page+1)+')"><i class="fas fa-chevron-right"></i></button>';
+  h+='<span class="pinfo">共 '+total+' 条</span>';
+  el.innerHTML=h;
+}
+
+/* ========== Init ========== */
+loadUsers();
+</script>
+</body>
+</html>

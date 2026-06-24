@@ -1,0 +1,24 @@
+services:
+  resource-web:
+    build: .
+    container_name: resource_web
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    environment:
+      - DB_HOST=172.23.0.2
+      - DB_PORT=3306
+      - DB_USER=root
+      - DB_PASSWORD=9zPwwKV_YYK3IcivNFcXuA
+      - DB_NAME=pan_resource
+      - ADMIN_USER=admin
+      - ADMIN_PASS=admin2026
+      - SECRET_KEY=resource_web_secret_2026_f8a3b2c1
+      - TMDB_API_KEY=91f75e1241354f2503a397fc7a276408
+      - SEARCH_API=https://ps.aiqinghaiwork.cn/api/search
+    networks:
+      - resource_db_default
+
+networks:
+  resource_db_default:
+    external: true
