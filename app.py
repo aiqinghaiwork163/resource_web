@@ -1987,6 +1987,152 @@ def api_admin_test_apis():
         db.close()
 
 
+
+# ==================== 失效链接检测 ====================
+@app.route("/api/admin/deadlinks/scan", methods=["POST"])
+@admin_required
+def api_admin_deadlinks_scan():
+    """扫描失效链接（网盘链接，排除磁力/电驴）"""
+    import requests as http_requests
+    import threading
+
+    data = request.get_json() or {}
+    source_filter = data.get("source", "")
+    limit = min(int(data.get("limit", 50)), 200)
+    page = int(data.get("page", 1))
+
+    db = get_db()
+    try:
+        cur = db.cursor()
+        # 排除磁力/电驴/other
+        exclude_sources = "('magnet', 'ed2k', 'other')"
+        conditions = [f"source NOT IN {exclude_sources}"]
+        params = []
+
+        if source_filter:
+            conditions.append("source = %s")
+            params.append(source_filter)
+
+        where = " AND ".join(conditions)
+        offset = (page - 1) * limit
+
+        cur.execute(
+            f"SELECT id, title, source, url, password FROM resources "
+            f"WHERE {where} ORDER BY created_at DESC LIMIT %s OFFSET %s",
+            params + [limit, offset]
+        )
+        items = cur.fetchall()
+
+        # Get total count
+        cur.execute(f"SELECT COUNT(*) as c FROM resources WHERE {where}", params)
+        total = cur.fetchone()["c"]
+
+        # Check each link
+        results = []
+        dead_count = 0
+        alive_count = 0
+        unknown_count = 0
+
+        for item in items:
+            url = item.get("url", "")
+            status = "unknown"
+            status_code = 0
+
+            if not url:
+                status = "invalid"
+                unknown_count += 1
+            elif url.startswith("magnet:") or url.startswith("ed2k:"):
+                status = "skip"
+            else:
+                try:
+                    # HEAD request with short timeout
+                    r = http_requests.head(url, timeout=8, allow_redirects=True,
+                                          headers={"User-Agent": "Mozilla/5.0"})
+                    status_code = r.status_code
+                    if r.status_code == 200:
+                        status = "alive"
+                        alive_count += 1
+                    elif r.status_code in (404, 410, 451):
+                        status = "dead"
+                        dead_count += 1
+                    elif r.status_code in (403, 302, 301):
+                        status = "maybe_dead"
+                        dead_count += 1
+                    else:
+                        status = "unknown"
+                        unknown_count += 1
+                except http_requests.exceptions.Timeout:
+                    status = "timeout"
+                    unknown_count += 1
+                except http_requests.exceptions.ConnectionError:
+                    status = "dead"
+                    dead_count += 1
+                except Exception:
+                    status = "error"
+                    unknown_count += 1
+
+            results.append({
+                "id": item["id"],
+                "title": (item.get("title") or "")[:80],
+                "source": item.get("source", ""),
+                "url": url[:100],
+                "password": item.get("password", ""),
+                "status": status,
+                "status_code": status_code,
+            })
+
+        return jsonify({
+            "results": results,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "dead_count": dead_count,
+            "alive_count": alive_count,
+            "unknown_count": unknown_count,
+            "scanned": len(items),
+        })
+    finally:
+        db.close()
+
+
+@app.route("/api/admin/deadlinks/delete", methods=["POST"])
+@admin_required
+def api_admin_deadlinks_delete():
+    """批量删除失效链接"""
+    data = request.get_json() or {}
+    ids = data.get("ids", [])
+    if not ids:
+        return jsonify({"error": "请选择要删除的链接"}), 400
+
+    db = get_db()
+    try:
+        cur = db.cursor()
+        placeholders = ",".join(["%s"] * len(ids))
+        cur.execute(f"DELETE FROM resources WHERE id IN ({placeholders})", ids)
+        db.commit()
+        return jsonify({"ok": True, "deleted": cur.rowcount})
+    finally:
+        db.close()
+
+
+@app.route("/api/admin/deadlinks/sources")
+@admin_required
+def api_admin_deadlinks_sources():
+    """获取可检测的网盘来源列表"""
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "SELECT source, COUNT(*) as c FROM resources "
+            "WHERE source NOT IN ('magnet', 'ed2k', 'other') "
+            "GROUP BY source ORDER BY c DESC"
+        )
+        items = cur.fetchall()
+        return jsonify({"items": items})
+    finally:
+        db.close()
+
+
 # ==================== API Docs Page ====================
 
 @app.route("/api-docs")

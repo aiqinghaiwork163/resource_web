@@ -416,6 +416,7 @@ tr:hover{background:rgba(25,25,50,0.35)}
     <button class="tab active" onclick="switchTab('users')"><i class="fas fa-users"></i> 用户管理</button>
     <!-- 资源管理已隐藏 -->
     <!-- 待导入已隐藏 -->
+    <button class="tab" onclick="switchTab('deadlinks')"><i class="fas fa-unlink"></i> 失效链接</button>
     <button class="tab" onclick="switchTab('logs')"><i class="fas fa-history"></i> 操作日志</button>
     <button class="tab" onclick="switchTab('filter')"><i class="fas fa-shield-alt"></i> 过滤词</button>
     <button class="tab" onclick="switchTab('dashboard')"><i class="fas fa-chart-bar"></i> 数据统计</button>
@@ -558,6 +559,31 @@ tr:hover{background:rgba(25,25,50,0.35)}
     </div>
   </div>
 
+  
+  <!-- Dead Links Tab -->
+  <div id="tabDeadlinks" style="display:none">
+    <div class="card">
+      <h2><i class="fas fa-unlink"></i> 失效链接清理
+        <button class="btn btn-p" onclick="scanDeadLinks()" style="margin-left:auto;font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-search"></i> 开始扫描</button>
+        <button class="btn btn-s" onclick="selectDeadLinks()" style="font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-check-double"></i> 全选失效</button>
+        <button class="btn btn-s" onclick="deleteSelectedDeadLinks()" style="font-size:0.78rem;padding:0.35rem 0.8rem;color:#ef4444;border-color:#ef4444"><i class="fas fa-trash"></i> 删除选中</button>
+      </h2>
+      <div class="fbar">
+        <select id="deadlinkSource" style="min-width:120px">
+          <option value="">全部网盘</option>
+        </select>
+        <select id="deadlinkLimit">
+          <option value="20">每次检测20条</option>
+          <option value="50" selected>每次检测50条</option>
+          <option value="100">每次检测100条</option>
+        </select>
+        <span id="deadlinkStats" style="font-size:0.82rem;color:var(--text3);align-self:center"></span>
+      </div>
+      <div id="deadlinkResults"><div class="empty">选择来源和数量，点击"开始扫描"检测失效链接</div></div>
+      <div class="pager" id="deadlinkPager"></div>
+    </div>
+  </div>
+
   <!-- Settings Tab -->
   <div id="tabSettings" style="display:none">
     <div class="card">
@@ -683,6 +709,7 @@ function switchTab(n){
 
   if(n==='settings'){loadSettings();}
   if(n==='queue'){loadQueue();}
+  if(n==='deadlinks'){loadDeadlinkSources();}
   if(n==='dashboard'){loadDashboard();}
   if(n==='testApis'){/* user clicks button manually */}
 
@@ -915,6 +942,125 @@ async function loadLogs(page){
 }
 
 
+
+
+/* ========== Dead Links ========== */
+var _deadResults=[];
+var _deadSelected=new Set();
+var _deadPage=1;
+
+async function loadDeadlinkSources(){
+  try{
+    var r=await fetch('/api/admin/deadlinks/sources');if(!r.ok)throw 0;
+    var d=await r.json();
+    var sel=document.getElementById('deadlinkSource');
+    sel.innerHTML='<option value="">全部网盘</option>';
+    (d.items||[]).forEach(function(s){
+      sel.innerHTML+='<option value="'+esc(s.source)+'">'+esc(s.source)+' ('+s.c+')</option>';
+    });
+  }catch(e){}
+}
+
+async function scanDeadLinks(){
+  var src=document.getElementById('deadlinkSource').value;
+  var limit=document.getElementById('deadlinkLimit').value;
+  var el=document.getElementById('deadlinkResults');
+  var statsEl=document.getElementById('deadlinkStats');
+
+  el.innerHTML='<div class="empty"><i class="fas fa-spinner fa-spin"></i> 正在扫描链接，请稍候...</div>';
+  statsEl.textContent='扫描中...';
+
+  try{
+    var body={limit:parseInt(limit),page:_deadPage};
+    if(src)body.source=src;
+    var r=await fetch('/api/admin/deadlinks/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    var d=await r.json();
+
+    _deadResults=d.results||[];
+    _deadSelected.clear();
+
+    statsEl.textContent='扫描 '+d.scanned+' 条 | ✅存活 '+d.alive_count+' | ❌失效 '+d.dead_count+' | ❓未知 '+d.unknown_count+' | 共 '+d.total+' 条';
+
+    if(!_deadResults.length){el.innerHTML='<div class="empty">暂无链接</div>';return;}
+
+    var statusIcons={alive:'<span style="color:#10b981">✅</span>',dead:'<span style="color:#ef4444">❌</span>',maybe_dead:'<span style="color:#f59e0b">⚠️</span>',timeout:'<span style="color:#f59e0b">⏱</span>',unknown:'<span style="color:#888">❓</span>',error:'<span style="color:#ef4444">💥</span>',invalid:'<span style="color:#888">-</span>',skip:'<span style="color:#888">⏭</span>'};
+    var statusLabels={alive:'正常',dead:'失效',maybe_dead:'疑似失效',timeout:'超时',unknown:'未知',error:'错误',invalid:'无效',skip:'跳过'};
+
+    var h='<table style="width:100%;font-size:0.82rem;border-collapse:collapse"><thead><tr>'+
+      '<th style="width:30px"><input type="checkbox" onchange="toggleAllDeadLinks(this.checked)"></th>'+
+      '<th style="text-align:left;padding:0.4rem">状态</th>'+
+      '<th style="text-align:left;padding:0.4rem">标题</th>'+
+      '<th style="text-align:left;padding:0.4rem">来源</th>'+
+      '<th style="text-align:left;padding:0.4rem">HTTP</th>'+
+      '</tr></thead><tbody>';
+
+    _deadResults.forEach(function(r){
+      var icon=statusIcons[r.status]||'❓';
+      var label=statusLabels[r.status]||r.status;
+      var isDead=(r.status==='dead'||r.status==='maybe_dead');
+      h+='<tr style="border-top:1px solid rgba(255,255,255,0.05);'+(isDead?'background:rgba(239,68,68,0.05)':'')+'">'+
+        '<td style="padding:0.4rem;text-align:center">'+(isDead?'<input type="checkbox" data-id="'+r.id+'" onchange="toggleDeadLink('+r.id+',this.checked)">':'')+'</td>'+
+        '<td style="padding:0.4rem">'+icon+' '+label+'</td>'+
+        '<td style="padding:0.4rem;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+escA(r.title)+'">'+esc(r.title)+'</td>'+
+        '<td style="padding:0.4rem"><span class="tag '+r.source+'">'+esc(r.source)+'</span></td>'+
+        '<td style="padding:0.4rem;color:var(--text3)">'+(r.status_code||'-')+'</td>'+
+      '</tr>';
+    });
+    h+='</tbody></table>';
+    el.innerHTML=h;
+
+  }catch(e){
+    console.error('scanDeadLinks error:',e);
+    el.innerHTML='<div class="empty" style="color:#ef4444">扫描失败: '+e.message+'</div>';
+    statsEl.textContent='';
+  }
+}
+
+function toggleDeadLink(id,checked){
+  if(checked)_deadSelected.add(id);else _deadSelected.delete(id);
+}
+function toggleAllDeadLinks(checked){
+  _deadSelected.clear();
+  if(checked){
+    _deadResults.forEach(function(r){
+      if(r.status==='dead'||r.status==='maybe_dead')_deadSelected.add(r.id);
+    });
+    document.querySelectorAll('#deadlinkResults input[type=checkbox][data-id]').forEach(function(cb){
+      cb.checked=true;
+    });
+  }else{
+    document.querySelectorAll('#deadlinkResults input[type=checkbox]').forEach(function(cb){
+      cb.checked=false;
+    });
+  }
+}
+function selectDeadLinks(){
+  _deadSelected.clear();
+  _deadResults.forEach(function(r){
+    if(r.status==='dead'||r.status==='maybe_dead')_deadSelected.add(r.id);
+  });
+  document.querySelectorAll('#deadlinkResults input[type=checkbox][data-id]').forEach(function(cb){
+    cb.checked=true;
+  });
+}
+async function deleteSelectedDeadLinks(){
+  if(!_deadSelected.size){alert('请先选择要删除的链接');return;}
+  if(!confirm('确认删除 '+_deadSelected.size+' 条失效链接？此操作不可恢复！'))return;
+  try{
+    var ids=Array.from(_deadSelected);
+    var r=await fetch('/api/admin/deadlinks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:ids})});
+    var d=await r.json();
+    if(d.ok){
+      alert('已删除 '+d.deleted+' 条失效链接');
+      _deadSelected.clear();
+      scanDeadLinks();
+    }else{alert('删除失败: '+(d.error||''));}
+  }catch(e){alert('删除失败: '+e.message);}
+}
+
+// Load sources when tab opens
+if(document.getElementById('deadlinkSource'))loadDeadlinkSources();
 
 /* ========== Queue Actions ========== */
 async function deleteQueueItem(id){
