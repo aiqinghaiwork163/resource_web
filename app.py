@@ -26,24 +26,27 @@ from functools import wraps
 @app.after_request
 def add_gzip(response):
     """对 JSON/HTML/CSS/JS 响应启用 gzip 压缩"""
-    if response.status_code != 200:
-        return response
-    accept = request.headers.get("Accept-Encoding", "")
-    if "gzip" not in accept:
-        return response
-    ct = response.content_type or ""
-    if not any(t in ct for t in ["json", "html", "javascript", "css", "text"]):
-        return response
-    data = response.get_data()
-    if len(data) < 500:
-        return response
-    buf = io.BytesIO()
-    with gzip.GzipFile(fileobj=buf, mode="wb", compresslevel=6) as f:
-        f.write(data)
-    response.set_data(buf.getvalue())
-    response.headers["Content-Encoding"] = "gzip"
-    response.headers["Content-Length"] = len(response.get_data())
-    response.headers["Vary"] = "Accept-Encoding"
+    try:
+        if response.status_code != 200:
+            return response
+        accept = request.headers.get("Accept-Encoding", "")
+        if "gzip" not in accept:
+            return response
+        ct = response.content_type or ""
+        if not any(t in ct for t in ["json", "html", "javascript", "css", "text"]):
+            return response
+        data = response.get_data()
+        if len(data) < 500:
+            return response
+        buf = io.BytesIO()
+        with gzip.GzipFile(fileobj=buf, mode="wb", compresslevel=6) as f:
+            f.write(data)
+        response.set_data(buf.getvalue())
+        response.headers["Content-Encoding"] = "gzip"
+        response.headers["Content-Length"] = len(response.get_data())
+        response.headers["Vary"] = "Accept-Encoding"
+    except (RuntimeError, TypeError):
+        pass  # send_from_directory 直接流式响应，跳过压缩
     return response
 
 

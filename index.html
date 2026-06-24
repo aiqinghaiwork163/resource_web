@@ -189,45 +189,6 @@ a { color: var(--accent); text-decoration: none; }
 }
 
 /* Hot Searches */
-.hot-search {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 1rem 0 0;
-  justify-content: center;
-  max-width: 680px;
-  margin: 0 auto;
-}
-.hot-tag {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.12);
-  border-radius: 50px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.8rem;
-  color: rgba(255,255,255,0.7);
-  cursor: pointer;
-  transition: all var(--transition);
-}
-.hot-tag:hover {
-  background: rgba(1,180,228,0.2);
-  color: #fff;
-  border-color: var(--accent);
-}
-.hot-tag .hot-rank {
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: var(--accent);
-  min-width: 1rem;
-  text-align: center;
-}
-.hot-tag.top3 {
-  background: rgba(231,76,60,0.15);
-  border-color: rgba(231,76,60,0.3);
-}
-.hot-tag.top3 .hot-rank { color: #e74c3c; }
 
 /* Autocomplete */
 .autocomplete-dropdown {
@@ -791,9 +752,7 @@ a { color: var(--accent); text-decoration: none; }
   .hero-title { font-size: 1.4rem; }
   .hero-sub { font-size: 0.88rem; }
   .hero-search-wrap input { height: 46px; font-size: 0.9rem; }
-  .hot-search { padding: 0.8rem 0 0; gap: 0.35rem; }
-  .hot-tag { padding: 0.3rem 0.65rem; font-size: 0.75rem; }
-  .stats { padding:0 0.85rem; margin-top:0.8rem; flex-direction:column; }
+      .stats { padding:0 0.85rem; margin-top:0.8rem; flex-direction:column; }
   .stat { min-width:0; padding:0.8rem 1rem; }
   .stat-val { font-size:1.2rem; }
   .src-section, .result-bar { padding:0 0.85rem; }
@@ -834,8 +793,7 @@ a { color: var(--accent); text-decoration: none; }
     <input type="text" id="heroSearchInput" placeholder="输入关键词搜索..." onkeydown="if(event.key==='Enter')heroSearch()">
     <i class="fas fa-search hsi"></i>
   </div>
-  <div class="hot-search" id="hotTags" style="display:none"></div>
-</div>
+  </div>
 
 <!-- Stats -->
 <div class="stats">
@@ -1213,24 +1171,6 @@ function toggleTheme(){
 })();
 
 /* ========== Hot Searches ========== */
-async function loadHotSearches(){
-  try{
-    var r=await fetch('/api/hot_searches');if(!r.ok)return;
-    var d=await r.json(),items=d.items||[];
-    if(!items.length)return;
-    var el=document.getElementById('hotTags');
-    el.innerHTML=items.map(function(it,i){
-      var cls=i<3?'hot-tag top3':'hot-tag';
-      return '<span class="'+cls+'" onclick="hotSearch('+JSON.stringify(it.keyword)+')">'+
-        '<span class="hot-rank">'+(i+1)+'</span>'+esc(it.keyword)+'</span>';
-    }).join('');
-    document.getElementById('hotTags').style.display='';
-  }catch(e){}
-}
-function hotSearch(kw){
-  document.getElementById('searchInput').value=kw;
-  document.getElementById('heroSearchInput').value=kw;
-  doSearch();
 }
 
 /* ========== Autocomplete ========== */
@@ -1444,7 +1384,6 @@ document.addEventListener('DOMContentLoaded',function(){
 /* ========== Init ========== */
 loadStats();
 loadUserInfo();
-loadHotSearches();
 loadRecommendations();
 
 </script>
