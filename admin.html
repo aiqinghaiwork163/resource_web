@@ -385,7 +385,7 @@ async function loadSettings(){
           'style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem">'+
       '</div>';
     }).join('');
-  }catch(e){document.getElementById('settingsArea').innerHTML='<div class="empty">加载失败</div>';}
+  }catch(e){console.error('loadSettings error:', e);document.getElementById('settingsArea').innerHTML='<div class="empty">加载失败: '+e+'</div>';}
 }
 async function saveSettings(){
   var inputs=document.querySelectorAll('[id^="setting_"]');
@@ -720,6 +720,7 @@ async function saveUser(){
 
 /* ========== Tabs ========== */
 function switchTab(n){
+  console.log('switchTab called with:', n);
   ['users','res','pending','logs','filter','dashboard','settings','queue'].forEach(function(t){
     var el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
     if(el)el.style.display=t===n?'':'none';

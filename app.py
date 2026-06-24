@@ -16,7 +16,7 @@ import requests as http_requests
 from flask import Flask, jsonify, request, send_from_directory, session, redirect
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
+app.secret_key = os.environ.get("SECRET_KEY", "resource_web_2026_stable_key_xK9mP2vQ")
 
 import gzip
 import io
