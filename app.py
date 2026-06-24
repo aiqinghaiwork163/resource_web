@@ -560,6 +560,7 @@ def admin_page():
     resp.cache_control.no_cache = True
     resp.cache_control.no_store = True
     resp.cache_control.must_revalidate = True
+    resp.headers["X-Version"] = "1782286243"
     return resp
 
 
