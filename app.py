@@ -1999,6 +1999,8 @@ def api_admin_deadlinks_scan():
     source_filter = data.get("source", "")
     limit = min(int(data.get("limit", 50)), 200)
     page = int(data.get("page", 1))
+    skip_checked = data.get("skip_checked", True)  # 默认跳过已检测
+    only_unchecked = data.get("only_unchecked", False)  # 只检测未检测的
 
     db = get_db()
     try:
@@ -2010,6 +2012,11 @@ def api_admin_deadlinks_scan():
         if source_filter:
             conditions.append("source = %s")
             params.append(source_filter)
+
+        if only_unchecked:
+            conditions.append("last_checked IS NULL")
+        elif skip_checked:
+            conditions.append("(last_checked IS NULL OR last_checked < DATE_SUB(NOW(), INTERVAL 7 DAY))")
 
         where = " AND ".join(conditions)
         offset = (page - 1) * limit
@@ -2155,6 +2162,18 @@ def api_admin_deadlinks_scan():
                 "msg": msg,
             })
 
+            # 标记已检测
+            if status not in ("skip", "invalid"):
+                try:
+                    cur.execute(
+                        "UPDATE resources SET last_checked=NOW(), link_status=%s WHERE id=%s",
+                        (status, item["id"])
+                    )
+                except Exception:
+                    pass
+
+        db.commit()  # 提交所有标记更新
+
         return jsonify({
             "results": results,
             "total": total,
@@ -2206,6 +2225,25 @@ def api_admin_deadlinks_sources():
     finally:
         db.close()
 
+
+
+@app.route("/api/admin/deadlinks/unchecked_count")
+@admin_required
+def api_admin_deadlinks_unchecked_count():
+    """获取未检测链接数量"""
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "SELECT source, COUNT(*) as c FROM resources "
+            "WHERE source NOT IN ('magnet', 'ed2k', 'other') AND last_checked IS NULL "
+            "GROUP BY source ORDER BY c DESC"
+        )
+        items = cur.fetchall()
+        total = sum(i["c"] for i in items)
+        return jsonify({"items": items, "total": total})
+    finally:
+        db.close()
 
 # ==================== API Docs Page ====================
 

@@ -568,16 +568,20 @@ tr:hover{background:rgba(25,25,50,0.35)}
         <button class="btn btn-s" onclick="selectDeadLinks()" style="font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-check-double"></i> 全选失效</button>
         <button class="btn btn-s" onclick="deleteSelectedDeadLinks()" style="font-size:0.78rem;padding:0.35rem 0.8rem;color:#ef4444;border-color:#ef4444"><i class="fas fa-trash"></i> 删除选中</button>
       </h2>
-      <div class="fbar">
+      <div class="fbar" style="flex-wrap:wrap;gap:0.5rem">
         <select id="deadlinkSource" style="min-width:120px">
           <option value="">全部网盘</option>
         </select>
         <select id="deadlinkLimit">
           <option value="20">每次检测20条</option>
-          <option value="50" selected>每次检测50条</option>
-          <option value="100">每次检测100条</option>
+          <option value="50">每次检测50条</option>
+          <option value="100" selected>每次检测100条</option>
         </select>
-        <span id="deadlinkStats" style="font-size:0.82rem;color:var(--text3);align-self:center"></span>
+        <label style="font-size:0.82rem;display:flex;align-items:center;gap:0.3rem;cursor:pointer">
+          <input type="checkbox" id="deadlinkOnlyUnchecked" checked> 跳过已检测
+        </label>
+        <span id="deadlinkUncheckedInfo" style="font-size:0.78rem;color:#f59e0b"></span>
+        <span id="deadlinkStats" style="font-size:0.82rem;color:var(--text3)"></span>
       </div>
       <div id="deadlinkResults"><div class="empty">选择来源和数量，点击"开始扫描"检测失效链接</div></div>
       <div class="pager" id="deadlinkPager"></div>
@@ -950,6 +954,12 @@ var _deadSelected=new Set();
 var _deadPage=1;
 
 async function loadDeadlinkSources(){
+  // 恢复上次设置
+  var savedSrc=localStorage.getItem('deadlink_source');
+  var savedLimit=localStorage.getItem('deadlink_limit');
+  if(savedSrc){document.getElementById('deadlinkSource').value=savedSrc;}
+  if(savedLimit){document.getElementById('deadlinkLimit').value=savedLimit;}
+
   try{
     var r=await fetch('/api/admin/deadlinks/sources');if(!r.ok)throw 0;
     var d=await r.json();
@@ -958,6 +968,19 @@ async function loadDeadlinkSources(){
     (d.items||[]).forEach(function(s){
       sel.innerHTML+='<option value="'+esc(s.source)+'">'+esc(s.source)+' ('+s.c+')</option>';
     });
+    if(savedSrc){sel.value=savedSrc;}
+  }catch(e){}
+
+  // 加载未检测数量
+  try{
+    var r2=await fetch('/api/admin/deadlinks/unchecked_count');if(!r2.ok)return;
+    var d2=await r2.json();
+    var info=document.getElementById('deadlinkUncheckedInfo');
+    if(info&&d2.total>0){
+      info.textContent='📊 未检测: '+d2.total+' 条';
+    }else if(info){
+      info.textContent='✅ 全部已检测';
+    }
   }catch(e){}
 }
 
@@ -967,11 +990,11 @@ async function scanDeadLinks(){
   var el=document.getElementById('deadlinkResults');
   var statsEl=document.getElementById('deadlinkStats');
 
-  el.innerHTML='<div class="empty"><i class="fas fa-spinner fa-spin"></i> 正在扫描链接，请稍候...</div>';
+  localStorage.setItem('deadlink_source',document.getElementById('deadlinkSource').value);localStorage.setItem('deadlink_limit',document.getElementById('deadlinkLimit').value);el.innerHTML='<div class="empty"><i class="fas fa-spinner fa-spin"></i> 正在扫描链接，请稍候...</div>';
   statsEl.textContent='扫描中...';
 
   try{
-    var body={limit:parseInt(limit),page:_deadPage};
+    var body={limit:parseInt(limit),page:_deadPage,skip_checked:document.getElementById("deadlinkOnlyUnchecked").checked};
     if(src)body.source=src;
     var r=await fetch('/api/admin/deadlinks/scan',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!r.ok)throw new Error('HTTP '+r.status);
