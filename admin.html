@@ -9,9 +9,9 @@
 <style>
 /* ═══════════════ Design System v2 ═══════════════ */
 :root {
-  --bg: #07070f;
-  --bg2: #0c0c18;
-  --bg3: #101020;
+  --bg: #032541;
+  --bg2: #0a1628;
+  --bg3: #0d1f3c;
   --surface: rgba(14,14,30,0.75);
   --surface2: rgba(20,20,42,0.6);
   --surface3: rgba(28,28,55,0.45);
@@ -20,7 +20,7 @@
   --border-h: rgba(140,120,255,0.22);
   --border-focus: rgba(140,120,255,0.45);
   --accent: #8b7fff;
-  --accent2: #6c5cff;
+  --accent2: #01b4e4;
   --accent3: #b49aff;
   --accent4: #d4bfff;
   --glow: rgba(139,127,255,0.12);
@@ -308,7 +308,7 @@ async function loadDashboard(){
     document.getElementById('dTotalFilters').textContent=(d.overview.filter_words||0).toLocaleString();
 
     // Color scheme
-    var colors=['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6','#f97316','#06b6d4'];
+    var colors=['#01b4e4','#01b4e4','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6','#f97316','#06b6d4'];
     var gridColor='rgba(255,255,255,0.06)';
     var textColor='#a1a1aa';
 
@@ -317,7 +317,7 @@ async function loadDashboard(){
       type:'line',
       data:{labels:d.daily_resources.map(function(r){return r.date.substring(5)}),
         datasets:[{label:'新增资源',data:d.daily_resources.map(function(r){return r.count}),
-          borderColor:'#6366f1',backgroundColor:'rgba(99,102,241,0.1)',fill:true,tension:0.3,pointRadius:2}]},
+          borderColor:'#01b4e4',backgroundColor:'rgba(99,102,241,0.1)',fill:true,tension:0.3,pointRadius:2}]},
       options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:textColor},grid:{color:gridColor}},y:{ticks:{color:textColor},grid:{color:gridColor}}}}
     });
 

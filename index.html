@@ -767,6 +767,21 @@ a { color: var(--accent); text-decoration: none; }
   .recommend-header { flex-direction: column; align-items: flex-start; }
   .batch-bar { padding: 0.6rem 0.85rem; flex-wrap: wrap; }
 }
+
+/* 骨架屏 */
+.skeleton { position: relative; overflow: hidden; background: rgba(255,255,255,0.05); border-radius: 8px; }
+.skeleton::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.04), transparent);
+  animation: shimmer 1.5s infinite;
+}
+@keyframes shimmer { 0%{transform:translateX(-100%)} 100%{transform:translateX(100%)} }
+.skeleton-card { height: 280px; border-radius: 12px; }
+.skeleton-line { height: 14px; margin-bottom: 8px; border-radius: 4px; }
+.skeleton-line.w60 { width: 60%; }
+.skeleton-line.w80 { width: 80%; }
+.skeleton-line.w40 { width: 40%; }
+
 </style>
 </head>
 <body>
@@ -964,13 +979,16 @@ async function recordSearch(kw){
 async function toggleFav(rid,el,ev){
   ev.stopPropagation();
   if(!_me||!_me.logged_in){location.href='/login';return}
-  var isFav=el.classList.contains('active');
+  var rid=parseInt(el.closest('.card').dataset.rid);
+  var isFav=_myFavs.has(rid);
   if(isFav){
     await fetch('/api/favorites/'+rid,{method:'DELETE'});
-    el.classList.remove('active');el.innerHTML='<i class="far fa-heart"></i>';
+    _myFavs.delete(rid);
+    el.querySelector('i').className='far fa-heart';el.querySelector('i').style.color='';
   }else{
     await fetch('/api/favorites',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({resource_id:rid})});
-    el.classList.add('active');el.innerHTML='<i class="fas fa-heart"></i>';
+    _myFavs.add(rid);
+    el.querySelector('i').className='fas fa-heart';el.querySelector('i').style.color='#ef4444';
   }
 }
 
@@ -1045,7 +1063,10 @@ async function doSearch(){
 var resultBar=document.getElementById('resultBar');
 async function loadRes(){
   var ld=document.getElementById('loading'),gr=document.getElementById('grid'),em=document.getElementById('empty');
-  ld.style.display='';gr.style.display='none';em.style.display='none';
+  ld.style.display='none';
+    gr.style.display='';
+    gr.innerHTML=Array(8).fill(0).map(function(){return '<div class="skeleton skeleton-card"></div>';}).join('');
+    em.style.display='none';
   resultBar.style.display='none';
   document.getElementById('pagi').innerHTML='';
   document.getElementById('resultInfo').textContent='';
@@ -1061,8 +1082,17 @@ async function loadRes(){
       gr.style.display='none';em.style.display='';
       resultBar.style.display='none';
       document.getElementById('srcSection').classList.remove('show');
-      em.innerHTML='<div class="empty-icon"><i class="fas fa-inbox"></i></div>'+
-        '<div class="empty-title">未找到相关资源</div><div class="empty-sub">换个关键词试试吧</div>';
+      if(d.importing){
+        em.innerHTML='<div class="empty-icon"><i class="fas fa-spinner fa-spin" style="color:var(--accent)"></i></div>'+
+          '<div class="empty-title">正在自动搜索更多资源...</div>'+
+          '<div class="empty-sub">已加入导入队列，请稍候刷新页面查看</div>'+
+          '<button style="margin-top:1rem;padding:0.5rem 1.5rem;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-size:0.85rem"'+
+          ' onclick="setTimeout(function(){loadRes()},5000)"><i class="fas fa-sync"></i> 5秒后刷新</button>';
+        setTimeout(function(){loadRes()},8000);
+      }else{
+        em.innerHTML='<div class="empty-icon"><i class="fas fa-inbox"></i></div>'+
+          '<div class="empty-title">未找到相关资源</div><div class="empty-sub">换个关键词试试吧</div>';
+      }
       return;
     }
     gr.style.display='';em.style.display='none';
@@ -1383,6 +1413,18 @@ document.addEventListener('DOMContentLoaded',function(){
 
 /* ========== Init ========== */
 loadStats();
+var _myFavs=new Set();
+async function loadMyFavs(){
+  try{var r=await fetch('/api/favorites');if(!r.ok)return;
+  var d=await r.json();(d.items||[]).forEach(function(f){_myFavs.add(f.resource_id)});
+  document.querySelectorAll('.card[data-rid]').forEach(function(c){
+    if(_myFavs.has(parseInt(c.dataset.rid))){
+      var btn=c.querySelector('.fav-btn i');
+      if(btn){btn.className='fas fa-heart';btn.style.color='#ef4444';}
+    }
+  });}catch(e){}
+}
+loadMyFavs();
 loadUserInfo();
 loadRecommendations();
 
