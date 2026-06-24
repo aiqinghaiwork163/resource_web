@@ -732,18 +732,12 @@ function switchTab(n){
   });
   if(n==='settings')loadSettings();
   if(n==='queue')loadQueue();
-}
-    t.classList.toggle('active',isActive);
-  });
-  _allTabs.forEach(function(t){
-    var el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
-    if(el)el.style.display=t===n?'':'none';
-  });
   if(n==='users')loadUsers();
   if(n==='res')loadResStats();
-  if(n==='pending'&&!_tabLoaded.pending){_tabLoaded.pending=true;loadPending();}
-  if(n==='logs'&&!_tabLoaded.logs){_tabLoaded.logs=true;loadLogs(1);}
-  if(n==='filter'&&!_tabLoaded.filter){_tabLoaded.filter=true;loadFilterWords(1);}
+  if(n==='pending')loadPending();
+  if(n==='logs')loadLogs(1);
+  if(n==='filter')loadFilterWords(1);
+  if(n==='dashboard')loadDashboard();
 }
 
 /* ========== Load Users ========== */
