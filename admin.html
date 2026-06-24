@@ -365,6 +365,99 @@ window.switchTab=function(tab){
   if(tab==='dashboard')loadDashboard();
 };
 
+
+/* ====== Settings & Queue ====== */
+async function loadSettings(){
+  try{
+    var r=await fetch('/api/admin/settings');if(!r.ok)throw 0;
+    var d=await r.json(),items=d.items||[];
+    var el=document.getElementById('settingsArea');
+    if(!items.length){el.innerHTML='<div class="empty">暂无设置项</div>';return;}
+    el.innerHTML=items.map(function(s){
+      var val=esc(s.value||'');
+      var desc=esc(s.description||s.key);
+      var inputType=s.key.includes('key')||s.key.includes('password')?'password':'text';
+      return '<div style="margin-bottom:0.8rem">'+
+        '<label style="font-size:0.82rem;color:var(--text2);display:block;margin-bottom:0.2rem">'+desc+
+          ' <span style="font-size:0.7rem;color:var(--text4)">('+esc(s.key)+')</span></label>'+
+        '<input type="'+inputType+'" id="setting_'+esc(s.key)+'" value="'+val+'" '+
+          'style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem">'+
+      '</div>';
+    }).join('');
+  }catch(e){document.getElementById('settingsArea').innerHTML='<div class="empty">加载失败</div>';}
+}
+async function saveSettings(){
+  var inputs=document.querySelectorAll('[id^="setting_"]');
+  var data={};
+  inputs.forEach(function(inp){
+    var key=inp.id.replace('setting_','');
+    data[key]=inp.value;
+  });
+  try{
+    var r=await fetch('/api/admin/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
+    var d=await r.json();
+    if(d.ok){document.getElementById('settingsMsg').textContent='✅ 已保存 '+d.updated+' 项';}
+    else{document.getElementById('settingsMsg').textContent='❌ '+(d.error||'保存失败');}
+    setTimeout(function(){document.getElementById('settingsMsg').textContent='';},3000);
+  }catch(e){alert('保存失败: '+e.message);}
+}
+
+async function loadQueue(){
+  var filter=document.getElementById('queueFilter').value;
+  try{
+    var r=await fetch('/api/admin/import_queue'+(filter?'?status='+filter:''));if(!r.ok)throw 0;
+    var d=await r.json(),items=d.items||[];
+    // Stats
+    var pending=0,done=0,failed=0;
+    items.forEach(function(i){
+      if(i.status==='pending')pending++;
+      if(i.status==='done')done++;
+      if(i.status==='failed')failed++;
+    });
+    document.getElementById('qPending').textContent=pending;
+    document.getElementById('qDone').textContent=done;
+    document.getElementById('qFailed').textContent=failed;
+
+    var el=document.getElementById('queueTable');
+    if(!items.length){el.innerHTML='<div class="empty"><i class="fas fa-inbox"></i> 队列为空</div>';return;}
+    var statusColors={pending:'#f59e0b',processing:'#3b82f6',done:'#10b981',ef4444:'#ef4444'};
+    el.innerHTML='<table style="width:100%;font-size:0.82rem"><thead><tr>'+
+      '<th style="text-align:left;padding:0.4rem">ID</th>'+
+      '<th style="text-align:left;padding:0.4rem">关键词</th>'+
+      '<th style="text-align:left;padding:0.4rem">状态</th>'+
+      '<th style="text-align:left;padding:0.4rem">结果数</th>'+
+      '<th style="text-align:left;padding:0.4rem">时间</th>'+
+      '<th style="text-align:left;padding:0.4rem">操作</th>'+
+      '</tr></thead><tbody>'+
+      items.map(function(i){
+        var sc=statusColors[i.status]||'#888';
+        return '<tr style="border-top:1px solid var(--border)">'+
+          '<td style="padding:0.4rem">'+i.id+'</td>'+
+          '<td style="padding:0.4rem;font-weight:500">'+esc(i.keyword)+'</td>'+
+          '<td style="padding:0.4rem"><span style="color:'+sc+'">'+i.status+'</span></td>'+
+          '<td style="padding:0.4rem">'+(i.result_count||0)+'</td>'+
+          '<td style="padding:0.4rem;color:var(--text3)">'+(i.created_at||'').substring(0,16)+'</td>'+
+          '<td style="padding:0.4rem">'+(i.status==='failed'?'<button class="btn btn-s" style="font-size:0.72rem;padding:0.2rem 0.5rem" onclick="retryQueue(['+i.id+'])">重试</button>':'')+'</td>'+
+        '</tr>';
+      }).join('')+'</tbody></table>';
+  }catch(e){document.getElementById('queueTable').innerHTML='<div class="empty">加载失败</div>';}
+}
+async function processQueue(){
+  try{
+    var r=await fetch('/api/admin/process_queue',{method:'POST'});
+    var d=await r.json();
+    alert('处理完成: '+d.processed+' 个任务');
+    loadQueue();
+  }catch(e){alert('处理失败: '+e.message);}
+}
+async function retryQueue(ids){
+  try{
+    var r=await fetch('/api/admin/import_queue/retry',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:ids})});
+    var d=await r.json();
+    if(d.ok)loadQueue();
+  }catch(e){alert('重试失败');}
+}
+
 </script>
 </head>
 <body>
@@ -393,6 +486,8 @@ window.switchTab=function(tab){
     <button class="tab" onclick="switchTab('logs')"><i class="fas fa-history"></i> 操作日志</button>
     <button class="tab" onclick="switchTab('filter')"><i class="fas fa-shield-alt"></i> 过滤词</button>
     <button class="tab" onclick="switchTab('dashboard')"><i class="fas fa-chart-bar"></i> 数据统计</button>
+    <button class="tab" onclick="switchTab('settings')"><i class="fas fa-cogs"></i> 系统设置</button>
+    <button class="tab" onclick="switchTab('queue')"><i class="fas fa-tasks"></i> 导入队列</button>
   </div>
 
   <!-- Users Tab -->
@@ -502,6 +597,44 @@ window.switchTab=function(tab){
   </div>
 
   <!-- Filter Words Tab -->
+
+  <!-- Settings Tab -->
+  <div id="tabSettings" style="display:none">
+    <div class="card">
+      <h2><i class="fas fa-cogs"></i> 系统设置</h2>
+      <div id="settingsArea"><div class="empty"><i class="fas fa-spinner fa-spin"></i> 加载中...</div></div>
+      <div style="margin-top:1rem;display:flex;gap:0.5rem">
+        <button class="btn btn-p" onclick="saveSettings()"><i class="fas fa-save"></i> 保存设置</button>
+        <span id="settingsMsg" style="font-size:0.82rem;color:var(--ok);align-self:center"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Queue Tab -->
+  <div id="tabQueue" style="display:none">
+    <div class="card">
+      <h2><i class="fas fa-tasks"></i> 自动导入队列
+        <button class="btn btn-p" onclick="processQueue()" style="margin-left:auto;font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-play"></i> 处理队列</button>
+        <button class="btn btn-s" onclick="loadQueue()" style="font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-sync"></i> 刷新</button>
+      </h2>
+      <div class="sgrid">
+        <div class="sbox"><div class="num" id="qPending">0</div><div class="lbl">待处理</div></div>
+        <div class="sbox"><div class="num" id="qDone">0</div><div class="lbl">已完成</div></div>
+        <div class="sbox"><div class="num" id="qFailed">0</div><div class="lbl">失败</div></div>
+      </div>
+      <div class="fbar">
+        <select id="queueFilter" onchange="loadQueue()">
+          <option value="">全部</option>
+          <option value="pending">待处理</option>
+          <option value="processing">处理中</option>
+          <option value="done">已完成</option>
+          <option value="failed">失败</option>
+        </select>
+      </div>
+      <div class="tw"><div id="queueTable"><div class="empty"><i class="fas fa-inbox"></i> 队列为空</div></div></div>
+    </div>
+  </div>
+
   <div id="tabFilter" style="display:none">
     <div class="card">
       <h2><i class="fas fa-shield-alt"></i> 过滤词管理</h2>
@@ -590,9 +723,16 @@ var _tabLabels={'users':'用户','res':'资源','pending':'待导入','logs':'�
 var _tabLoaded={users:false,res:false,pending:false,logs:false,filter:false};
 
 function switchTab(n){
-  document.querySelectorAll('.tab').forEach(function(t){
-    var isActive=false;
-    for(var k in _tabLabels){if(n===k && t.textContent.includes(_tabLabels[k]))isActive=true;}
+  ['users','res','pending','logs','filter','dashboard','settings','queue'].forEach(function(t){
+    var el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
+    if(el)el.style.display=t===n?'':'none';
+  });
+  document.querySelectorAll('.tab').forEach(function(b){
+    b.classList.toggle('active',b.getAttribute('onclick').indexOf("'"+n+"'")>=0);
+  });
+  if(n==='settings')loadSettings();
+  if(n==='queue')loadQueue();
+}
     t.classList.toggle('active',isActive);
   });
   _allTabs.forEach(function(t){

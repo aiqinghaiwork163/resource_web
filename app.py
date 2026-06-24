@@ -18,6 +18,74 @@ from flask import Flask, jsonify, request, send_from_directory, session, redirec
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
+import gzip
+import io
+from functools import wraps
+
+# ==================== Gzip 压缩 ====================
+@app.after_request
+def add_gzip(response):
+    """对 JSON/HTML/CSS/JS 响应启用 gzip 压缩"""
+    if response.status_code != 200:
+        return response
+    accept = request.headers.get("Accept-Encoding", "")
+    if "gzip" not in accept:
+        return response
+    ct = response.content_type or ""
+    if not any(t in ct for t in ["json", "html", "javascript", "css", "text"]):
+        return response
+    data = response.get_data()
+    if len(data) < 500:
+        return response
+    buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=buf, mode="wb", compresslevel=6) as f:
+        f.write(data)
+    response.set_data(buf.getvalue())
+    response.headers["Content-Encoding"] = "gzip"
+    response.headers["Content-Length"] = len(response.get_data())
+    response.headers["Vary"] = "Accept-Encoding"
+    return response
+
+
+# ==================== 图片代理缓存 ====================
+import hashlib
+_img_cache = {}  # url -> (data, content_type, expire)
+
+@app.route("/api/img_proxy")
+def img_proxy():
+    """代理 TMDB 图片，本地内存缓存 24 小时"""
+    url = request.args.get("url", "")
+    if not url or "tmdb.org" not in url:
+        return "", 400
+    now = time.time()
+    if url in _img_cache:
+        data, ct, expire = _img_cache[url]
+        if now < expire:
+            return data, 200, {"Content-Type": ct, "Cache-Control": "public, max-age=86400"}
+    try:
+        import requests as _req
+        r = _req.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        if r.status_code == 200:
+            ct = r.headers.get("Content-Type", "image/jpeg")
+            _img_cache[url] = (r.content, ct, now + 86400)
+            return r.content, 200, {"Content-Type": ct, "Cache-Control": "public, max-age=86400"}
+    except Exception:
+        pass
+    return "", 404
+
+
+# ==================== 静态文件长缓存 ====================
+@app.after_request
+def cache_static(response):
+    """静态文件设置长缓存"""
+    if request.path.startswith("/api/") or request.path.startswith("/login"):
+        return response
+    if response.status_code == 200 and not response.headers.get("Cache-Control"):
+        response.headers["Cache-Control"] = "public, max-age=300"
+    return response
+
+
+
 # ==================== 配置 ====================
 DB_CONFIG = {
     "host": os.environ.get("DB_HOST", "172.23.0.2"),
@@ -275,6 +343,7 @@ def api_resources():
             "page": page,
             "per_page": per_page,
             "total_pages": total_pages,
+            "importing": _auto_import_trigger(query) if total == 0 and query else False,
         })
     finally:
         db.close()
@@ -970,7 +1039,7 @@ def api_resource_detail(rid):
 @app.route("/api/tmdb/trending")
 def api_tmdb_trending():
     """TMDB 热门排行（绕GFW直连）"""
-    import socket, ssl as _ssl, json as _json
+    import socket, ssl as _ssl, json as _json, urllib.parse
     media = request.args.get("media", "all")  # all/movie/tv
     time_window = request.args.get("time", "week")  # day/week
     page = min(int(request.args.get("page", 1)), 10)
@@ -1017,8 +1086,8 @@ def api_tmdb_trending():
             items.append({
                 "title": it.get("title") or it.get("name") or "",
                 "overview": (it.get("overview") or "")[:200],
-                "poster": ("https://image.tmdb.org/t/p/w500" + it["poster_path"]) if it.get("poster_path") else "",
-                "backdrop": ("https://image.tmdb.org/t/p/w780" + it["backdrop_path"]) if it.get("backdrop_path") else "",
+                "poster": ("/api/img_proxy?url=" + urllib.parse.quote("https://image.tmdb.org/t/p/w500" + it["poster_path"])) if it.get("poster_path") else "",
+                "backdrop": ("/api/img_proxy?url=" + urllib.parse.quote("https://image.tmdb.org/t/p/w780" + it["backdrop_path"])) if it.get("backdrop_path") else "",
                 "rating": round(it.get("vote_average", 0), 1),
                 "media_type": it.get("media_type", ""),
                 "year": (it.get("release_date") or it.get("first_air_date") or "")[:4],
@@ -1314,6 +1383,357 @@ def api_docs():
         docs.append(doc)
     docs.sort(key=lambda d: d["path"])
     return jsonify({"docs": docs, "total": len(docs)})
+
+
+
+# ==================== 后台管理增强 API ====================
+
+# ── 系统设置 ──
+@app.route("/api/admin/settings")
+@admin_required
+def api_admin_settings():
+    """获取所有系统设置"""
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("SELECT `key`, value, description, updated_at FROM settings ORDER BY `key`")
+        items = cur.fetchall()
+        for i in items:
+            i["updated_at"] = str(i["updated_at"]) if i.get("updated_at") else ""
+        return jsonify({"items": items})
+    finally:
+        db.close()
+
+
+@app.route("/api/admin/settings", methods=["POST"])
+@admin_required
+def api_admin_settings_update():
+    """更新系统设置"""
+    data = request.get_json() or {}
+    db = get_db()
+    try:
+        cur = db.cursor()
+        updated = 0
+        for k, v in data.items():
+            cur.execute(
+                "UPDATE settings SET value=%s WHERE `key`=%s",
+                (str(v), k)
+            )
+            updated += cur.rowcount
+        db.commit()
+        # 清除相关缓存
+        for k in list(_cache.keys()):
+            if "/api/" in k:
+                del _cache[k]
+        return jsonify({"ok": True, "updated": updated})
+    finally:
+        db.close()
+
+
+# ── 资源批量操作 ──
+@app.route("/api/admin/resources/batch", methods=["POST"])
+@admin_required
+def api_admin_resources_batch():
+    """批量操作资源: delete/export/update_quality/update_type"""
+    data = request.get_json() or {}
+    action = data.get("action", "")
+    ids = data.get("ids", [])
+    keyword = data.get("keyword", "")
+    
+    if not ids and not keyword:
+        return jsonify({"error": "请选择资源或指定关键词"}), 400
+
+    db = get_db()
+    try:
+        cur = db.cursor()
+        
+        if keyword:
+            where = "WHERE keyword = %s"
+            params = [keyword]
+        else:
+            placeholders = ",".join(["%s"] * len(ids))
+            where = f"WHERE id IN ({placeholders})"
+            params = ids
+
+        if action == "delete":
+            cur.execute(f"DELETE FROM resources {where}", params)
+            db.commit()
+            return jsonify({"ok": True, "affected": cur.rowcount})
+
+        elif action == "export":
+            cur.execute(
+                f"SELECT id, title, note, source, url, quality, type, password, keyword "
+                f"FROM resources {where} ORDER BY created_at DESC LIMIT 5000",
+                params
+            )
+            items = cur.fetchall()
+            lines = []
+            for it in items:
+                title = it.get("title") or it.get("note") or ""
+                lines.append(f"{title}	{it.get('source','')}	{it.get('url','')}	{it.get('password','')}")
+            return jsonify({"ok": True, "data": "\n".join(lines), "count": len(items)})
+
+        elif action == "update_quality":
+            quality = data.get("value", "")
+            cur.execute(f"UPDATE resources SET quality = %s {where}", [quality] + params)
+            db.commit()
+            return jsonify({"ok": True, "affected": cur.rowcount})
+
+        elif action == "update_type":
+            rtype = data.get("value", "")
+            cur.execute(f"UPDATE resources SET type = %s {where}", [rtype] + params)
+            db.commit()
+            return jsonify({"ok": True, "affected": cur.rowcount})
+
+        return jsonify({"error": f"未知操作: {action}"}), 400
+    finally:
+        db.close()
+
+
+# ── 资源列表（后台增强版） ──
+@app.route("/api/admin/resources")
+@admin_required
+def api_admin_resources():
+    """后台资源列表，支持搜索/排序/分页"""
+    page = max(int(request.args.get("page", 1)), 1)
+    per_page = min(int(request.args.get("per_page", 50)), 200)
+    q = request.args.get("q", "").strip()
+    source = request.args.get("source", "")
+    rtype = request.args.get("type", "")
+    quality = request.args.get("quality", "")
+    sort = request.args.get("sort", "created_at")
+    order = request.args.get("order", "desc")
+
+    offset = (page - 1) * per_page
+    db = get_db()
+    try:
+        cur = db.cursor()
+        conditions, params = [], []
+        if q:
+            conditions.append("(title LIKE %s OR note LIKE %s OR keyword LIKE %s)")
+            params.extend([f"%{q}%"] * 3)
+        if source:
+            conditions.append("source = %s")
+            params.append(source)
+        if rtype:
+            conditions.append("type = %s")
+            params.append(rtype)
+        if quality:
+            conditions.append("quality = %s")
+            params.append(quality)
+
+        where = ("WHERE " + " AND ".join(conditions)) if conditions else ""
+        allowed_sorts = {"created_at", "id", "title", "source", "quality", "type", "click_count"}
+        if sort not in allowed_sorts:
+            sort = "created_at"
+        order_dir = "DESC" if order == "desc" else "ASC"
+
+        cur.execute(f"SELECT COUNT(*) as total FROM resources {where}", params)
+        total = cur.fetchone()["total"]
+
+        cur.execute(
+            f"SELECT id, title, note, source, url, quality, type, year, keyword, "
+            f"click_count, created_at FROM resources {where} "
+            f"ORDER BY {sort} {order_dir} LIMIT %s OFFSET %s",
+            params + [per_page, offset]
+        )
+        items = cur.fetchall()
+        for i in items:
+            i["created_at"] = str(i["created_at"]) if i.get("created_at") else ""
+
+        # 统计信息
+        cur.execute("SELECT COUNT(*) as c FROM resources")
+        total_all = cur.fetchone()["c"]
+        cur.execute("SELECT COUNT(DISTINCT source) as c FROM resources")
+        source_count = cur.fetchone()["c"]
+        cur.execute("SELECT COUNT(DISTINCT keyword) as c FROM resources")
+        kw_count = cur.fetchone()["c"]
+
+        return jsonify({
+            "items": items, "total": total, "page": page, "per_page": per_page,
+            "total_pages": max(1, (total + per_page - 1) // per_page),
+            "stats": {"total_all": total_all, "source_count": source_count, "keyword_count": kw_count}
+        })
+    finally:
+        db.close()
+
+
+# ── 自动导入队列 ──
+@app.route("/api/admin/import_queue")
+@admin_required
+def api_admin_import_queue():
+    """获取自动导入队列"""
+    status = request.args.get("status", "")
+    db = get_db()
+    try:
+        cur = db.cursor()
+        if status:
+            cur.execute(
+                "SELECT * FROM import_queue WHERE status = %s ORDER BY created_at DESC LIMIT 100",
+                (status,)
+            )
+        else:
+            cur.execute("SELECT * FROM import_queue ORDER BY created_at DESC LIMIT 100")
+        items = cur.fetchall()
+        for i in items:
+            i["created_at"] = str(i["created_at"]) if i.get("created_at") else ""
+            i["updated_at"] = str(i["updated_at"]) if i.get("updated_at") else ""
+        return jsonify({"items": items, "total": len(items)})
+    finally:
+        db.close()
+
+
+@app.route("/api/admin/import_queue/retry", methods=["POST"])
+@admin_required
+def api_admin_import_retry():
+    """重试失败的导入任务"""
+    data = request.get_json() or {}
+    ids = data.get("ids", [])
+    if not ids:
+        return jsonify({"error": "请选择任务"}), 400
+    db = get_db()
+    try:
+        cur = db.cursor()
+        placeholders = ",".join(["%s"] * len(ids))
+        cur.execute(
+            f"UPDATE import_queue SET status='pending', error_msg=NULL WHERE id IN ({placeholders}) AND status='failed'",
+            ids
+        )
+        db.commit()
+        return jsonify({"ok": True, "reset": cur.rowcount})
+    finally:
+        db.close()
+
+
+# ── 自动导入逻辑（搜索0结果时自动触发） ──
+def _auto_import_trigger(keyword):
+    """当搜索无结果时，自动加入导入队列"""
+    try:
+        db = get_db()
+        cur = db.cursor()
+        # 检查是否已在队列中
+        cur.execute(
+            "SELECT id, status FROM import_queue WHERE keyword = %s AND status IN ('pending','processing')",
+            (keyword,)
+        )
+        if cur.fetchone():
+            db.close()
+            return False
+        # 检查自动导入是否开启
+        cur.execute("SELECT value FROM settings WHERE `key`='auto_import_enabled'")
+        row = cur.fetchone()
+        if not row or row["value"] != "1":
+            db.close()
+            return False
+        # 加入队列
+        cur.execute(
+            "INSERT INTO import_queue (keyword, status) VALUES (%s, 'pending')",
+            (keyword,)
+        )
+        db.commit()
+        db.close()
+        return True
+    except Exception:
+        return False
+
+
+# ── 用户端：检查导入状态 ──
+@app.route("/api/import_status")
+def api_import_status():
+    """用户搜索后检查是否有自动导入进行中"""
+    keyword = request.args.get("q", "").strip()
+    if not keyword:
+        return jsonify({"importing": False})
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "SELECT status, result_count, created_at FROM import_queue "
+            "WHERE keyword = %s ORDER BY created_at DESC LIMIT 1",
+            (keyword,)
+        )
+        row = cur.fetchone()
+        if not row:
+            return jsonify({"importing": False})
+        return jsonify({
+            "importing": row["status"] in ("pending", "processing"),
+            "status": row["status"],
+            "result_count": row.get("result_count", 0),
+            "created_at": str(row["created_at"]) if row.get("created_at") else ""
+        })
+    finally:
+        db.close()
+
+
+# ── 后台：手动触发导入队列处理 ──
+@app.route("/api/admin/process_queue", methods=["POST"])
+@admin_required
+def api_admin_process_queue():
+    """手动触发处理导入队列"""
+    import requests as http_requests
+    API_URL = None
+    db = get_db()
+    try:
+        cur = db.cursor()
+        # 获取API地址
+        cur.execute("SELECT value FROM settings WHERE `key`='import_api_url'")
+        row = cur.fetchone()
+        API_URL = row["value"] if row else "https://ps.aiqinghaiwork.cn/api/search"
+        
+        cur.execute("SELECT value FROM settings WHERE `key`='import_api_limit'")
+        row = cur.fetchone()
+        limit = int(row["value"]) if row else 30
+
+        # 获取待处理任务
+        cur.execute("SELECT * FROM import_queue WHERE status = 'pending' ORDER BY created_at LIMIT 10")
+        tasks = cur.fetchall()
+        
+        processed = 0
+        for task in tasks:
+            kw = task["keyword"]
+            try:
+                cur.execute("UPDATE import_queue SET status='processing' WHERE id=%s", (task["id"],))
+                db.commit()
+                
+                resp = http_requests.post(API_URL, json={"kw": kw, "limit": limit}, timeout=60)
+                api_data = resp.json()
+                if api_data.get("code") != 0:
+                    cur.execute("UPDATE import_queue SET status='failed', error_msg=%s WHERE id=%s",
+                               (api_data.get("msg", "API错误"), task["id"]))
+                    db.commit()
+                    continue
+
+                merged = api_data["data"].get("merged_by_type", {})
+                imported = 0
+                for source, items in merged.items():
+                    for item in items:
+                        cur.execute("""INSERT IGNORE INTO resources
+                            (keyword, source, url, title, note, password, datetime, quality, type, year, created_at)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
+                            (kw, source, item.get("url", ""), item.get("note", "") or item.get("title", ""),
+                             item.get("note", ""), item.get("password", ""), item.get("datetime", ""), "", "", 0))
+                        imported += 1
+                
+                cur.execute("UPDATE import_queue SET status='done', result_count=%s WHERE id=%s",
+                           (imported, task["id"]))
+                # 同时标记search_logs
+                cur.execute("UPDATE search_logs SET is_imported=1 WHERE keyword=%s", (kw,))
+                db.commit()
+                processed += 1
+            except Exception as e:
+                cur.execute("UPDATE import_queue SET status='failed', error_msg=%s WHERE id=%s",
+                           (str(e)[:200], task["id"]))
+                db.commit()
+        
+        # 清除缓存
+        for k in list(_cache.keys()):
+            if "/api/" in k:
+                del _cache[k]
+        
+        return jsonify({"ok": True, "processed": processed, "total_pending": len(tasks)})
+    finally:
+        db.close()
+
 
 # ==================== API Docs Page ====================
 
