@@ -1100,13 +1100,19 @@ async function loadRes(){
       gr.style.display='none';em.style.display='';
       resultBar.style.display='none';
       document.getElementById('srcSection').classList.remove('show');
-      if(d.importing){
+      if(d.importing==='exhausted'){
+        em.innerHTML='<div class="empty-icon"><i class="fas fa-satellite-dish" style="color:#f59e0b"></i></div>'+
+          '<div class="empty-title">暂时没有收录该资源</div>'+
+          '<div class="empty-sub">已搜索多个数据源均未找到，期待后续更新</div>'+
+          '<button style="margin-top:1rem;padding:0.5rem 1.5rem;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);cursor:pointer;font-size:0.85rem"'+
+          ' onclick="loadRes()"><i class="fas fa-redo"></i> 重新搜索</button>';
+      }else if(d.importing){
         em.innerHTML='<div class="empty-icon"><i class="fas fa-spinner fa-spin" style="color:var(--accent)"></i></div>'+
           '<div class="empty-title">正在自动搜索更多资源...</div>'+
-          '<div class="empty-sub">已加入导入队列，请稍候刷新页面查看</div>'+
+          '<div class="empty-sub">已加入导入队列，正在并发搜索多个数据源</div>'+
           '<button style="margin-top:1rem;padding:0.5rem 1.5rem;border-radius:8px;border:1px solid var(--accent);background:transparent;color:var(--accent);cursor:pointer;font-size:0.85rem"'+
-          ' onclick="setTimeout(function(){loadRes()},5000)"><i class="fas fa-sync"></i> 5秒后刷新</button>';
-        setTimeout(function(){loadRes()},8000);
+          ' onclick="loadRes()"><i class="fas fa-sync"></i> 刷新查看</button>';
+        setTimeout(function(){loadRes()},10000);
       }else{
         em.innerHTML='<div class="empty-icon"><i class="fas fa-inbox"></i></div>'+
           '<div class="empty-title">未找到相关资源</div><div class="empty-sub">换个关键词试试吧</div>';

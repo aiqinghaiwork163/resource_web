@@ -1658,18 +1658,27 @@ def api_admin_import_retry():
 
 # ── 自动导入逻辑（搜索0结果时自动触发并处理） ──
 def _auto_import_trigger(keyword):
-    """当搜索无结果时，自动加入队列并立即后台处理"""
+    """当搜索无结果时，自动加入队列并立即后台处理。返回值: True=导入中, 'exhausted'=已尝试过无结果, False=不触发"""
     try:
         db = get_db()
         cur = db.cursor()
-        # 检查是否已在队列中
+        # 检查是否已在队列中（正在处理）
         cur.execute(
             "SELECT id, status FROM import_queue WHERE keyword = %s AND status IN ('pending','processing')",
             (keyword,)
         )
         if cur.fetchone():
             db.close()
-            return False
+            return True  # 正在处理中
+        # 检查之前是否已经导入过（2次以上且全部0结果）
+        cur.execute(
+            "SELECT COUNT(*) as cnt, SUM(result_count) as total FROM import_queue WHERE keyword = %s AND status = 'done'",
+            (keyword,)
+        )
+        row = cur.fetchone()
+        if row and row["cnt"] >= 2 and (row["total"] or 0) == 0:
+            db.close()
+            return "exhausted"  # 已尝试多次，没有资源
         # 检查自动导入是否开启
         cur.execute("SELECT value FROM settings WHERE `key`='auto_import_enabled'")
         row = cur.fetchone()
