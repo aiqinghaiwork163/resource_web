@@ -551,14 +551,22 @@ async function loadUserInfo(){
   }catch(e){}
 }
 
-function recordSearch(kw){
-  if(!kw)return;
-  // 记录到搜索日志（所有用户，含未登录）
-  fetch('/api/search_log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword:kw})});
-  // 登录用户额外记录到个人搜索历史
-  if(_me&&_me.logged_in){
-    fetch('/api/search_history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword:kw})});
-  }
+async function recordSearch(kw){
+  if(!kw)return true;
+  try{
+    var r=await fetch('/api/search_log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword:kw})});
+    var d=await r.json();
+    if(d.blocked){
+      var el=document.getElementById('inputWrap');
+      if(el)el.style.borderColor='var(--err)';
+      return false;
+    }
+    // 登录用户记录个人搜索历史
+    if(_me&&_me.logged_in){
+      fetch('/api/search_history',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword:kw})});
+    }
+  }catch(e){}
+  return true;
 }
 
 async function toggleFav(rid,el,ev){
@@ -619,10 +627,15 @@ function changePerPage(){
 }
 
 /* ========== Search ========== */
-function doSearch(){
+async function doSearch(){
   curKw=document.getElementById('searchInput').value.trim();
+  if(!curKw)return;
   curPage=1;curSrc='';
-  recordSearch(curKw);
+  // 还原输入框样式
+  var iw=document.getElementById('inputWrap');
+  if(iw)iw.style.borderColor='';
+  var ok=await recordSearch(curKw);
+  if(!ok)return;
   document.querySelectorAll('.stag').forEach(function(t){t.classList.remove('active')});
   var f=document.querySelector('.stag');if(f)f.classList.add('active');
   loadRes();loadSrcTags(curKw);
