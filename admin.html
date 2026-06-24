@@ -298,65 +298,78 @@ var _dashLoaded=false;
 async function loadDashboard(){
   if(_dashLoaded)return;
   try{
-    var r=await fetch('/api/admin/stats/dashboard');if(!r.ok)throw 0;
+    var r=await fetch('/api/admin/stats/dashboard');
+    if(!r.ok){
+      var err=await r.json().catch(function(){return {error:'HTTP '+r.status}});
+      document.getElementById('dTotalRes').textContent='错误: '+(err.error||r.status);
+      return;
+    }
     var d=await r.json();
     _dashLoaded=true;
     // Overview
-    document.getElementById('dTotalRes').textContent=(d.overview.resources||0).toLocaleString();
-    document.getElementById('dTotalUsers').textContent=(d.overview.users||0).toLocaleString();
-    document.getElementById('dTotalSearches').textContent=(d.overview.search_logs||0).toLocaleString();
-    document.getElementById('dTotalFavs').textContent=(d.overview.favorites||0).toLocaleString();
-    document.getElementById('dTotalFilters').textContent=(d.overview.filter_words||0).toLocaleString();
-
-    // Color scheme
-    var colors=['#01b4e4','#01b4e4','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6','#f97316','#06b6d4'];
+    var ov=d.overview||{};
+    document.getElementById('dTotalRes').textContent=(ov.resources||0).toLocaleString();
+    document.getElementById('dTotalUsers').textContent=(ov.users||0).toLocaleString();
+    document.getElementById('dTotalSearches').textContent=(ov.search_logs||0).toLocaleString();
+    document.getElementById('dTotalFavs').textContent=(ov.favorites||0).toLocaleString();
+    document.getElementById('dTotalFilter').textContent=(ov.filter_words||0).toLocaleString();
+    // Charts
     var gridColor='rgba(255,255,255,0.06)';
-    var textColor='#a1a1aa';
-
+    var textColor='#999';
     // Daily Resources
-    new Chart(document.getElementById('chartDailyRes'),{
-      type:'line',
-      data:{labels:d.daily_resources.map(function(r){return r.date.substring(5)}),
-        datasets:[{label:'新增资源',data:d.daily_resources.map(function(r){return r.count}),
-          borderColor:'#01b4e4',backgroundColor:'rgba(99,102,241,0.1)',fill:true,tension:0.3,pointRadius:2}]},
-      options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:textColor},grid:{color:gridColor}},y:{ticks:{color:textColor},grid:{color:gridColor}}}}
-    });
-
+    var dr=d.daily_resources||[];
+    if(dr.length&&document.getElementById('chartDailyRes')){
+      new Chart(document.getElementById('chartDailyRes'),{
+        type:'line',
+        data:{labels:dr.map(function(r){return r.date.substring(5)}),
+          datasets:[{label:'新增资源',data:dr.map(function(r){return r.count}),
+            borderColor:'#01b4e4',backgroundColor:'rgba(1,180,228,0.1)',fill:true,tension:0.3,pointRadius:2}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:textColor},grid:{color:gridColor}},y:{ticks:{color:textColor},grid:{color:gridColor}}}}
+      });
+    }
     // Daily Searches
-    new Chart(document.getElementById('chartDailySearch'),{
-      type:'line',
-      data:{labels:d.daily_searches.map(function(r){return r.date.substring(5)}),
-        datasets:[{label:'搜索次数',data:d.daily_searches.map(function(r){return r.count}),
-          borderColor:'#ec4899',backgroundColor:'rgba(236,72,153,0.1)',fill:true,tension:0.3,pointRadius:2}]},
-      options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:textColor},grid:{color:gridColor}},y:{ticks:{color:textColor},grid:{color:gridColor}}}}
-    });
-
+    var ds=d.daily_searches||[];
+    if(ds.length&&document.getElementById('chartDailySearch')){
+      new Chart(document.getElementById('chartDailySearch'),{
+        type:'line',
+        data:{labels:ds.map(function(r){return r.date.substring(5)}),
+          datasets:[{label:'搜索次数',data:ds.map(function(r){return r.count}),
+            borderColor:'#21d07a',backgroundColor:'rgba(33,208,122,0.1)',fill:true,tension:0.3,pointRadius:2}]},
+        options:{responsive:true,plugins:{legend:{display:false}},scales:{x:{ticks:{color:textColor},grid:{color:gridColor}},y:{ticks:{color:textColor},grid:{color:gridColor}}}}
+      });
+    }
     // Type Distribution
-    new Chart(document.getElementById('chartType'),{
-      type:'doughnut',
-      data:{labels:d.type_dist.map(function(r){return r.type}),
-        datasets:[{data:d.type_dist.map(function(r){return r.count}),backgroundColor:colors}]},
-      options:{responsive:true,plugins:{legend:{position:'right',labels:{color:textColor,font:{size:11}}}}}
-    });
-
+    var td=d.type_dist||[];
+    if(td.length&&document.getElementById('chartType')){
+      new Chart(document.getElementById('chartType'),{
+        type:'doughnut',
+        data:{labels:td.map(function(r){return r.type||'未知'}),
+          datasets:[{data:td.map(function(r){return r.count}),backgroundColor:['#01b4e4','#21d07a','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6']}]},
+        options:{responsive:true,plugins:{legend:{position:'right',labels:{color:textColor,font:{size:11}}}}}
+      });
+    }
     // Source Distribution
-    new Chart(document.getElementById('chartSource'),{
-      type:'doughnut',
-      data:{labels:d.source_dist.map(function(r){return r.source}),
-        datasets:[{data:d.source_dist.map(function(r){return r.count}),backgroundColor:colors}]},
-      options:{responsive:true,plugins:{legend:{position:'right',labels:{color:textColor,font:{size:11}}}}}
-    });
-
+    var sd=d.source_dist||[];
+    if(sd.length&&document.getElementById('chartSource')){
+      new Chart(document.getElementById('chartSource'),{
+        type:'doughnut',
+        data:{labels:sd.map(function(r){return r.source}),
+          datasets:[{data:sd.map(function(r){return r.count}),backgroundColor:['#01b4e4','#21d07a','#f59e0b','#ef4444','#8b5cf6','#ec4899','#14b8a6','#6366f1','#f97316','#06b6d4']}]},
+        options:{responsive:true,plugins:{legend:{position:'right',labels:{color:textColor,font:{size:11}}}}}
+      });
+    }
     // Top Searches
-    new Chart(document.getElementById('chartTopSearch'),{
-      type:'bar',
-      data:{labels:d.top_searches.map(function(r){return r.keyword}),
-        datasets:[{label:'搜索次数',data:d.top_searches.map(function(r){return r.count}),
-          backgroundColor:colors.slice(0,20),borderRadius:4}]},
-      options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},
-        scales:{x:{ticks:{color:textColor},grid:{color:gridColor}},y:{ticks:{color:textColor,font:{size:11}},grid:{display:false}}}}
-    });
-  }catch(e){console.error('Dashboard error:',e)}
+    var ts=d.top_searches||[];
+    var tsEl=document.getElementById('topSearches');
+    if(tsEl&&ts.length){
+      tsEl.innerHTML=ts.map(function(r,i){
+        return '<div style="display:flex;align-items:center;gap:0.5rem;padding:0.4rem 0;border-bottom:1px solid rgba(255,255,255,0.05)">'+
+          '<span style="color:#01b4e4;font-weight:600;width:24px">'+(i+1)+'</span>'+
+          '<span style="flex:1">'+esc(r.keyword)+'</span>'+
+          '<span style="color:#999;font-size:0.82rem">'+r.cnt+'次</span></div>';
+      }).join('');
+    }
+  }catch(e){console.error('loadDashboard error:',e);document.getElementById('dTotalRes').textContent='加载失败';}
 }
 
 // Hook into switchTab
@@ -369,23 +382,29 @@ window.switchTab=function(tab){
 
 /* ====== Settings & Queue ====== */
 async function loadSettings(){
+  var el=document.getElementById('settingsArea');
+  el.innerHTML='<div class="empty"><i class="fas fa-spinner fa-spin"></i> 加载中...</div>';
   try{
-    var r=await fetch('/api/admin/settings');if(!r.ok)throw 0;
+    var r=await fetch('/api/admin/settings');
+    if(!r.ok){
+      var err=await r.json().catch(function(){return{error:'HTTP '+r.status}});
+      el.innerHTML='<div class="empty" style="color:#ef4444"><i class="fas fa-exclamation-triangle"></i> 加载失败: '+(err.error||r.status)+'</div>';
+      return;
+    }
     var d=await r.json(),items=d.items||[];
-    var el=document.getElementById('settingsArea');
     if(!items.length){el.innerHTML='<div class="empty">暂无设置项</div>';return;}
     el.innerHTML=items.map(function(s){
       var val=esc(s.value||'');
       var desc=esc(s.description||s.key);
-      var inputType=s.key.includes('key')||s.key.includes('password')?'password':'text';
+      var inputType=(s.key.includes('key')||s.key.includes('password'))?'password':'text';
       return '<div style="margin-bottom:0.8rem">'+
-        '<label style="font-size:0.82rem;color:var(--text2);display:block;margin-bottom:0.2rem">'+desc+
-          ' <span style="font-size:0.7rem;color:var(--text4)">('+esc(s.key)+')</span></label>'+
+        '<label style="font-size:0.82rem;color:#999;display:block;margin-bottom:0.2rem">'+desc+
+          ' <span style="font-size:0.7rem;color:#666">('+esc(s.key)+')</span></label>'+
         '<input type="'+inputType+'" id="setting_'+esc(s.key)+'" value="'+val+'" '+
-          'style="width:100%;padding:0.5rem;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text);font-size:0.85rem">'+
+          'style="width:100%;padding:0.5rem;border:1px solid #1a3a5c;border-radius:6px;background:#0a1628;color:#fff;font-size:0.85rem">'+
       '</div>';
     }).join('');
-  }catch(e){console.error('loadSettings error:', e);document.getElementById('settingsArea').innerHTML='<div class="empty">加载失败: '+e+'</div>';}
+  }catch(e){console.error('loadSettings error:',e);el.innerHTML='<div class="empty" style="color:#ef4444">加载失败: '+e.message+'</div>';}
 }
 async function saveSettings(){
   var inputs=document.querySelectorAll('[id^="setting_"]');
@@ -404,9 +423,16 @@ async function saveSettings(){
 }
 
 async function loadQueue(){
-  var filter=document.getElementById('queueFilter').value;
+  var filter=document.getElementById('queueFilter')?document.getElementById('queueFilter').value:'';
+  var el=document.getElementById('queueTable');
+  el.innerHTML='<div class="empty"><i class="fas fa-spinner fa-spin"></i> 加载中...</div>';
   try{
-    var r=await fetch('/api/admin/import_queue'+(filter?'?status='+filter:''));if(!r.ok)throw 0;
+    var r=await fetch('/api/admin/import_queue'+(filter?'?status='+filter:''));
+    if(!r.ok){
+      var err=await r.json().catch(function(){return{error:'HTTP '+r.status}});
+      el.innerHTML='<div class="empty" style="color:#ef4444">加载失败: '+(err.error||r.status)+'</div>';
+      return;
+    }
     var d=await r.json(),items=d.items||[];
     // Stats
     var pending=0,done=0,failed=0;
@@ -415,33 +441,31 @@ async function loadQueue(){
       if(i.status==='done')done++;
       if(i.status==='failed')failed++;
     });
-    document.getElementById('qPending').textContent=pending;
-    document.getElementById('qDone').textContent=done;
-    document.getElementById('qFailed').textContent=failed;
-
-    var el=document.getElementById('queueTable');
+    var pe=document.getElementById('qPending');if(pe)pe.textContent=pending;
+    var de=document.getElementById('qDone');if(de)de.textContent=done;
+    var fe=document.getElementById('qFailed');if(fe)fe.textContent=failed;
     if(!items.length){el.innerHTML='<div class="empty"><i class="fas fa-inbox"></i> 队列为空</div>';return;}
-    var statusColors={pending:'#f59e0b',processing:'#3b82f6',done:'#10b981',ef4444:'#ef4444'};
-    el.innerHTML='<table style="width:100%;font-size:0.82rem"><thead><tr>'+
-      '<th style="text-align:left;padding:0.4rem">ID</th>'+
-      '<th style="text-align:left;padding:0.4rem">关键词</th>'+
-      '<th style="text-align:left;padding:0.4rem">状态</th>'+
-      '<th style="text-align:left;padding:0.4rem">结果数</th>'+
-      '<th style="text-align:left;padding:0.4rem">时间</th>'+
-      '<th style="text-align:left;padding:0.4rem">操作</th>'+
+    var statusColors={pending:'#f59e0b',processing:'#3b82f6',done:'#10b981',failed:'#ef4444'};
+    el.innerHTML='<table style="width:100%;font-size:0.82rem;border-collapse:collapse"><thead><tr>'+
+      '<th style="text-align:left;padding:0.5rem;border-bottom:1px solid #1a3a5c">ID</th>'+
+      '<th style="text-align:left;padding:0.5rem;border-bottom:1px solid #1a3a5c">关键词</th>'+
+      '<th style="text-align:left;padding:0.5rem;border-bottom:1px solid #1a3a5c">状态</th>'+
+      '<th style="text-align:left;padding:0.5rem;border-bottom:1px solid #1a3a5c">结果数</th>'+
+      '<th style="text-align:left;padding:0.5rem;border-bottom:1px solid #1a3a5c">时间</th>'+
+      '<th style="text-align:left;padding:0.5rem;border-bottom:1px solid #1a3a5c">操作</th>'+
       '</tr></thead><tbody>'+
       items.map(function(i){
         var sc=statusColors[i.status]||'#888';
-        return '<tr style="border-top:1px solid var(--border)">'+
-          '<td style="padding:0.4rem">'+i.id+'</td>'+
-          '<td style="padding:0.4rem;font-weight:500">'+esc(i.keyword)+'</td>'+
-          '<td style="padding:0.4rem"><span style="color:'+sc+'">'+i.status+'</span></td>'+
-          '<td style="padding:0.4rem">'+(i.result_count||0)+'</td>'+
-          '<td style="padding:0.4rem;color:var(--text3)">'+(i.created_at||'').substring(0,16)+'</td>'+
-          '<td style="padding:0.4rem">'+(i.status==='failed'?'<button class="btn btn-s" style="font-size:0.72rem;padding:0.2rem 0.5rem" onclick="retryQueue(['+i.id+'])">重试</button>':'')+'</td>'+
+        return '<tr style="border-top:1px solid rgba(255,255,255,0.05)">'+
+          '<td style="padding:0.5rem">'+i.id+'</td>'+
+          '<td style="padding:0.5rem;font-weight:500">'+esc(i.keyword)+'</td>'+
+          '<td style="padding:0.5rem"><span style="color:'+sc+'">'+i.status+'</span></td>'+
+          '<td style="padding:0.5rem">'+(i.result_count||0)+'</td>'+
+          '<td style="padding:0.5rem;color:#999">'+(i.created_at||'').substring(0,16)+'</td>'+
+          '<td style="padding:0.5rem">'+(i.status==='failed'?'<button class="btn btn-s" style="font-size:0.72rem;padding:0.2rem 0.5rem" onclick="retryQueue(['+i.id+'])">重试</button>':'')+'</td>'+
         '</tr>';
       }).join('')+'</tbody></table>';
-  }catch(e){document.getElementById('queueTable').innerHTML='<div class="empty">加载失败</div>';}
+  }catch(e){console.error('loadQueue error:',e);el.innerHTML='<div class="empty" style="color:#ef4444">加载失败: '+e.message+'</div>';}
 }
 async function processQueue(){
   try{
@@ -494,6 +518,7 @@ async function retryQueue(ids){
     <button class="tab" onclick="switchTab('dashboard')"><i class="fas fa-chart-bar"></i> 数据统计</button>
     <button class="tab" onclick="switchTab('settings')"><i class="fas fa-cogs"></i> 系统设置</button>
     <button class="tab" onclick="switchTab('queue')"><i class="fas fa-tasks"></i> 导入队列</button>
+    <button class="tab" onclick="switchTab('testApis')"><i class="fas fa-vial"></i> API测试</button>
   </div>
 
   <!-- Users Tab -->
@@ -603,6 +628,16 @@ async function retryQueue(ids){
   </div>
 
   <!-- Filter Words Tab -->
+
+  <!-- API Test Tab -->
+  <div id="tabTestApis" style="display:none">
+    <div class="card">
+      <h2><i class="fas fa-vial"></i> API 测试工具
+        <button class="btn btn-p" onclick="runApiTest()" style="margin-left:auto;font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-play"></i> 运行测试</button>
+      </h2>
+      <div id="testResults"><div class="empty">点击"运行测试"检查所有API状态</div></div>
+    </div>
+  </div>
 
   <!-- Settings Tab -->
   <div id="tabSettings" style="display:none">
@@ -736,6 +771,54 @@ function switchTab(n){
   if(n==='settings')loadSettings();
   if(n==='queue')loadQueue();
   if(n==='users')
+
+/* ========== API Test ========== */
+async function runApiTest(){
+  var el=document.getElementById('testResults');
+  el.innerHTML='<div class="empty"><i class="fas fa-spinner fa-spin"></i> 正在测试...</div>';
+  try{
+    var r=await fetch('/api/admin/test_apis');
+    if(!r.ok){
+      var err=await r.json().catch(function(){return{error:'HTTP '+r.status}});
+      el.innerHTML='<div class="empty" style="color:#ef4444">测试失败: '+(err.error||r.status)+'</div>';
+      return;
+    }
+    var d=await r.json();
+    var h='<div class="sgrid" style="grid-template-columns:repeat(auto-fit,minmax(100px,1fr));margin-bottom:1rem">'+
+      '<div class="sbox"><div class="num" style="color:#10b981">'+d.total_ok+'</div><div class="lbl">通过</div></div>'+
+      '<div class="sbox"><div class="num" style="color:#ef4444">'+d.total_error+'</div><div class="lbl">失败</div></div>'+
+      '<div class="sbox"><div class="num" style="color:#01b4e4">'+d.db_latency_ms+'ms</div><div class="lbl">DB延迟</div></div>'+
+    '</div>';
+    // Table stats
+    h+='<h3 style="margin:1rem 0 0.5rem;font-size:0.9rem">📊 数据表统计</h3>';
+    h+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:0.5rem">';
+    for(var t in d.tables){
+      h+='<div style="display:flex;justify-content:space-between;padding:0.4rem 0.6rem;background:rgba(255,255,255,0.03);border-radius:6px;font-size:0.82rem">'+
+        '<span>'+t+'</span><span style="color:#01b4e4;font-weight:600">'+d.tables[t].toLocaleString()+'</span></div>';
+    }
+    h+='</div>';
+    // API results
+    h+='<h3 style="margin:1rem 0 0.5rem;font-size:0.9rem">🔌 API 端点</h3>';
+    h+='<table style="width:100%;font-size:0.82rem;border-collapse:collapse"><thead><tr>'+
+      '<th style="text-align:left;padding:0.4rem;border-bottom:1px solid #1a3a5c">状态</th>'+
+      '<th style="text-align:left;padding:0.4rem;border-bottom:1px solid #1a3a5c">方法</th>'+
+      '<th style="text-align:left;padding:0.4rem;border-bottom:1px solid #1a3a5c">路径</th>'+
+      '<th style="text-align:left;padding:0.4rem;border-bottom:1px solid #1a3a5c">耗时</th>'+
+      '</tr></thead><tbody>';
+    (d.results||[]).forEach(function(r){
+      var icon=r.status==='ok'?'<span style="color:#10b981">✅</span>':'<span style="color:#ef4444">❌</span>';
+      h+='<tr style="border-top:1px solid rgba(255,255,255,0.05)">'+
+        '<td style="padding:0.4rem">'+icon+'</td>'+
+        '<td style="padding:0.4rem">'+r.method+'</td>'+
+        '<td style="padding:0.4rem;font-family:monospace">'+r.path+'</td>'+
+        '<td style="padding:0.4rem;color:#999">'+r.ms+'ms</td>'+
+      '</tr>';
+    });
+    h+='</tbody></table>';
+    el.innerHTML=h;
+  }catch(e){console.error('runApiTest error:',e);el.innerHTML='<div class="empty" style="color:#ef4444">测试失败: '+e.message+'</div>';}
+}
+
 // Debug: check session on load
 fetch('/api/debug/session').then(function(r){return r.json()}).then(function(d){
   if(!d.is_admin){
@@ -753,6 +836,7 @@ fetch('/api/debug/session').then(function(r){return r.json()}).then(function(d){
   if(n==='logs')loadLogs(1);
   if(n==='filter')loadFilterWords(1);
   if(n==='dashboard')loadDashboard();
+  if(n==='testApis'){}
 }
 
 /* ========== Load Users ========== */
