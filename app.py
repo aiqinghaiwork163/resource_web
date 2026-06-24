@@ -1825,6 +1825,20 @@ def api_import_status():
         db.close()
 
 
+
+@app.route("/api/admin/import_queue/<int:qid>", methods=["DELETE"])
+@admin_required
+def api_admin_import_queue_delete(qid):
+    """删除单条队列记录"""
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("DELETE FROM import_queue WHERE id = %s", (qid,))
+        db.commit()
+        return jsonify({"ok": True, "deleted": cur.rowcount})
+    finally:
+        db.close()
+
 # ── 后台：手动触发导入队列处理 ──
 @app.route("/api/admin/process_queue", methods=["POST"])
 @admin_required
