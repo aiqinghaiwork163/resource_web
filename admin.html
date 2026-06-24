@@ -719,10 +719,6 @@ async function saveUser(){
 }
 
 /* ========== Tabs ========== */
-var _allTabs=['users','res','pending','logs','filter'];
-var _tabLabels={'users':'用户','res':'资源','pending':'待导入','logs':'操作日志','filter':'过滤词'};
-var _tabLoaded={users:false,res:false,pending:false,logs:false,filter:false};
-
 function switchTab(n){
   ['users','res','pending','logs','filter','dashboard','settings','queue'].forEach(function(t){
     var el=document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
