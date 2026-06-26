@@ -15,6 +15,7 @@ import pymysql
 import pymysql.cursors
 import requests as http_requests
 from flask import Flask, jsonify, request, send_from_directory, session, redirect
+import json
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", "resource_web_2026_stable_key_xK9mP2vQ")
@@ -315,6 +316,19 @@ def index():
 
 
 # ==================== API: 统计 ====================
+# ── 用户信息 API ──
+@app.route("/api/user/me")
+def api_user_me():
+    """返回当前登录用户信息"""
+    if session.get("user_id"):
+        return jsonify({
+            "logged_in": True,
+            "username": session.get("username", ""),
+            "is_admin": session.get("is_admin", False),
+        })
+    return jsonify({"logged_in": False})
+
+
 @app.route("/api/stats")
 def api_stats():
     db = get_db()
@@ -327,6 +341,32 @@ def api_stats():
         cur.execute("SELECT DISTINCT quality FROM resources WHERE quality != '' ORDER BY quality")
         qualities = [r["quality"] for r in cur.fetchall()]
         return jsonify({"total": total, "types": types, "qualities": qualities})
+    finally:
+        db.close()
+
+
+# ==================== API: 网盘分类标签 ====================
+@app.route("/api/src_tags")
+def api_src_tags():
+    """获取按关键词搜索结果的网盘来源分布"""
+    query = request.args.get("q", "").strip()
+    db = get_db()
+    try:
+        cur = db.cursor()
+        if query:
+            cur.execute(
+                "SELECT source, COUNT(*) as cnt FROM resources "
+                "WHERE (title LIKE %s OR keyword LIKE %s OR note LIKE %s) "
+                "GROUP BY source ORDER BY cnt DESC",
+                (f"%{query}%", f"%{query}%", f"%{query}%"),
+            )
+        else:
+            cur.execute(
+                "SELECT source, COUNT(*) as cnt FROM resources "
+                "GROUP BY source ORDER BY cnt DESC"
+            )
+        tags = [{"source": r["source"], "cnt": r["cnt"]} for r in cur.fetchall()]
+        return jsonify({"ok": True, "tags": tags})
     finally:
         db.close()
 
@@ -1049,19 +1089,42 @@ def api_hot_searches():
 # ── ② 搜索自动补全 ──
 @app.route("/api/autocomplete")
 def api_autocomplete():
-    """输入时返回匹配的搜索建议"""
+    """输入时返回匹配的搜索建议（搜索建议 + 资源库关键词）"""
     q = request.args.get("q", "").strip()
     if not q or len(q) < 1:
         return jsonify({"items": []})
     db = get_db()
     try:
         cur = db.cursor()
+        # 先查搜索建议表
         cur.execute(
             "SELECT keyword, hit_count FROM search_suggestions "
             "WHERE keyword LIKE %s ORDER BY hit_count DESC LIMIT 8",
             (f"%{q}%",)
         )
-        return jsonify({"items": cur.fetchall()})
+        items = cur.fetchall()
+        seen = {it["keyword"] for it in items}
+        # 补充资源库高频关键词
+        if len(items) < 8:
+            if seen:
+                placeholders = ",".join(["%s"] * len(seen))
+                cur.execute(
+                    f"SELECT keyword, COUNT(*) as hit_count FROM resources "
+                    f"WHERE keyword LIKE %s AND keyword NOT IN ({placeholders}) "
+                    f"GROUP BY keyword ORDER BY hit_count DESC LIMIT %s",
+                    [f"%{q}%"] + list(seen) + [8 - len(items)]
+                )
+            else:
+                cur.execute(
+                    "SELECT keyword, COUNT(*) as hit_count FROM resources "
+                    "WHERE keyword LIKE %s "
+                    "GROUP BY keyword ORDER BY hit_count DESC LIMIT %s",
+                    (f"%{q}%", 8 - len(items))
+                )
+            for r in cur.fetchall():
+                if r["keyword"] not in seen:
+                    items.append(r)
+        return jsonify({"items": items[:8]})
     finally:
         db.close()
 
@@ -1703,6 +1766,67 @@ def _auto_import_trigger(keyword):
         return False
 
 
+# ── 自动检测新导入链接有效性 ──
+def _auto_check_links_bg(items):
+    """后台线程：批量检测新导入资源的链接有效性"""
+    import threading
+    def _worker(items):
+        for item in items:
+            try:
+                url = item.get("url") or ""
+                source = (item.get("source") or "").lower()
+                rid = item.get("id")
+                if not url or not rid:
+                    continue
+                status, code, msg = _check_single_link(url, source)
+                try:
+                    db = get_db()
+                    cur = db.cursor()
+                    cur.execute("UPDATE resources SET last_checked=NOW(), link_status=%s WHERE id=%s", (status, rid))
+                    db.commit()
+                    db.close()
+                except:
+                    pass
+            except:
+                pass
+    t = threading.Thread(target=_worker, args=(items,), daemon=True)
+    t.start()
+
+
+def _auto_scan_unchecked_bg(limit=50):
+    """同步扫描未检测的资源链接（在调用方线程中执行，不新开线程）"""
+    try:
+        db = get_db()
+        cur = db.cursor()
+        cur.execute(
+            "SELECT id, source, url FROM resources "
+            "WHERE source NOT IN ('magnet','ed2k','other') AND last_checked IS NULL "
+            "ORDER BY id DESC LIMIT %s", (limit,)
+        )
+        items = cur.fetchall()
+        db.close()
+        for item in items:
+            try:
+                url = item.get("url") or ""
+                source = (item.get("source") or "").lower()
+                rid = item.get("id")
+                if not url or not rid:
+                    continue
+                status, code, msg = _check_single_link(url, source)
+                try:
+                    db2 = get_db()
+                    cur2 = db2.cursor()
+                    cur2.execute("UPDATE resources SET last_checked=NOW(), link_status=%s WHERE id=%s", (status, rid))
+                    db2.commit()
+                    db2.close()
+                except:
+                    pass
+            except:
+                pass
+    except:
+        pass
+
+
 def _fetch_api(api_url, keyword, limit):
     """从单个API搜索资源"""
     import requests as http_requests
@@ -1786,6 +1910,10 @@ def _process_import(keyword, queue_id):
         cur.execute("UPDATE search_logs SET is_imported=1 WHERE keyword=%s", (keyword,))
         db.commit()
         db.close()
+
+        # 自动检测新导入资源的链接有效性
+        if imported > 0:
+            _auto_scan_unchecked_bg(min(imported, 50))
     except Exception as e:
         try:
             db = get_db()
@@ -1904,7 +2032,10 @@ def api_admin_process_queue():
         for k in list(_cache.keys()):
             if "/api/" in k:
                 del _cache[k]
-        
+
+        # 导入完成后自动检测新导入资源的链接有效性
+        _auto_scan_unchecked_bg(50)
+
         return jsonify({"ok": True, "processed": processed, "total_pending": len(tasks)})
     finally:
         db.close()
@@ -2367,6 +2498,168 @@ def api_admin_deadlinks_auto_scan():
 @app.route("/api-docs.html")
 def api_docs_page():
     return send_from_directory(".", "api-docs.html")
+
+
+# ==================== TMDB Crawler ====================
+
+_tmdb_crawler_status = {"running": False, "progress": 0, "total": 0, "imported": 0, "log": []}
+
+@app.route("/api/admin/tmdb/crawl", methods=["POST"])
+@admin_required
+def api_tmdb_crawl():
+    """启动 TMDB 爬虫（subprocess）"""
+    if _tmdb_crawler_status["running"]:
+        return jsonify({"ok": False, "error": "爬虫正在运行中"})
+    _tmdb_crawler_status.update({"running": True, "progress": 0, "total": 0, "imported": 0, "log": []})
+    import subprocess
+    subprocess.Popen(
+        ["python3", "/app/tmdb_crawler_web.py"],
+        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        start_new_session=True
+    )
+    return jsonify({"ok": True, "message": "爬虫已启动"})
+
+
+@app.route("/api/admin/tmdb/status")
+@admin_required
+def api_tmdb_status():
+    """获取 TMDB 爬虫状态（从 JSON 文件读取）"""
+    try:
+        with open("/app/data/tmdb_status.json", "r") as f:
+            return jsonify(json.load(f))
+    except:
+        return jsonify(_tmdb_crawler_status)
+
+
+def _tmdb_crawler_worker():
+    """TMDB 爬虫后台工作线程"""
+    import socket as _sock
+    import ssl as _ssl
+    import requests as _req
+    import json as _json
+
+    TMDB_KEY = API_KEY = "91f75e1241354f2503a397fc7a276408"
+    SEARCH_URL = "https://ps.aiqinghaiwork.cn/api/search"
+    endpoints = {
+        "趋势(日)": "trending/all/day",
+        "趋势(周)": "trending/all/week",
+        "电影-热门": "movie/popular",
+        "电影-影院": "movie/now_playing",
+        "电影-即将": "movie/upcoming",
+        "剧集-热门": "tv/popular",
+        "剧集-今日播出": "tv/airing_today",
+        "剧集-正在播出": "tv/on_the_air",
+    }
+
+    def log(m):
+        ts = datetime.now().strftime("%H:%M:%S")
+        _tmdb_crawler_status["log"].append(f"[{ts}] {m}")
+
+    def tmdb_get(ep, p=1):
+        try:
+            ip = _sock.getaddrinfo("www.themoviedb.org", 443, _sock.AF_INET)[0][4][0]
+            path = f"/3/{ep}?api_key={TMDB_KEY}&language=zh-CN&page={p}"
+            s = _sock.create_connection((ip, 443), 10)
+            ss = _ssl.create_default_context().wrap_socket(s, server_hostname="api.themoviedb.org")
+            ss.sendall(f"GET {path} HTTP/1.1\r\nHost: api.themoviedb.org\r\nAccept: application/json\r\nConnection: close\r\n\r\n".encode())
+            r = b""
+            while True:
+                c = ss.recv(65536)
+                if not c: break
+                r += c
+            ss.close()
+            h = r.find(b"\r\n\r\n")
+            if h < 0: return None
+            body = r[h+4:]
+            if b"chunked" in r[:h]:
+                lines = body.split(b"\r\n")
+                decoded = b""
+                for line in lines:
+                    if line and not all(c in b"0123456789abcdefABCDEF" for c in line[:8]):
+                        decoded += line
+                body = decoded
+            return _json.loads(body.decode())
+        except:
+            return None
+
+    try:
+        # Phase 1: Fetch TMDB titles
+        log("📡 Phase 1: 获取 TMDB 热门标题...")
+        titles = []
+        seen = set()
+        for label, ep in endpoints.items():
+            log(f"  [{label}] ...")
+            data = tmdb_get(ep)
+            if not data:
+                log(f"  ✗ 获取失败")
+                continue
+            count = 0
+            for item in data.get("results", []):
+                t = (item.get("title") or item.get("name", "")).strip()
+                k = t.lower()
+                if t and k not in seen:
+                    seen.add(k)
+                    titles.append(t)
+                    count += 1
+            log(f"  +{count} (共{len(seen)})")
+            time.sleep(0.3)
+
+        _tmdb_crawler_status["total"] = len(titles)
+        log(f"📊 共{len(titles)}个标题\n")
+
+        # Phase 2: Search and import
+        log("🔍 Phase 2: 搜索网盘资源并导入...")
+        db = get_db()
+        cur = db.cursor()
+        imported = 0
+
+        for i, title in enumerate(titles, 1):
+            _tmdb_crawler_status["progress"] = i
+            log(f"[{i}/{len(titles)}] 🔍 {title}")
+            try:
+                resp = _req.post(SEARCH_URL, json={"kw": title, "limit": 30}, timeout=60)
+                result = resp.json()
+                if result.get("code") != 0:
+                    continue
+                merged = result.get("data", {}).get("merged_by_type", {})
+                items = []
+                for src, its in merged.items():
+                    items.extend(its)
+                if not items:
+                    log("  ℹ️ 无结果")
+                    continue
+
+                added = 0
+                nw = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                for it in items:
+                    url = it.get("url", "")
+                    if not url:
+                        continue
+                    cur.execute("SELECT 1 FROM resources WHERE url=%s", (url,))
+                    if cur.fetchone():
+                        continue
+                    title_text = it.get("note") or it.get("title") or title
+                    src = (it.get("source") or "other").lower()
+                    cur.execute(
+                        "INSERT INTO resources(url,title,keyword,password,source,datetime,created_at) VALUES(%s,%s,%s,%s,%s,%s,%s)",
+                        (url, title_text, title, it.get("password", ""), src, nw, nw)
+                    )
+                    added += 1
+                db.commit()
+                imported += added
+                _tmdb_crawler_status["imported"] = imported
+                log(f"  ✅ +{added}" if added else "  ℹ️ 已存在")
+            except Exception as e:
+                log(f"  ✗ 错误: {str(e)[:60]}")
+            time.sleep(0.3)
+
+        cur.close()
+        db.close()
+        log(f"\n🎉 完成！共{len(titles)}个标题，新增{imported}条资源")
+    except Exception as e:
+        log(f"\n❌ 爬虫异常: {e}")
+    finally:
+        _tmdb_crawler_status["running"] = False
 
 
 # ==================== Favicon ====================

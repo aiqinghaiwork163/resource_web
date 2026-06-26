@@ -423,6 +423,7 @@ tr:hover{background:rgba(25,25,50,0.35)}
     <button class="tab" onclick="switchTab('settings')"><i class="fas fa-cogs"></i> 系统设置</button>
     <button class="tab" onclick="switchTab('queue')"><i class="fas fa-tasks"></i> 导入队列</button>
     <button class="tab" onclick="switchTab('testApis')"><i class="fas fa-vial"></i> API测试</button>
+    <button class="tab" onclick="switchTab('tmdb')"><i class="fas fa-film"></i> TMDB爬虫</button>
   </div>
 
   <!-- Users Tab -->
@@ -646,9 +647,42 @@ tr:hover{background:rgba(25,25,50,0.35)}
     </div>
   </div>
 
-</div>
+  <!-- TMDB Crawler Tab -->
+  <div id="tabTmdb" style="display:none">
+    <div class="card">
+      <h2><i class="fas fa-film"></i> TMDB 爬虫
+        <button class="btn btn-p" id="btnTmdbRun" onclick="runTmdbCrawler()" style="margin-left:auto;font-size:0.78rem;padding:0.35rem 0.8rem"><i class="fas fa-play"></i> 开始爬取</button>
+      </h2>
+      <p style="color:var(--text3);font-size:0.82rem;margin:0.5rem 0 1rem">从 TMDB 获取热门影视标题，自动搜索网盘资源并导入数据库</p>
 
-<!-- Edit User Modal -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:0.6rem;margin-bottom:1rem">
+        <div class="db-table-item"><span class="tname">趋势(日)</span><span class="tcount" id="tmdbTrendDay">-</span></div>
+        <div class="db-table-item"><span class="tname">趋势(周)</span><span class="tcount" id="tmdbTrendWeek">-</span></div>
+        <div class="db-table-item"><span class="tname">电影-热门</span><span class="tcount" id="tmdbMoviePop">-</span></div>
+        <div class="db-table-item"><span class="tname">电影-影院</span><span class="tcount" id="tmdbMovieNow">-</span></div>
+        <div class="db-table-item"><span class="tname">剧集-热门</span><span class="tcount" id="tmdbTvPop">-</span></div>
+        <div class="db-table-item"><span class="tname">剧集-播出</span><span class="tcount" id="tmdbTvAir">-</span></div>
+      </div>
+
+      <div id="tmdbProgress" style="display:none;margin-bottom:1rem">
+        <div style="background:rgba(255,255,255,0.05);border-radius:6px;height:6px;overflow:hidden">
+          <div id="tmdbProgressBar" style="background:var(--accent);height:100%;width:0%;transition:width 0.3s"></div>
+        </div>
+        <div id="tmdbProgressText" style="font-size:0.78rem;color:var(--text3);margin-top:0.3rem"></div>
+      </div>
+
+      <div id="tmdbLog" style="background:rgba(0,0,0,0.3);border-radius:8px;padding:0.8rem;max-height:400px;overflow-y:auto;font-family:monospace;font-size:0.75rem;color:var(--text2);line-height:1.6">
+        <div style="color:var(--text3)"><i class="fas fa-info-circle"></i> 点击"开始爬取"执行 TMDB 爬虫</div>
+      </div>
+
+      <div style="margin-top:1rem;display:flex;gap:0.5rem;flex-wrap:wrap">
+        <button class="btn btn-s" onclick="clearTmdbLog()" style="font-size:0.75rem"><i class="fas fa-trash"></i> 清空日志</button>
+        <button class="btn btn-s" onclick="checkTmdbStatus()" style="font-size:0.75rem"><i class="fas fa-sync"></i> 刷新状态</button>
+      </div>
+    </div>
+  </div>
+
+</div>
 <div class="modal-bg" id="editModal" onclick="if(event.target===this)closeEdit()">
   <div class="modal">
     <h3><i class="fas fa-user-edit"></i> 编辑用户</h3>
@@ -1595,6 +1629,62 @@ function renderPager(containerId,total,page,perPage,callback){
 
 /* ========== Init ========== */
 loadUsers();
+
+/* ========== TMDB Crawler ========== */
+var _tmdbPollTimer=null;
+async function runTmdbCrawler(){
+  var btn=document.getElementById('btnTmdbRun');
+  btn.disabled=true;btn.innerHTML='<i class="fas fa-spinner fa-spin"></i> 启动中...';
+  try{
+    var r=await fetch('/api/admin/tmdb/crawl',{method:'POST'});
+    var d=await r.json();
+    if(!d.ok){alert(d.error||'启动失败');btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> 开始爬取';return;}
+    document.getElementById('tmdbProgress').style.display='';
+    pollTmdbStatus();
+  }catch(e){alert('请求失败');btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> 开始爬取';}
+}
+function pollTmdbStatus(){
+  clearTimeout(_tmdbPollTimer);
+  _tmdbPollTimer=setTimeout(async function(){
+    try{
+      var r=await fetch('/api/admin/tmdb/status');
+      var d=await r.json();
+      var logEl=document.getElementById('tmdbLog');
+      var bar=document.getElementById('tmdbProgressBar');
+      var txt=document.getElementById('tmdbProgressText');
+      if(d.total>0){
+        var pct=Math.round(d.progress/d.total*100);
+        bar.style.width=pct+'%';
+        txt.textContent=d.progress+'/'+d.total+' ('+pct+'%) | 新增: '+d.imported;
+      }
+      if(d.log&&d.log.length){
+        logEl.innerHTML=d.log.map(function(l){
+          var c=l.indexOf('✅')>=0?'#4ade80':l.indexOf('✗')>=0||l.indexOf('❌')>=0?'#f87171':l.indexOf('ℹ️')>=0?'#94a3b8':'#e2e8f0';
+          return '<div style="color:'+c+'">'+esc(l)+'</div>';
+        }).join('');
+        logEl.scrollTop=logEl.scrollHeight;
+      }
+      if(d.running){pollTmdbStatus();}
+      else{
+        var btn=document.getElementById('btnTmdbRun');
+        btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> 开始爬取';
+      }
+    }catch(e){pollTmdbStatus();}
+  },2000);
+}
+function clearTmdbLog(){
+  document.getElementById('tmdbLog').innerHTML='<div style="color:var(--text3)"><i class="fas fa-info-circle"></i> 日志已清空</div>';
+  document.getElementById('tmdbProgressBar').style.width='0%';
+  document.getElementById('tmdbProgressText').textContent='';
+}
+async function checkTmdbStatus(){
+  try{
+    var r=await fetch('/api/admin/tmdb/status');
+    var d=await r.json();
+    if(d.running){pollTmdbStatus();}
+    else{alert('爬虫当前未运行');}
+  }catch(e){alert('查询失败');}
+}
 </script>
 </body>
 </html>
