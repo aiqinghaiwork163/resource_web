@@ -8,6 +8,7 @@ import re
 import time
 import hashlib
 import secrets
+import html as html_mod
 from functools import wraps
 from datetime import datetime
 
@@ -17,8 +18,17 @@ import requests as http_requests
 from flask import Flask, jsonify, request, send_from_directory, session, redirect
 import json
 
+from flask_wtf.csrf import CSRFProtect, generate_csrf
+
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "resource_web_2026_stable_key_xK9mP2vQ")
+app.secret_key = os.environ.get("SECRET_KEY")
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
+# ==================== CSRF 保护 ====================
+csrf = CSRFProtect(app)
+# 允许 API 端点通过 Header 传递 CSRF token
+app.config['WTF_CSRF_HEADERS'] = ['X-CSRFToken', 'X-CSRF-Token']
 
 import gzip
 import io
@@ -30,6 +40,9 @@ def add_gzip(response):
     """对 JSON/HTML/CSS/JS 响应启用 gzip 压缩"""
     try:
         if response.status_code != 200:
+            return response
+        # 已经压缩过的不再压缩（防止双重gzip）
+        if response.headers.get("Content-Encoding"):
             return response
         accept = request.headers.get("Accept-Encoding", "")
         if "gzip" not in accept:
@@ -54,7 +67,14 @@ def add_gzip(response):
 
 # ==================== 图片代理缓存 ====================
 import hashlib
-_img_cache = {}  # url -> (data, content_type, expire)
+from collections import OrderedDict
+_img_cache = OrderedDict()  # url -> (data, content_type, expire)
+_IMG_CACHE_MAX = 1000  # 最大缓存条目数
+
+def _img_cache_evict():
+    """淘汰最早的缓存条目，保持 _img_cache 不超过 _IMG_CACHE_MAX"""
+    while len(_img_cache) > _IMG_CACHE_MAX:
+        _img_cache.popitem(last=False)  # 删除最早插入的条目
 
 @app.route("/api/img_proxy")
 def img_proxy():
@@ -73,6 +93,7 @@ def img_proxy():
         if r.status_code == 200:
             ct = r.headers.get("Content-Type", "image/jpeg")
             _img_cache[url] = (r.content, ct, now + 86400)
+            _img_cache_evict()  # 超限时淘汰旧条目
             return r.content, 200, {"Content-Type": ct, "Cache-Control": "public, max-age=86400"}
     except Exception:
         pass
@@ -91,12 +112,22 @@ def cache_static(response):
 
 
 
+@app.after_request
+def add_security_headers(response):
+    """添加安全响应头"""
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
 # ==================== 配置 ====================
 DB_CONFIG = {
     "host": os.environ.get("DB_HOST", "172.23.0.2"),
     "port": int(os.environ.get("DB_PORT", 3306)),
     "user": os.environ.get("DB_USER", "root"),
-    "password": os.environ.get("DB_PASSWORD", "9zPwwKV_YYK3IcivNFcXuA"),
+    "password": os.environ.get("DB_PASSWORD"),
     "database": os.environ.get("DB_NAME", "pan_resource"),
     "charset": "utf8mb4",
     "cursorclass": pymysql.cursors.DictCursor,
@@ -105,8 +136,14 @@ DB_CONFIG = {
     "write_timeout": 10,
 }
 
-ADMIN_USER = os.environ.get("ADMIN_USER", "admin")
-ADMIN_PASS = os.environ.get("ADMIN_PASS", "admin2026")
+ADMIN_USER = os.environ.get("ADMIN_USER")
+ADMIN_PASS = os.environ.get("ADMIN_PASS")
+
+if not ADMIN_USER or not ADMIN_PASS or not app.secret_key:
+    raise RuntimeError("环境变量 ADMIN_USER、ADMIN_PASS 和 SECRET_KEY 必须设置")
+
+if not os.environ.get("DB_PASSWORD"):
+    raise RuntimeError("环境变量 DB_PASSWORD 必须设置")
 
 # ==================== 连接池 ====================
 from dbutils.pooled_db import PooledDB
@@ -134,6 +171,26 @@ def get_db():
     return conn
 
 
+def _get_tmdb_api_key():
+    """从 settings 表中获取 TMDB API Key，环境变量 TMDB_API_KEY 优先"""
+    env_key = os.environ.get("TMDB_API_KEY")
+    if env_key:
+        return env_key
+    try:
+        db = get_db()
+        try:
+            cur = db.cursor()
+            cur.execute("SELECT `value` FROM settings WHERE `key`='tmdb_api_key'")
+            row = cur.fetchone()
+            if row and row.get("value"):
+                return row["value"]
+        finally:
+            db.close()
+    except Exception:
+        pass
+    raise RuntimeError("TMDB API Key 未配置：请设置环境变量 TMDB_API_KEY 或在 settings 表中添加 tmdb_api_key")
+
+
 # ==================== 限流 ====================
 _rate_limits = {}  # key -> [count, window_start]
 RATE_LIMIT_WINDOW = 60  # seconds
@@ -154,6 +211,42 @@ def check_rate_limit(key):
         return False
     _rate_limits[key][0] += 1
     return True
+
+
+# ==================== 登录限流 ====================
+_login_failures = {}  # ip -> [fail_count, last_fail_time]
+LOGIN_FAIL_MAX = 5
+LOGIN_LOCK_SECONDS = 900  # 15 minutes
+
+
+def check_login_limit(ip):
+    """检查IP是否被登录限流锁定。返回 (allowed, remaining_seconds)"""
+    now = time.time()
+    if ip in _login_failures:
+        count, last_time = _login_failures[ip]
+        if count >= LOGIN_FAIL_MAX:
+            elapsed = now - last_time
+            if elapsed < LOGIN_LOCK_SECONDS:
+                return False, int(LOGIN_LOCK_SECONDS - elapsed)
+            else:
+                _login_failures.pop(ip, None)
+                return True, 0
+    return True, 0
+
+
+def record_login_failure(ip):
+    """记录一次登录失败"""
+    now = time.time()
+    if ip in _login_failures:
+        count, _ = _login_failures[ip]
+        _login_failures[ip] = [count + 1, now]
+    else:
+        _login_failures[ip] = [1, now]
+
+
+def reset_login_failures(ip):
+    """登录成功后重置失败计数"""
+    _login_failures.pop(ip, None)
 
 
 # ==================== 内存缓存 ====================
@@ -181,15 +274,6 @@ def cached(ttl=300):
 
 
 
-@app.route("/api/debug/session")
-def debug_session():
-    """Debug: check session state"""
-    return jsonify({
-        "is_admin": session.get("is_admin"),
-        "user_id": session.get("user_id"),
-        "username": session.get("username"),
-        "session_keys": list(session.keys()),
-    })
 
 # ==================== Admin 认证 ====================
 def admin_required(f):
@@ -210,6 +294,11 @@ def login_page():
         data = request.get_json() or request.form
         username = data.get("username", "").strip()
         password = data.get("password", "")
+        client_ip = request.remote_addr
+        # 检查登录限流
+        allowed, remaining = check_login_limit(client_ip)
+        if not allowed:
+            return jsonify({"ok": False, "error": f"登录尝试过多，请{remaining}秒后再试"}), 429
         if not username or not password:
             return jsonify({"ok": False, "error": "请输入用户名和密码"}), 401
         db = get_db()
@@ -220,6 +309,7 @@ def login_page():
         finally:
             db.close()
         if not user:
+            record_login_failure(client_ip)
             return jsonify({"ok": False, "error": "用户名或密码错误"}), 401
         if user["status"] != 1:
             return jsonify({"ok": False, "error": "账号已被禁用"}), 401
@@ -228,14 +318,16 @@ def login_page():
         stored_pw = user.get("password", "")
         if stored_pw and stored_pw == pw_hash:
             pass  # 密码匹配
-        elif not stored_pw and password == ADMIN_PASS:
-            pass  # 空密码且环境变量匹配（首次登录兼容）
         else:
+            record_login_failure(client_ip)
             return jsonify({"ok": False, "error": "用户名或密码错误"}), 401
         session["is_admin"] = user["role"] == "admin"
         session["user_id"] = user["id"]
         session["username"] = user["username"]
         session.permanent = True
+        # 重新生成 session ID，防止会话固定攻击
+        session.modified = True
+        reset_login_failures(client_ip)
         # 更新最后登录时间
         db2 = get_db()
         try:
@@ -399,10 +491,37 @@ def _merge_source(src):
         return "other"
     return src
 
+_FW_CACHE_KEY = "_filter_words"
+_FW_CACHE_TTL = 300  # 300秒缓存
+
+
+def _get_cached_filter_words():
+    """从内存缓存获取filter_words列表，TTL 300秒"""
+    now = time.time()
+    if _FW_CACHE_KEY in _cache:
+        data, expire = _cache[_FW_CACHE_KEY]
+        if now < expire:
+            return data
+    # 缓存过期，从DB加载
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("SELECT word FROM filter_words")
+        fwords = [r["word"] for r in cur.fetchall()]
+    finally:
+        db.close()
+    _cache[_FW_CACHE_KEY] = (fwords, now + _FW_CACHE_TTL)
+    return fwords
+
+
+def _clear_filter_words_cache():
+    """清除filter_words缓存"""
+    _cache.pop(_FW_CACHE_KEY, None)
+
+
 def _filter_words_condition(cur):
-    """返回 (sql_fragment, params) 用于排除含过滤词的资源"""
-    cur.execute("SELECT word FROM filter_words")
-    fwords = [r["word"] for r in cur.fetchall()]
+    """返回 (sql_fragment, params) 用于排除含过滤词的资源（内存缓存300秒）"""
+    fwords = _get_cached_filter_words()
     if not fwords:
         return "", []
     conds = []
@@ -542,6 +661,12 @@ def api_import():
     return jsonify(results)
 
 
+# ==================== CSRF Token ====================
+@app.route("/api/csrf-token")
+def api_csrf_token():
+    """返回 CSRF token 给前端"""
+    return jsonify({"csrf_token": generate_csrf()})
+
 # ==================== API: 健康检查 ====================
 @app.route("/api/health")
 def api_health():
@@ -585,6 +710,7 @@ def admin_page():
 # ==================== 用户管理 API ====================
 @app.route("/api/users")
 @admin_required
+
 def api_users():
     page = request.args.get("page", 1, type=int)
     per_page = request.args.get("per_page", 20, type=int)
@@ -716,19 +842,31 @@ def api_me():
 
 # ==================== 修改密码（任意登录用户） ====================
 @app.route("/api/change_password", methods=["POST"])
+
 def api_change_password():
     uid = session.get("user_id")
     if not uid:
         return jsonify({"error": "未登录"}), 401
     data = request.get_json()
+    old_pw = data.get("old_password", "")
     new_pw = data.get("new_password", "").strip()
+    if not old_pw:
+        return jsonify({"error": "请输入旧密码"}), 400
     if not new_pw or len(new_pw) < 6:
         return jsonify({"error": "密码至少6位"}), 400
-    pw_hash = hashlib.sha256(new_pw.encode()).hexdigest()
+    # 验证旧密码
     db = get_db()
     try:
         cur = db.cursor()
-        cur.execute("UPDATE users SET password=%s, updated_at=NOW() WHERE id=%s", (pw_hash, uid))
+        cur.execute("SELECT password FROM users WHERE id=%s", (uid,))
+        user = cur.fetchone()
+        if not user:
+            return jsonify({"error": "用户不存在"}), 404
+        old_pw_hash = hashlib.sha256(old_pw.encode()).hexdigest()
+        if user.get("password", "") != old_pw_hash:
+            return jsonify({"error": "旧密码错误"}), 403
+        new_pw_hash = hashlib.sha256(new_pw.encode()).hexdigest()
+        cur.execute("UPDATE users SET password=%s, updated_at=NOW() WHERE id=%s", (new_pw_hash, uid))
         db.commit()
         return jsonify({"ok": True})
     finally:
@@ -736,6 +874,7 @@ def api_change_password():
 
 # ==================== 收藏 API ====================
 @app.route("/api/favorites")
+
 def api_favorites():
     uid = session.get("user_id")
     if not uid: return jsonify({"error": "未登录"}), 401
@@ -852,8 +991,7 @@ def api_search_log():
     try:
         cur = db.cursor()
         # 检查过滤词
-        cur.execute("SELECT word FROM filter_words")
-        blocked = [r["word"].lower() for r in cur.fetchall()]
+        blocked = [w.lower() for w in _get_cached_filter_words()]
         if any(b in kw.lower() for b in blocked):
             _log_op(uid, session.get("username"), "search_blocked", f"关键词: {kw}", ip)
             return jsonify({"ok": False, "blocked": True}), 200
@@ -906,6 +1044,7 @@ def api_pending_imports():
 # ==================== 管理员：确认导入 ====================
 @app.route("/api/admin/confirm_import", methods=["POST"])
 @admin_required
+
 def api_confirm_import():
     """管理员确认导入指定关键词"""
     data = request.get_json()
@@ -983,6 +1122,7 @@ def api_operation_logs():
 # ==================== 过滤词管理 ====================
 @app.route("/api/admin/filter_words")
 @admin_required
+
 def api_filter_words():
     db = get_db()
     try:
@@ -1006,6 +1146,7 @@ def api_filter_words_add():
         cur = db.cursor()
         cur.execute("INSERT IGNORE INTO filter_words (word, category) VALUES (%s, %s)", (word, cat))
         db.commit()
+        _clear_filter_words_cache()
         return jsonify({"ok": True})
     finally:
         db.close()
@@ -1018,6 +1159,7 @@ def api_filter_words_del(fid):
         cur = db.cursor()
         cur.execute("DELETE FROM filter_words WHERE id = %s", (fid,))
         db.commit()
+        _clear_filter_words_cache()
         return jsonify({"ok": True})
     finally:
         db.close()
@@ -1109,19 +1251,41 @@ def api_resource_detail(rid):
 # ── ④ TMDB 热门排行 ──
 @app.route("/api/tmdb/trending")
 def api_tmdb_trending():
-    """TMDB 热门排行（绕GFW直连）"""
+    """TMDB 热门排行（绕GFW直连），带缓存+超时+故障降级"""
     import socket, ssl as _ssl, json as _json, urllib.parse
-    media = request.args.get("media", "all")  # all/movie/tv
-    time_window = request.args.get("time", "week")  # day/week
+    # 兼容前端 type 参数：week/day/movie/tv
+    req_type = request.args.get("type", "")
+    if req_type in ("movie", "tv"):
+        media = req_type
+        time_window = "week"
+    elif req_type in ("day",):
+        media = "all"
+        time_window = "day"
+    else:
+        media = request.args.get("media", "all")
+        time_window = request.args.get("time", "week")
     page = min(int(request.args.get("page", 1)), 10)
-    API_KEY = os.environ.get("TMDB_API_KEY", "91f75e1241354f2503a397fc7a276408")
+    API_KEY = _get_tmdb_api_key()
+    TMDB_TTL = 1800  # 30 minutes cache
+
+    # 生成缓存 key
+    cache_key = f"tmdb_trending:{media}:{time_window}:{page}"
+    now = time.time()
+
+    # 检查缓存
+    if cache_key in _cache:
+        cached_data, expire = _cache[cache_key]
+        if now < expire:
+            return jsonify(cached_data)
 
     ep = f"trending/{media}/{time_window}"
     path = f"/3/{ep}?api_key={API_KEY}&language=zh-CN&page={page}"
     try:
         ip = socket.getaddrinfo("www.themoviedb.org", 443, socket.AF_INET)[0][4][0]
-        s = socket.create_connection((str(ip), 443), 10)
+        s = socket.create_connection((str(ip), 443), timeout=5)
+        s.settimeout(5)  # 读取也限5秒
         ss = _ssl.create_default_context().wrap_socket(s, server_hostname="api.themoviedb.org")
+        ss.settimeout(5)
         ss.sendall(
             f"GET {path} HTTP/1.1\r\nHost: api.themoviedb.org\r\n"
             f"Accept: application/json\r\nConnection: close\r\n\r\n".encode()
@@ -1135,6 +1299,9 @@ def api_tmdb_trending():
         ss.close()
         h = r.find(b"\r\n\r\n")
         if h < 0:
+            # 无响应头，降级返回缓存或空
+            if cache_key in _cache:
+                return jsonify(_cache[cache_key][0])
             return jsonify({"items": [], "error": "no response"})
         body = r[h + 4:]
         if b"chunked" in r[:h]:
@@ -1164,8 +1331,14 @@ def api_tmdb_trending():
                 "year": (it.get("release_date") or it.get("first_air_date") or "")[:4],
                 "tmdb_id": it.get("id"),
             })
-        return jsonify({"items": items, "total": data.get("total_results", 0)})
+        result_data = {"items": items, "total": data.get("total_results", 0)}
+        # 写入缓存（存数据字典，不存response对象，防止gzip中间件重复压缩）
+        _cache[cache_key] = (result_data, now + TMDB_TTL)
+        return jsonify(result_data)
     except Exception as e:
+        # 外部API故障，返回缓存的旧数据
+        if cache_key in _cache:
+            return jsonify(_cache[cache_key][0])
         return jsonify({"items": [], "error": str(e)})
 
 
@@ -1317,20 +1490,20 @@ def api_shared_resource(token):
 
         poster_html = ""
         if poster:
-            poster_html = '<img src="' + poster + '" style="max-width:200px;border-radius:8px;margin-bottom:1rem">'
+            poster_html = '<img src="' + html_mod.escape(poster, quote=True) + '" style="max-width:200px;border-radius:8px;margin-bottom:1rem">'
 
         quality_html = ""
         if quality:
-            quality_html = '<span class="tag">' + quality + '</span>'
+            quality_html = '<span class="tag">' + html_mod.escape(quality) + '</span>'
 
         pw_html = ""
         if password:
-            pw_html = '<div class="pw">🔑 提取码: ' + password + '</div>'
+            pw_html = '<div class="pw">🔑 提取码: ' + html_mod.escape(password) + '</div>'
 
-        html = (
+        html_content = (
             '<!DOCTYPE html><html><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
-            '<title>' + title + ' - 分享</title>'
+            '<title>' + html_mod.escape(title) + ' - 分享</title>'
             '<style>'
             '*{margin:0;padding:0;box-sizing:border-box}'
             'body{background:#0f0f14;color:#e4e4e7;font-family:-apple-system,sans-serif;'
@@ -1345,18 +1518,18 @@ def api_shared_resource(token):
             '.btn2{background:#374151}'
             '</style></head><body><div class="card">'
             + poster_html
-            + '<h2>' + title + '</h2>'
-            '<div><span class="tag">' + source + '</span>' + quality_html + '</div>'
-            '<div class="url" id="u">' + url + '</div>'
+            + '<h2>' + html_mod.escape(title) + '</h2>'
+            '<div><span class="tag">' + html_mod.escape(source) + '</span>' + quality_html + '</div>'
+            '<div class="url" id="u">' + html_mod.escape(url) + '</div>'
             + pw_html
             + '<button class="btn" onclick="copyU()">📋 复制链接</button>'
-            '<a class="btn btn2" href="' + url + '" target="_blank">🔗 打开网盘</a>'
+            '<a class="btn btn2" href="' + html_mod.escape(url, quote=True) + '" target="_blank">🔗 打开网盘</a>'
             '<a class="btn btn2" href="/" style="text-decoration:none">🏠 更多资源</a>'
             '<script>function copyU(){var u=document.getElementById("u").innerText;'
             'navigator.clipboard.writeText(u).then(function(){alert("已复制！")})}</script>'
             '</div></body></html>'
         )
-        return html
+        return html_content
     finally:
         db.close()
 
@@ -1564,6 +1737,7 @@ def api_admin_resources_batch():
 # ── 资源列表（后台增强版） ──
 @app.route("/api/admin/resources")
 @admin_required
+
 def api_admin_resources():
     """后台资源列表，支持搜索/排序/分页"""
     page = max(int(request.args.get("page", 1)), 1)
@@ -1735,14 +1909,13 @@ def _auto_check_links_bg(items):
                 if not url or not rid:
                     continue
                 status, code, msg = _check_single_link(url, source)
+                db = get_db()
                 try:
-                    db = get_db()
                     cur = db.cursor()
                     cur.execute("UPDATE resources SET last_checked=NOW(), link_status=%s WHERE id=%s", (status, rid))
                     db.commit()
+                finally:
                     db.close()
-                except:
-                    pass
             except:
                 pass
     t = threading.Thread(target=_worker, args=(items,), daemon=True)
@@ -1849,23 +2022,25 @@ def _process_import(keyword, queue_id):
 
         # 写入数据库
         db = get_db()
-        cur = db.cursor()
-        imported = 0
-        for r in unique_results:
-            item = r["item"]
-            source = r["source"]
-            cur.execute("""INSERT IGNORE INTO resources
-                (keyword, source, url, title, note, password, datetime, quality, type, year, created_at)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
-                (keyword, source, item.get("url", ""), item.get("note", "") or item.get("title", ""),
-                 item.get("note", ""), item.get("password", ""), item.get("datetime", ""), "", "", 0))
-            imported += 1
+        try:
+            cur = db.cursor()
+            imported = 0
+            for r in unique_results:
+                item = r["item"]
+                source = r["source"]
+                cur.execute("""INSERT IGNORE INTO resources
+                    (keyword, source, url, title, note, password, datetime, quality, type, year, created_at)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, NOW())""",
+                    (keyword, source, item.get("url", ""), item.get("note", "") or item.get("title", ""),
+                     item.get("note", ""), item.get("password", ""), item.get("datetime", ""), "", "", 0))
+                imported += 1
 
-        cur.execute("UPDATE import_queue SET status='done', result_count=%s WHERE id=%s",
-                   (imported, queue_id))
-        cur.execute("UPDATE search_logs SET is_imported=1 WHERE keyword=%s", (keyword,))
-        db.commit()
-        db.close()
+            cur.execute("UPDATE import_queue SET status='done', result_count=%s WHERE id=%s",
+                       (imported, queue_id))
+            cur.execute("UPDATE search_logs SET is_imported=1 WHERE keyword=%s", (keyword,))
+            db.commit()
+        finally:
+            db.close()
 
         # 自动检测新导入资源的链接有效性
         if imported > 0:
@@ -1873,11 +2048,13 @@ def _process_import(keyword, queue_id):
     except Exception as e:
         try:
             db = get_db()
-            cur = db.cursor()
-            cur.execute("UPDATE import_queue SET status='failed', error_msg=%s WHERE id=%s",
-                       (str(e)[:200], queue_id))
-            db.commit()
-            db.close()
+            try:
+                cur = db.cursor()
+                cur.execute("UPDATE import_queue SET status='failed', error_msg=%s WHERE id=%s",
+                           (str(e)[:200], queue_id))
+                db.commit()
+            finally:
+                db.close()
         except:
             pass
 
@@ -1927,6 +2104,7 @@ def api_admin_import_queue_delete(qid):
 # ── 后台：手动触发导入队列处理 ──
 @app.route("/api/admin/process_queue", methods=["POST"])
 @admin_required
+
 def api_admin_process_queue():
     """手动触发处理导入队列"""
     import requests as http_requests
@@ -2494,7 +2672,7 @@ def _tmdb_crawler_worker():
     import requests as _req
     import json as _json
 
-    TMDB_KEY = API_KEY = "91f75e1241354f2503a397fc7a276408"
+    TMDB_KEY = API_KEY = _get_tmdb_api_key()
     SEARCH_URL = "https://ps.aiqinghaiwork.cn/api/search"
     endpoints = {
         "趋势(日)": "trending/all/day",

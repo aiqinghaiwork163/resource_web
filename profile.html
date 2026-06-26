@@ -662,6 +662,11 @@ async function changePw(){
 
 /* ========== Init ========== */
 loadUser();
+// CSRF token handling
+var _csrfToken=null,_csrfFetching=null;
+function getCsrfToken(){if(_csrfToken)return Promise.resolve(_csrfToken);if(_csrfFetching)return _csrfFetching;_csrfFetching=fetch('/api/csrf-token').then(function(r){return r.json()}).then(function(d){_csrfToken=d.csrf_token;_csrfFetching=null;return _csrfToken}).catch(function(){_csrfFetching=null;return ''});return _csrfFetching}
+var _origFetch=window.fetch;
+window.fetch=function(url,options){if(!options)options={};if(options.method&&['POST','PUT','DELETE','PATCH'].includes(options.method.toUpperCase())){if(!options.headers)options.headers={};if(!options.headers['X-CSRFToken']){return getCsrfToken().then(function(token){if(token)options.headers['X-CSRFToken']=token;if(options.body&&typeof options.body==='object'&&!(options.body instanceof FormData)){options.headers['Content-Type']=options.headers['Content-Type']||'application/json';options.body=JSON.stringify(options.body)}return _origFetch.call(window,url,options)})}}return _origFetch.call(this,url,options)};
 </script>
 </body>
 </html>

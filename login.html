@@ -462,6 +462,9 @@ body::after {
     <i class="fas fa-lock"></i>
   </div>
 
+  <!-- CSRF Token 隐藏字段 -->
+  <input type="hidden" id="csrf_token" name="csrf_token" value="">
+
   <div class="btn-wrap">
     <button class="btn-login" onclick="doLogin()"><i class="fas fa-sign-in-alt"></i> 登录</button>
   </div>
@@ -477,14 +480,31 @@ body::after {
 <script>
 async function doLogin() {
   var err = document.getElementById('err');
+  var btn = document.querySelector('.btn-login');
   err.style.display = 'none';
+
+  // Show loading state
+  var originalHTML = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登录中...';
+  btn.style.opacity = '0.7';
+  btn.style.pointerEvents = 'none';
+
   try {
+    // 获取 CSRF token
+    var csrfResp = await fetch('/api/csrf-token');
+    var csrfData = await csrfResp.json();
+    var csrfToken = csrfData.csrf_token;
     var r = await fetch('/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 
+        'Content-Type': 'application/json',
+        'X-CSRFToken': csrfToken
+      },
       body: JSON.stringify({
         username: document.getElementById('u').value,
-        password: document.getElementById('p').value
+        password: document.getElementById('p').value,
+        csrf_token: csrfToken
       })
     });
     if (r.ok) {
@@ -498,10 +518,20 @@ async function doLogin() {
       err.style.animation = 'none';
       err.offsetHeight;
       err.style.animation = '';
+      // Restore button
+      btn.disabled = false;
+      btn.innerHTML = originalHTML;
+      btn.style.opacity = '';
+      btn.style.pointerEvents = '';
     }
   } catch (e) {
     err.style.display = 'block';
     err.textContent = '网络错误，请重试';
+    // Restore button
+    btn.disabled = false;
+    btn.innerHTML = originalHTML;
+    btn.style.opacity = '';
+    btn.style.pointerEvents = '';
   }
 }
 </script>

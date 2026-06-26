@@ -318,6 +318,60 @@ tr:hover{background:rgba(0,210,255,0.04);box-shadow:inset 0 0 30px rgba(0,210,25
 .modal .mrow .mbtn-s{background:transparent;color:var(--text2);border:1px solid rgba(0,210,255,0.1)}
 .modal .mrow .mbtn-s:hover{color:var(--text);border-color:rgba(0,210,255,0.2)}
 
+/* ═══ Cyber Dialog (replaces native confirm/alert/prompt) ═══ */
+.cyber-dialog-bg{
+  position:fixed;inset:0;background:rgba(2,4,12,0.75);
+  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  z-index:10000;
+  display:none;align-items:center;justify-content:center;padding:1rem;
+}
+.cyber-dialog-bg.show{display:flex}
+.cyber-dialog{
+  background:linear-gradient(155deg,rgba(10,16,36,0.98),rgba(6,10,24,0.98));
+  backdrop-filter:blur(30px);-webkit-backdrop-filter:blur(30px);
+  border:1px solid rgba(0,210,255,0.15);
+  border-radius:18px;padding:1.8rem;max-width:400px;width:100%;
+  box-shadow:0 24px 80px rgba(0,0,0,0.6),0 0 60px rgba(0,210,255,0.08);
+  animation:modalIn 0.35s cubic-bezier(0.34,1.56,0.64,1);
+  position:relative;
+}
+.cyber-dialog::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,var(--accent),var(--accent2),transparent);
+  opacity:0.3;border-radius:18px 18px 0 0;
+}
+.cyber-dialog-icon{font-size:2rem;text-align:center;margin-bottom:0.8rem;filter:drop-shadow(0 0 12px var(--glow2))}
+.cyber-dialog-icon.warn{color:var(--warn)}
+.cyber-dialog-icon.info{color:var(--accent)}
+.cyber-dialog-icon.danger{color:var(--err)}
+.cyber-dialog-msg{text-align:center;font-size:0.9rem;color:var(--text);margin-bottom:1.2rem;line-height:1.6}
+.cyber-dialog-input{
+  width:100%;padding:0.6rem 0.9rem;
+  border:1px solid rgba(0,210,255,0.12);border-radius:var(--r2);
+  background:rgba(6,12,28,0.7);color:var(--text);
+  font-size:0.85rem;outline:none;transition:all var(--transition);
+  font-family:inherit;margin-bottom:1.2rem;
+}
+.cyber-dialog-input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(0,210,255,0.1),0 0 20px rgba(0,210,255,0.06)}
+.cyber-dialog-input::placeholder{color:var(--text4)}
+.cyber-dialog-btns{display:flex;gap:0.6rem;justify-content:center}
+.cyber-dialog-btns button{
+  flex:1;padding:0.65rem 1rem;border:none;border-radius:var(--r2);
+  cursor:pointer;font-size:0.85rem;font-weight:600;
+  transition:all var(--transition);font-family:inherit;
+}
+.cyber-dialog-btns .cyber-btn-ok{
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:white;box-shadow:0 2px 12px rgba(0,210,255,0.2);
+}
+.cyber-dialog-btns .cyber-btn-ok:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(0,210,255,0.35)}
+.cyber-dialog-btns .cyber-btn-ok:active{transform:translateY(0)}
+.cyber-dialog-btns .cyber-btn-cancel{
+  background:transparent;color:var(--text2);
+  border:1px solid rgba(0,210,255,0.1);
+}
+.cyber-dialog-btns .cyber-btn-cancel:hover{color:var(--text);border-color:rgba(0,210,255,0.2)}
+
 /* ═══ Empty ═══ */
 .empty{text-align:center;padding:1.8rem;color:var(--text3);font-size:0.85rem}
 
@@ -758,6 +812,42 @@ tr:hover{background:rgba(0,210,255,0.04);box-shadow:inset 0 0 30px rgba(0,210,25
 </div>
 
 <script>
+/* ========== Custom Dialog (replaces native confirm/alert/prompt) ========== */
+function _showDialog(opts){
+  return new Promise(function(resolve){
+    var bg=document.getElementById('cyberDialogBg');
+    var iconEl=document.getElementById('cyberDialogIcon');
+    var msgEl=document.getElementById('cyberDialogMsg');
+    var inputEl=document.getElementById('cyberDialogInput');
+    var btnsEl=document.getElementById('cyberDialogBtns');
+    iconEl.className='cyber-dialog-icon '+(opts.iconClass||'info');
+    iconEl.innerHTML=opts.icon||'<i class="fas fa-info-circle"></i>';
+    msgEl.textContent=opts.msg;
+    if(opts.input){
+      inputEl.style.display='';inputEl.value=opts.inputDefault||'';
+      inputEl.placeholder=opts.inputPlaceholder||'';
+      setTimeout(function(){inputEl.focus()},100);
+    }else{inputEl.style.display='none'}
+    if(opts.type==='confirm'){
+      btnsEl.innerHTML='<button class="cyber-btn-cancel" id="cyberDlgCancel">取消</button><button class="cyber-btn-ok" id="cyberDlgOk">确定</button>';
+    }else{
+      btnsEl.innerHTML='<button class="cyber-btn-ok" id="cyberDlgOk">确定</button>';
+    }
+    bg.classList.add('show');
+    function close(result){bg.classList.remove('show');resolve(result)}
+    document.getElementById('cyberDlgOk').onclick=function(){
+      if(opts.input)close(inputEl.value);else close(true);
+    };
+    var cancelBtn=document.getElementById('cyberDlgCancel');
+    if(cancelBtn)cancelBtn.onclick=function(){close(false)};
+    bg.onclick=function(e){if(e.target===bg){if(opts.type==='confirm')close(false);else close(true)}};
+    inputEl.onkeydown=function(e){if(e.key==='Enter'){if(opts.input)close(inputEl.value);else close(true)}};
+  });
+}
+function showAlert(msg){return _showDialog({type:'alert',msg:msg,icon:'<i class="fas fa-info-circle"></i>',iconClass:'info'})}
+function showConfirm(msg){return _showDialog({type:'confirm',msg:msg,icon:'<i class="fas fa-exclamation-triangle"></i>',iconClass:'warn'})}
+function showPrompt(msg,defaultVal){return _showDialog({type:'confirm',msg:msg,input:true,inputDefault:defaultVal||'',icon:'<i class="fas fa-keyboard"></i>',iconClass:'info'})}
+
 var _editUid=0;
 var _dashLoaded=false;
 var _chartInstances={};
@@ -790,8 +880,8 @@ async function saveUser(){
     var r=await fetch('/api/users/'+_editUid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
     var res=await r.json();
     if(res.ok){closeEdit();loadUsers()}
-    else alert(res.error||'保存失败');
-  }catch(e){alert('请求失败: '+e.message)}
+    else showAlert(res.error||'保存失败');
+  }catch(e){showAlert('请求失败: '+e.message)}
 }
 
 /* ========== Tabs ========== */
@@ -861,34 +951,34 @@ async function loadUsers(){
 
 /* ========== Toggle User ========== */
 async function deleteUser(uid,name){
-  if(!confirm('确认删除用户 "'+name+'" ？此操作不可恢复！'))return;
+  if(!(await showConfirm('确认删除用户 "'+name+'" ？此操作不可恢复！')))return;
   try{
     var r=await fetch('/api/users/'+uid,{method:'DELETE'});
     var d=await r.json();
     if(d.ok){loadUsers()}
-    else alert(d.error||'删除失败');
-  }catch(e){alert('请求失败: '+e.message)}
+    else showAlert(d.error||'删除失败');
+  }catch(e){showAlert('请求失败: '+e.message)}
 }
 
 async function toggleUser(uid,s){
-  if(!confirm('确认'+(s===1?'禁用':'启用')+'该用户？'))return;
+  if(!(await showConfirm('确认'+(s===1?'禁用':'启用')+'该用户？')))return;
   try{
     var r=await fetch('/api/users/'+uid,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({status:s===1?0:1})});
     var d=await r.json();
-    if(d.ok)loadUsers();else alert('操作失败');
-  }catch(e){alert('请求失败: '+e.message)}
+    if(d.ok)loadUsers();else showAlert('操作失败');
+  }catch(e){showAlert('请求失败: '+e.message)}
 }
 
 /* ========== Add User ========== */
 async function addUser(){
-  var name=prompt('输入新用户名：');
+  var name=await showPrompt('输入新用户名：');
   if(!name)return;
   try{
     var r=await fetch('/api/users',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:name})});
     var d=await r.json();
-    if(d.ok){loadUsers();alert('✅ 用户已添加')}
-    else alert('❌ '+(d.error||'添加失败'));
-  }catch(e){alert('请求失败: '+e.message)}
+    if(d.ok){loadUsers();showAlert('✅ 用户已添加')}
+    else showAlert('❌ '+(d.error||'添加失败'));
+  }catch(e){showAlert('请求失败: '+e.message)}
 }
 
 /* ========== Resource Stats ========== */
@@ -989,7 +1079,7 @@ function updateSelectAllBtn(){
 }
 
 async function importSelected(){
-  if(!_pendingSelected.size){alert('请先选择要导入的关键词');return}
+  if(!_pendingSelected.size){showAlert('请先选择要导入的关键词');return}
   var keywords=[];
   _pendingSelected.forEach(function(idx){if(_pendingItems[idx])keywords.push(_pendingItems[idx].keyword)});
   var logEl=document.getElementById('pendingLog');
@@ -1152,18 +1242,18 @@ function selectDeadLinks(){
   document.querySelectorAll('#deadlinkResults input[type=checkbox][data-id]').forEach(function(cb){cb.checked=true});
 }
 async function deleteSelectedDeadLinks(){
-  if(!_deadSelected.size){alert('请先选择要删除的链接');return}
-  if(!confirm('确认删除 '+_deadSelected.size+' 条失效链接？此操作不可恢复！'))return;
+  if(!_deadSelected.size){showAlert('请先选择要删除的链接');return}
+  if(!(await showConfirm('确认删除 '+_deadSelected.size+' 条失效链接？此操作不可恢复！')))return;
   try{
     var ids=Array.from(_deadSelected);
     var r=await fetch('/api/admin/deadlinks/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({ids:ids})});
     var d=await r.json();
     if(d.ok){
-      alert('已删除 '+d.deleted+' 条失效链接');
+      showAlert('已删除 '+d.deleted+' 条失效链接');
       _deadSelected.clear();
       scanDeadLinks();
-    }else{alert('删除失败: '+(d.error||''));}
-  }catch(e){alert('删除失败: '+e.message);}
+    }else{showAlert('删除失败: '+(d.error||''));}
+  }catch(e){showAlert('删除失败: '+e.message);}
 }
 
 // Load sources when tab opens
@@ -1186,7 +1276,7 @@ async function toggleAutoScan(){
   }
 
   var autoDelete=document.getElementById('autoDeleteDead').checked;
-  if(!autoDelete&&!confirm('未勾选"自动删除失效"，失效链接只会标记不会删除。继续？'))return;
+  if(!autoDelete&&!(await showConfirm('未勾选"自动删除失效"，失效链接只会标记不会删除。继续？')))return;
 
   _autoScanRunning=true;
   document.getElementById('autoScanBtn').innerHTML='<i class="fas fa-stop"></i> 停止扫描';
@@ -1234,26 +1324,26 @@ async function updateAutoScanStatus(){
 }
 /* ========== Queue Actions ========== */
 async function deleteQueueItem(id){
-  if(!confirm('确认删除此队列记录？'))return;
+  if(!(await showConfirm('确认删除此队列记录？')))return;
   try{
     var r=await fetch('/api/admin/import_queue/'+id,{method:'DELETE'});
     var d=await r.json();
     if(d.ok)loadQueue();
-    else alert('删除失败: '+(d.error||''));
-  }catch(e){alert('删除失败: '+e.message);}
+    else showAlert('删除失败: '+(d.error||''));
+  }catch(e){showAlert('删除失败: '+e.message);}
 }
 function searchFromQueue(keyword){
   window.open('/?q='+encodeURIComponent(keyword),'_blank');
 }
 /* ========== Log Actions ========== */
 async function clearLogs(){
-  if(!confirm('确认清空所有操作日志？此操作不可恢复！'))return;
+  if(!(await showConfirm('确认清空所有操作日志？此操作不可恢复！')))return;
   try{
     var r=await fetch('/api/admin/logs/clear',{method:'POST'});
     var d=await r.json();
     if(d.ok){loadLogs(1);}
-    else{alert('清空失败: '+(d.error||'未知错误'));}
-  }catch(e){alert('清空失败: '+e.message);}
+    else{showAlert('清空失败: '+(d.error||'未知错误'));}
+  }catch(e){showAlert('清空失败: '+e.message);}
 }
 async function exportLogs(){
   try{
@@ -1261,7 +1351,7 @@ async function exportLogs(){
     if(!r.ok)throw 0;
     var d=await r.json();
     var items=d.items||[];
-    if(!items.length){alert('暂无日志可导出');return}
+    if(!items.length){showAlert('暂无日志可导出');return}
     var csv='时间,用户,操作,详情,IP\n';
     items.forEach(function(l){
       csv+=('"'+(l.created_at||'')+'","'+(l.username||l.user_id||'')+'","'+(l.action||'')+'","'+(l.detail||'').replace(/"/g,'""')+'","'+(l.ip||'')+'"\n');
@@ -1271,7 +1361,7 @@ async function exportLogs(){
     a.href=URL.createObjectURL(blob);
     a.download='operation_logs_'+new Date().toISOString().slice(0,10)+'.csv';
     a.click();
-  }catch(e){alert('导出失败: '+e.message);}
+  }catch(e){showAlert('导出失败: '+e.message);}
 }
 
 /* ========== Filter Words ========== */
@@ -1308,22 +1398,22 @@ async function loadFilterWords(page){
 async function addFilterWord(){
   var word=document.getElementById('filterWordInput').value.trim();
   var category=document.getElementById('filterCategoryInput').value;
-  if(!word){alert('请输入过滤词');return}
+  if(!word){showAlert('请输入过滤词');return}
   try{
     var r=await fetch('/api/admin/filter_words',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({word:word,category:category})});
     if(!r.ok){var err=await r.json().catch(function(){return{}});throw new Error(err.error||'HTTP '+r.status)}
     document.getElementById('filterWordInput').value='';
     loadFilterWords(1);
-  }catch(e){alert('添加失败: '+e.message)}
+  }catch(e){showAlert('添加失败: '+e.message)}
 }
 
 async function deleteFilterWord(id,word){
-  if(!confirm('确认删除过滤词 "'+word+'" ？'))return;
+  if(!(await showConfirm('确认删除过滤词 "'+word+'" ？')))return;
   try{
     var r=await fetch('/api/admin/filter_words/'+id,{method:'DELETE'});
     if(!r.ok){var err=await r.json().catch(function(){return{}});throw new Error(err.error||'HTTP '+r.status)}
     loadFilterWords(_filterPage);
-  }catch(e){alert('删除失败: '+e.message)}
+  }catch(e){showAlert('删除失败: '+e.message)}
 }
 
 /* ========== Dashboard ========== */
@@ -1552,10 +1642,10 @@ async function processQueue(){
     var r=await fetch('/api/admin/process_queue',{method:'POST'});
     if(!r.ok)throw new Error('HTTP '+r.status);
     var d=await r.json();
-    alert('处理完成: '+(d.processed||0)+' 个任务');
+    showAlert('处理完成: '+(d.processed||0)+' 个任务');
     loadQueue();
   }catch(e){
-    alert('处理失败: '+esc(e.message));
+    showAlert('处理失败: '+esc(e.message));
   }
 }
 
@@ -1565,9 +1655,9 @@ async function retryQueue(ids){
     if(!r.ok)throw new Error('HTTP '+r.status);
     var d=await r.json();
     if(d.ok){loadQueue();}
-    else{alert('重试失败: '+(d.error||'未知错误'));}
+    else{showAlert('重试失败: '+(d.error||'未知错误'));}
   }catch(e){
-    alert('重试失败: '+esc(e.message));
+    showAlert('重试失败: '+esc(e.message));
   }
 }
 
@@ -1681,10 +1771,10 @@ async function runTmdbCrawler(){
   try{
     var r=await fetch('/api/admin/tmdb/crawl',{method:'POST'});
     var d=await r.json();
-    if(!d.ok){alert(d.error||'启动失败');btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> 开始爬取';return;}
+    if(!d.ok){showAlert(d.error||'启动失败');btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> 开始爬取';return;}
     document.getElementById('tmdbProgress').style.display='';
     pollTmdbStatus();
-  }catch(e){alert('请求失败');btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> 开始爬取';}
+  }catch(e){showAlert('请求失败');btn.disabled=false;btn.innerHTML='<i class="fas fa-play"></i> 开始爬取';}
 }
 function pollTmdbStatus(){
   clearTimeout(_tmdbPollTimer);
@@ -1725,9 +1815,22 @@ async function checkTmdbStatus(){
     var r=await fetch('/api/admin/tmdb/status');
     var d=await r.json();
     if(d.running){pollTmdbStatus();}
-    else{alert('爬虫当前未运行');}
-  }catch(e){alert('查询失败');}
+    else{showAlert('爬虫当前未运行');}
+  }catch(e){showAlert('查询失败');}
 }
+// CSRF token handling
+var _csrfToken=null,_csrfFetching=null;
+function getCsrfToken(){if(_csrfToken)return Promise.resolve(_csrfToken);if(_csrfFetching)return _csrfFetching;_csrfFetching=fetch('/api/csrf-token').then(function(r){return r.json()}).then(function(d){_csrfToken=d.csrf_token;_csrfFetching=null;return _csrfToken}).catch(function(){_csrfFetching=null;return ''});return _csrfFetching}
+var _origFetch=window.fetch;
+window.fetch=function(url,options){if(!options)options={};if(options.method&&['POST','PUT','DELETE','PATCH'].includes(options.method.toUpperCase())){if(!options.headers)options.headers={};if(!options.headers['X-CSRFToken']){return getCsrfToken().then(function(token){if(token)options.headers['X-CSRFToken']=token;if(options.body&&typeof options.body==='object'&&!(options.body instanceof FormData)){options.headers['Content-Type']=options.headers['Content-Type']||'application/json';options.body=JSON.stringify(options.body)}return _origFetch.call(window,url,options)})}}return _origFetch.call(this,url,options)};
 </script>
+<div class="cyber-dialog-bg" id="cyberDialogBg">
+  <div class="cyber-dialog">
+    <div class="cyber-dialog-icon" id="cyberDialogIcon"></div>
+    <div class="cyber-dialog-msg" id="cyberDialogMsg"></div>
+    <input type="text" class="cyber-dialog-input" id="cyberDialogInput" style="display:none">
+    <div class="cyber-dialog-btns" id="cyberDialogBtns"></div>
+  </div>
+</div>
 </body>
 </html>
