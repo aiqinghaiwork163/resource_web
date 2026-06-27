@@ -812,12 +812,6 @@ tr:hover{background:rgba(0,210,255,0.04);box-shadow:inset 0 0 30px rgba(0,210,25
   </div>
 </div>
 
-// 页面加载时检查登录状态
-fetch("/api/user/me").then(function(r){return r.json()}).then(function(d){
-  if(!d.logged_in || !d.is_admin){
-    window.location.href="/login";
-  }
-}).catch(function(){});
 <script>
 // 加载网站设置
 fetch('/api/site-settings').then(function(r){return r.json()}).then(function(d){
