@@ -17,19 +17,27 @@ from collections import deque
 import requests
 import pymysql
 
-# ── 配置 ──
-SEARCH_API = os.environ.get("SEARCH_API", "https://ps.aiqinghaiwork.cn/api/search")
+# ── 配置（优先环境变量，无默认值强制设置） ──
+SEARCH_API = os.environ.get("SEARCH_API")
+if not SEARCH_API:
+    raise RuntimeError("环境变量 SEARCH_API 未设置")
 DB_HOST = os.environ.get("DB_HOST", "172.23.0.2")
 DB_PORT = int(os.environ.get("DB_PORT", "3306"))
 DB_USER = os.environ.get("DB_USER", "root")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "9zPwwKV_YYK3IcivNFcXuA")
+DB_PASSWORD = os.environ.get("DB_PASSWORD")
+if not DB_PASSWORD:
+    raise RuntimeError("环境变量 DB_PASSWORD 未设置")
 DB_NAME = os.environ.get("DB_NAME", "pan_resource")
 
-# Trakt.tv API Key (免费注册: https://trakt.tv/oauth/applications)
-TRAKT_CLIENT_ID = os.environ.get("TRAKT_CLIENT_ID", "d9e6343426cc0f5ffdeeca49173da87470ebccfffe588129e8ade834e153f707")
+# Trakt.tv API Key
+TRAKT_CLIENT_ID = os.environ.get("TRAKT_CLIENT_ID")
+if not TRAKT_CLIENT_ID:
+    raise RuntimeError("环境变量 TRAKT_CLIENT_ID 未设置")
 
 # TMDB API Key
-TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "91f75e1241354f2503a397fc7a276408")
+TMDB_API_KEY = os.environ.get("TMDB_API_KEY")
+if not TMDB_API_KEY:
+    raise RuntimeError("环境变量 TMDB_API_KEY 未设置")
 
 
 def log(m):

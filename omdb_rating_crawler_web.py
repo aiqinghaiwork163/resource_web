@@ -12,16 +12,22 @@ import pymysql
 from datetime import datetime
 
 STATUS_FILE = "/app/data/omdb_status.json"
-OMDB_API_KEY = os.environ.get("OMDB_API_KEY", "64bc4032")
-SEARCH_API = "https://ps.aiqinghaiwork.cn/api/search"
+OMDB_API_KEY = os.environ.get("OMDB_API_KEY")
+if not OMDB_API_KEY:
+    raise RuntimeError("环境变量 OMDB_API_KEY 未设置")
+SEARCH_API = os.environ.get("SEARCH_API")
+if not SEARCH_API:
+    raise RuntimeError("环境变量 SEARCH_API 未设置")
 DB_CONFIG = {
-    "host": "resource_db",
-    "port": 3306,
-    "user": "panuser",
-    "password": "panuser_2026",
-    "database": "pan_resource",
+    "host": os.environ.get("DB_HOST", "resource_db"),
+    "port": int(os.environ.get("DB_PORT", "3306")),
+    "user": os.environ.get("DB_USER", "panuser"),
+    "password": os.environ.get("DB_PASSWORD"),
+    "database": os.environ.get("DB_NAME", "pan_resource"),
     "charset": "utf8mb4",
 }
+if not DB_CONFIG["password"]:
+    raise RuntimeError("环境变量 DB_PASSWORD 未设置")
 
 status = {
     "running": True,
@@ -167,7 +173,6 @@ def main():
     try:
         log("=" * 60)
         log("OMDb 评分爬虫启动")
-        log(f"API Key: {OMDB_API_KEY[:8]}...")
         log("=" * 60)
         
         # 获取数据库中的标题

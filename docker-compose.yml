@@ -22,12 +22,12 @@ services:
       - DB_HOST=172.23.0.2
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=9zPwwKV_YYK3IcivNFcXuA
+      - DB_PASSWORD=${DB_PASSWORD:?请设置 DB_PASSWORD}
       - DB_NAME=pan_resource
-      - ADMIN_USER=admin
-      - ADMIN_PASS=admin2026
-      - SECRET_KEY=resource_web_secret_2026_f8a3b2c1
-      - TMDB_API_KEY=91f75e1241354f2503a397fc7a276408
+      - ADMIN_USER=${ADMIN_USER:?请设置 ADMIN_USER}
+      - ADMIN_PASS=${ADMIN_PASS:?请设置 ADMIN_PASS}
+      - SECRET_KEY=${SECRET_KEY:?请设置 SECRET_KEY}
+      - TMDB_API_KEY=${TMDB_API_KEY:?请设置 TMDB_API_KEY}
       - SEARCH_API=https://ps.aiqinghaiwork.cn/api/search
       - REDIS_HOST=redis
       - REDIS_PORT=6379

@@ -17,8 +17,30 @@ import pymysql.cursors
 import requests as http_requests
 from flask import Flask, jsonify, request, send_from_directory, session, redirect
 import json
+import bcrypt
 
 from flask_wtf.csrf import CSRFProtect, generate_csrf
+
+# ==================== 密码哈希工具（bcrypt） ====================
+def hash_password(password: str) -> str:
+    """使用 bcrypt 对密码进行哈希"""
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    """验证密码，兼容旧版 SHA256 哈希（迁移期）"""
+    if not stored_hash:
+        return False
+    # 新格式：bcrypt 哈希以 $2b$ 开头
+    if stored_hash.startswith('$2b$') or stored_hash.startswith('$2a$'):
+        return bcrypt.checkpw(password.encode('utf-8'), stored_hash.encode('utf-8'))
+    # 旧格式：SHA256 hex（64位十六进制字符串）
+    if len(stored_hash) == 64 and all(c in '0123456789abcdef' for c in stored_hash.lower()):
+        old_hash = hashlib.sha256(password.encode()).hexdigest()
+        if old_hash == stored_hash:
+            # 验证成功，自动迁移到 bcrypt
+            return True
+        return False
+    return False
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
@@ -313,12 +335,21 @@ def login_page():
             return jsonify({"ok": False, "error": "用户名或密码错误"}), 401
         if user["status"] != 1:
             return jsonify({"ok": False, "error": "账号已被禁用"}), 401
-        # 验证密码：优先SHA256哈希，兼容空密码(首次登录用环境变量)
-        pw_hash = hashlib.sha256(password.encode()).hexdigest()
+        # 验证密码（兼容旧版 SHA256，自动迁移 bcrypt）
+        pw_hash = password  # 直接传入原始密码给 verify_password
         stored_pw = user.get("password", "")
-        if stored_pw and stored_pw == pw_hash:
-            pass  # 密码匹配
-        else:
+        if not verify_password(password, stored_pw):
+            # 登录成功，自动迁移到 bcrypt
+            if stored_pw and not stored_pw.startswith('$2b$') and not stored_pw.startswith('$2a$'):
+                new_hash = hash_password(password)
+                db2 = get_db()
+                try:
+                    db2.cursor().execute("UPDATE users SET password=%s WHERE id=%s", (new_hash, user["id"]))
+                    db2.commit()
+                except Exception:
+                    pass
+                finally:
+                    db2.close()
             record_login_failure(client_ip)
             return jsonify({"ok": False, "error": "用户名或密码错误"}), 401
         session["is_admin"] = user["role"] == "admin"
@@ -769,9 +800,7 @@ def api_user_update(uid):
         if "email" in data:
             sets.append("email=%s"); vals.append(data["email"])
         if "password" in data and data["password"]:
-            import hashlib
-            pw_hash = hashlib.sha256(data["password"].encode()).hexdigest()
-            sets.append("password=%s"); vals.append(pw_hash)
+            sets.append("password=%s"); vals.append(hash_password(data["password"]))
         if "role" in data:
             sets.append("role=%s"); vals.append(data["role"])
         if "status" in data:
@@ -868,7 +897,7 @@ def api_change_password():
         return jsonify({"error": "请输入旧密码"}), 400
     if not new_pw or len(new_pw) < 6:
         return jsonify({"error": "密码至少6位"}), 400
-    # 验证旧密码
+    # 验证旧密码（兼容旧版 SHA256）
     db = get_db()
     try:
         cur = db.cursor()
@@ -876,11 +905,10 @@ def api_change_password():
         user = cur.fetchone()
         if not user:
             return jsonify({"error": "用户不存在"}), 404
-        old_pw_hash = hashlib.sha256(old_pw.encode()).hexdigest()
-        if user.get("password", "") != old_pw_hash:
+        if not verify_password(old_pw, user.get("password", "")):
             return jsonify({"error": "旧密码错误"}), 403
-        new_pw_hash = hashlib.sha256(new_pw.encode()).hexdigest()
-        cur.execute("UPDATE users SET password=%s, updated_at=NOW() WHERE id=%s", (new_pw_hash, uid))
+        new_hash = hash_password(new_pw)
+        cur.execute("UPDATE users SET password=%s, updated_at=NOW() WHERE id=%s", (new_hash, uid))
         db.commit()
         return jsonify({"ok": True})
     finally:

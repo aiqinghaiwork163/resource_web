@@ -11,13 +11,19 @@ import requests
 import pymysql
 from datetime import datetime
 
-# ── 配置 ──
-OMDB_API_KEY = os.environ.get("OMDB_API_KEY", "64bc4032")
-SEARCH_API = os.environ.get("SEARCH_API", "https://ps.aiqinghaiwork.cn/api/search")
+# ── 配置（优先环境变量，无默认值强制设置） ──
+OMDB_API_KEY = os.environ.get("OMDB_API_KEY")
+if not OMDB_API_KEY:
+    raise RuntimeError("环境变量 OMDB_API_KEY 未设置")
+SEARCH_API = os.environ.get("SEARCH_API")
+if not SEARCH_API:
+    raise RuntimeError("环境变量 SEARCH_API 未设置")
 DB_HOST = os.environ.get("DB_HOST", "172.23.0.2")
 DB_PORT = int(os.environ.get("DB_PORT", "3306"))
 DB_USER = os.environ.get("DB_USER", "root")
-DB_PASSWORD = os.environ.get("DB_PASSWORD", "9zPwwKV_YYK3IcivNFcXuA")
+DB_PASSWORD = os.environ.get("DB_PASSWORD")
+if not DB_PASSWORD:
+    raise RuntimeError("环境变量 DB_PASSWORD 未设置")
 DB_NAME = os.environ.get("DB_NAME", "pan_resource")
 
 

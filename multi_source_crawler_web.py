@@ -17,21 +17,27 @@ import requests
 import pymysql
 
 STATUS_FILE = "/app/data/multi_source_status.json"
-SEARCH_API = "https://ps.aiqinghaiwork.cn/api/search"
+SEARCH_API = os.environ.get("SEARCH_API", "https://ps.aiqinghaiwork.cn/api/search")
 DB_CONFIG = {
-    "host": "resource_db",
-    "port": 3306,
-    "user": "panuser",
-    "password": "panuser_2026",
-    "database": "pan_resource",
+    "host": os.environ.get("DB_HOST", "resource_db"),
+    "port": int(os.environ.get("DB_PORT", "3306")),
+    "user": os.environ.get("DB_USER", "panuser"),
+    "password": os.environ.get("DB_PASSWORD"),
+    "database": os.environ.get("DB_NAME", "pan_resource"),
     "charset": "utf8mb4",
 }
+if not DB_CONFIG["password"]:
+    raise RuntimeError("环境变量 DB_PASSWORD 未设置")
 
-# Trakt.tv API Key
-TRAKT_CLIENT_ID = os.environ.get("TRAKT_CLIENT_ID", "d9e6343426cc0f5ffdeeca49173da87470ebccfffe588129e8ade834e153f707")
+# Trakt.tv API Key (免费注册: https://trakt.tv/oauth/applications)
+TRAKT_CLIENT_ID = os.environ.get("TRAKT_CLIENT_ID")
+if not TRAKT_CLIENT_ID:
+    raise RuntimeError("环境变量 TRAKT_CLIENT_ID 未设置")
 
 # TMDB API Key
-TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "91f75e1241354f2503a397fc7a276408")
+TMDB_API_KEY = os.environ.get("TMDB_API_KEY")
+if not TMDB_API_KEY:
+    raise RuntimeError("环境变量 TMDB_API_KEY 未设置")
 
 status = {
     "running": True,
