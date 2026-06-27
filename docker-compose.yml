@@ -22,7 +22,7 @@ services:
       - DB_HOST=172.23.0.2
       - DB_PORT=3306
       - DB_USER=root
-      - DB_PASSWORD=${DB_PASSWORD:?请设置 DB_PASSWORD}
+      - DB_PASSWORD=resource_db_2026
       - DB_NAME=pan_resource
       - ADMIN_USER=${ADMIN_USER:?请设置 ADMIN_USER}
       - ADMIN_PASS=${ADMIN_PASS:?请设置 ADMIN_PASS}

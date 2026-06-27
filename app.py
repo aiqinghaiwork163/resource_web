@@ -18,8 +18,37 @@ import requests as http_requests
 from flask import Flask, jsonify, request, send_from_directory, session, redirect
 import json
 import bcrypt
+import hashlib
 
 from flask_wtf.csrf import CSRFProtect, generate_csrf
+
+# ==================== Redis 缓存 ====================
+_redis_client = None
+
+def get_redis():
+    global _redis_client
+    if _redis_client is None:
+        import redis
+        _redis_client = redis.Redis(
+            host=os.environ.get("REDIS_HOST", "127.0.0.1"),
+            port=int(os.environ.get("REDIS_PORT", "6379")),
+            db=int(os.environ.get("REDIS_DB", "0")),
+            socket_timeout=2,
+            socket_connect_timeout=2,
+        )
+    return _redis_client
+
+def _make_cache_key(*args):
+    raw = "|".join(str(a) for a in args)
+    return "res_web:" + hashlib.md5(raw.encode()).hexdigest()
+
+
+def _invalidate_resource_cache():
+    try:
+        for key in get_redis().scan_iter("res_web:resources:*"):
+            get_redis().delete(key)
+    except Exception:
+        pass
 
 # ==================== 密码哈希工具（bcrypt） ====================
 def hash_password(password: str) -> str:
@@ -489,6 +518,14 @@ def api_resources():
     filter_type = request.args.get("filter", "all")
     source_filter = request.args.get("source", "all")
 
+    cache_key = _make_cache_key("resources", query, filter_type, source_filter, page, per_page)
+    try:
+        cached = get_redis().get(cache_key)
+        if cached:
+            return jsonify(json.loads(cached))
+    except Exception:
+        pass
+
     offset = (page - 1) * per_page
     db = get_db()
     try:
@@ -533,14 +570,19 @@ def api_resources():
         )
         items = cur.fetchall()
 
-        return jsonify({
+        payload = {
             "items": items,
             "total": total,
             "page": page,
             "per_page": per_page,
             "total_pages": total_pages,
             "importing": _auto_import_trigger(query) if total == 0 and query else False,
-        })
+        }
+        try:
+            get_redis().setex(cache_key, 120, json.dumps(payload, ensure_ascii=False))
+        except Exception:
+            pass
+        return jsonify(payload)
     finally:
         db.close()
 
@@ -578,6 +620,7 @@ def _get_cached_filter_words():
 def _clear_filter_words_cache():
     """清除filter_words缓存"""
     _cache.pop(_FW_CACHE_KEY, None)
+    _invalidate_resource_cache()
 
 
 def _filter_words_condition(cur):
@@ -1021,6 +1064,7 @@ def api_click(rid):
         cur = db.cursor()
         cur.execute("UPDATE resources SET click_count = click_count + 1 WHERE id = %s", (rid,))
         db.commit()
+        _invalidate_resource_cache()
         return jsonify({"ok": True})
     finally: db.close()
 # ==================== 个人中心页面 ====================
@@ -1760,6 +1804,7 @@ def api_admin_resources_batch():
         if action == "delete":
             cur.execute(f"DELETE FROM resources {where}", params)
             db.commit()
+            _invalidate_resource_cache()
             return jsonify({"ok": True, "affected": cur.rowcount})
 
         elif action == "export":
@@ -1779,12 +1824,14 @@ def api_admin_resources_batch():
             quality = data.get("value", "")
             cur.execute(f"UPDATE resources SET quality = %s {where}", [quality] + params)
             db.commit()
+            _invalidate_resource_cache()
             return jsonify({"ok": True, "affected": cur.rowcount})
 
         elif action == "update_type":
             rtype = data.get("value", "")
             cur.execute(f"UPDATE resources SET type = %s {where}", [rtype] + params)
             db.commit()
+            _invalidate_resource_cache()
             return jsonify({"ok": True, "affected": cur.rowcount})
 
         return jsonify({"error": f"未知操作: {action}"}), 400
@@ -1972,6 +2019,7 @@ def _auto_check_links_bg(items):
                     cur = db.cursor()
                     cur.execute("UPDATE resources SET last_checked=NOW(), link_status=%s WHERE id=%s", (status, rid))
                     db.commit()
+                    _invalidate_resource_cache()
                 finally:
                     db.close()
             except:
@@ -2531,6 +2579,7 @@ def api_admin_deadlinks_delete():
         placeholders = ",".join(["%s"] * len(ids))
         cur.execute(f"DELETE FROM resources WHERE id IN ({placeholders})", ids)
         db.commit()
+        _invalidate_resource_cache()
         return jsonify({"ok": True, "deleted": cur.rowcount})
     finally:
         db.close()
@@ -2642,6 +2691,7 @@ def api_admin_deadlinks_auto_scan():
                         cur.execute(f"DELETE FROM resources WHERE id IN ({placeholders})", dead_ids)
                         db.commit()
                         db.close()
+                        _invalidate_resource_cache()
                     except:
                         pass
 
