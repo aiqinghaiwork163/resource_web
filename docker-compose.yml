@@ -1,4 +1,16 @@
 services:
+  redis:
+    image: redis:7-alpine
+    container_name: resource_web_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - resource_db_default
+
   resource-web:
     build: .
     container_name: resource_web
@@ -17,9 +29,17 @@ services:
       - SECRET_KEY=resource_web_secret_2026_f8a3b2c1
       - TMDB_API_KEY=91f75e1241354f2503a397fc7a276408
       - SEARCH_API=https://ps.aiqinghaiwork.cn/api/search
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
     networks:
       - resource_db_default
+    depends_on:
+      - redis
 
 networks:
   resource_db_default:
     external: true
+
+volumes:
+  redis_data:

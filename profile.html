@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>个人中心 - 网盘资源浏览器</title>
+<title>个人中心 - 资源雷达</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>👤</text></svg>">
 <link rel="stylesheet" href="/static/css/all.min.css">
 <style>
@@ -417,13 +417,14 @@ a { color:var(--accent); text-decoration:none; }
   .footer { padding:1.5rem 0.85rem; }
 }
 </style>
+<script src="/site-settings.js"></script>
 </head>
 <body>
 
 <!-- Nav -->
 <div class="nav">
   <div class="nav-inner">
-    <a href="/" class="logo"><i class="fas fa-cloud"></i> 网盘资源浏览器</a>
+    <a href="/" class="logo"><i class="fas fa-cloud"></i> 资源雷达</a>
     <div class="nav-spacer"></div>
     <button class="theme-toggle" onclick="toggleTheme()" title="切换主题"><i class="fas fa-adjust"></i></button>
     <span class="nav-user" id="navUser"></span>
@@ -478,7 +479,7 @@ a { color:var(--accent); text-decoration:none; }
 
 </div>
 
-<div class="footer">🎬 网盘资源浏览器 · Powered by Flask</div>
+<div class="footer">🎬 资源雷达 · Powered by Flask</div>
 <div class="toast" id="toast"></div>
 
 <script>

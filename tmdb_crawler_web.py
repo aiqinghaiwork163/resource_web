@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-TMDB 爬虫 - Web集成版
+TMDB 爬虫 v3.0 - Web集成版
+支持：趋势/热门/影院/即将/评分/发现/相似推荐 递归爬取
 独立进程运行，通过 JSON 文件与 Flask 应用通信
 """
 import os
@@ -10,6 +11,7 @@ import time
 import socket
 import ssl
 from datetime import datetime
+from collections import deque
 
 import requests
 import pymysql
@@ -26,18 +28,49 @@ DB_CONFIG = {
     "charset": "utf8mb4",
 }
 
+# ── 爬取配置 ──
+MAX_PAGES = 3
+MAX_SIMILAR_DEPTH = 2
+MAX_SIMILAR_PER_ITEM = 5
+MAX_DISCOVER_PAGES = 2
+
+# ── 基础榜单 ──
 ENDPOINTS = {
     "趋势(日)": "trending/all/day",
     "趋势(周)": "trending/all/week",
     "电影-热门": "movie/popular",
     "电影-影院": "movie/now_playing",
     "电影-即将": "movie/upcoming",
+    "电影-Top评分": "movie/top_rated",
     "剧集-热门": "tv/popular",
     "剧集-今日播出": "tv/airing_today",
     "剧集-正在播出": "tv/on_the_air",
+    "剧集-Top评分": "tv/top_rated",
 }
 
-status = {"running": True, "progress": 0, "total": 0, "imported": 0, "log": []}
+# ── Discover 发现接口 ──
+DISCOVER_MOVIE = [
+    {"label": "电影-发现-高分", "params": {"sort_by": "vote_average.desc", "vote_count.gte": 1000}},
+    {"label": "电影-发现-2024热门", "params": {"sort_by": "popularity.desc", "primary_release_year": 2024}},
+    {"label": "电影-发现-2025热门", "params": {"sort_by": "popularity.desc", "primary_release_year": 2025}},
+    {"label": "电影-发现-动作", "params": {"sort_by": "popularity.desc", "with_genres": 28}},
+    {"label": "电影-发现-科幻", "params": {"sort_by": "popularity.desc", "with_genres": 878}},
+    {"label": "电影-发现-恐怖", "params": {"sort_by": "popularity.desc", "with_genres": 27}},
+    {"label": "电影-发现-喜剧", "params": {"sort_by": "popularity.desc", "with_genres": 35}},
+    {"label": "电影-发现-动画", "params": {"sort_by": "popularity.desc", "with_genres": 16}},
+]
+
+DISCOVER_TV = [
+    {"label": "剧集-发现-高分", "params": {"sort_by": "vote_average.desc", "vote_count.gte": 500}},
+    {"label": "剧集-发现-2024热门", "params": {"sort_by": "popularity.desc", "first_air_date_year": 2024}},
+    {"label": "剧集-发现-2025热门", "params": {"sort_by": "popularity.desc", "first_air_date_year": 2025}},
+    {"label": "剧集-发现-美剧", "params": {"sort_by": "popularity.desc", "with_origin_country": "US"}},
+    {"label": "剧集-发现-韩剧", "params": {"sort_by": "popularity.desc", "with_origin_country": "KR"}},
+    {"label": "剧集-发现-日剧", "params": {"sort_by": "popularity.desc", "with_origin_country": "JP"}},
+    {"label": "剧集-发现-动漫", "params": {"sort_by": "popularity.desc", "with_genres": 16}},
+]
+
+status = {"running": True, "phase": "", "progress": 0, "total": 0, "imported": 0, "similar_count": 0, "log": []}
 
 
 def save_status():
@@ -49,13 +82,25 @@ def save_status():
 def log(m):
     ts = datetime.now().strftime("%H:%M:%S")
     status["log"].append(f"[{ts}] {m}")
+    # 只保留最近100条日志
+    if len(status["log"]) > 100:
+        status["log"] = status["log"][-100:]
     save_status()
 
 
-def tmdb_get(ep, p=1):
+def tmdb_fetch(ep, p=1, extra_params=None):
+    """通过IP直连绕过GFW访问TMDB API"""
     try:
         ip = socket.getaddrinfo("www.themoviedb.org", 443, socket.AF_INET)[0][4][0]
-        path = f"/3/{ep}?api_key={API_KEY}&language=zh-CN&page={p}"
+    except Exception:
+        return None
+
+    path = f"/3/{ep}?api_key={API_KEY}&language=zh-CN&page={p}"
+    if extra_params:
+        for k, v in extra_params.items():
+            path += f"&{k}={v}"
+    
+    try:
         s = socket.create_connection((ip, 443), 10)
         ss = ssl.create_default_context().wrap_socket(s, server_hostname="api.themoviedb.org")
         ss.sendall(
@@ -85,44 +130,143 @@ def tmdb_get(ep, p=1):
         return None
 
 
+def extract_titles(data, label):
+    """提取标题和ID"""
+    results = []
+    for item in data.get("results", []):
+        title = item.get("title") or item.get("name", "")
+        item_id = item.get("id")
+        media_type = item.get("media_type", "")
+        if title:
+            results.append({
+                "title": title.strip(),
+                "id": item_id,
+                "type": media_type,
+                "source": label
+            })
+    return results
+
+
+def fetch_similar(item_id, media_type="movie"):
+    """获取相似推荐"""
+    ep = f"{media_type}/{item_id}/similar"
+    data = tmdb_fetch(ep)
+    if not data:
+        return []
+    return extract_titles(data, "相似推荐")
+
+
 def main():
     try:
-        # Phase 1: Fetch TMDB titles
-        log("Phase 1: Getting TMDB trending titles...")
-        titles = []
+        all_titles = []
         seen = set()
+        
+        # Phase 1: 基础榜单
+        status["phase"] = "基础榜单"
+        log("Phase 1: 基础榜单")
         for label, ep in ENDPOINTS.items():
             log(f"  [{label}] ...")
-            data = tmdb_get(ep)
-            if not data:
-                log(f"  Failed to fetch")
+            for p in range(1, MAX_PAGES + 1):
+                data = tmdb_fetch(ep, p)
+                if not data:
+                    break
+                items = extract_titles(data, label)
+                for t in items:
+                    key = f"{t['id']}_{t['type']}"
+                    if key not in seen:
+                        seen.add(key)
+                        all_titles.append(t)
+                if p >= data.get("total_pages", 1):
+                    break
+                time.sleep(0.3)
+            log(f"    共 {len(seen)} 个")
+        
+        # Phase 2: Discover 发现接口
+        status["phase"] = "Discover发现"
+        log("Phase 2: Discover 发现接口")
+        all_discover = DISCOVER_MOVIE + DISCOVER_TV
+        for disc in all_discover:
+            label = disc["label"]
+            params = disc["params"]
+            ep = "discover/movie" if "电影" in label else "discover/tv"
+            log(f"  [{label}] ...")
+            for p in range(1, MAX_DISCOVER_PAGES + 1):
+                data = tmdb_fetch(ep, p, params)
+                if not data:
+                    break
+                items = extract_titles(data, label)
+                for item in items:
+                    if not item["type"]:
+                        item["type"] = "movie" if "电影" in label else "tv"
+                for t in items:
+                    key = f"{t['id']}_{t['type']}"
+                    if key not in seen:
+                        seen.add(key)
+                        all_titles.append(t)
+                if p >= data.get("total_pages", 1):
+                    break
+                time.sleep(0.3)
+        
+        log(f"Phase 1+2 完成: {len(all_titles)} 个作品")
+        
+        # Phase 3: 递归相似推荐
+        status["phase"] = "相似推荐"
+        log(f"Phase 3: 相似推荐 (深度={MAX_SIMILAR_DEPTH})")
+        
+        queue = deque()
+        for t in all_titles[:50]:
+            if t["id"] and t["type"]:
+                queue.append((t["id"], t["type"], 1))
+        
+        processed_similar = set()
+        similar_count = 0
+        
+        while queue:
+            item_id, media_type, depth = queue.popleft()
+            if depth > MAX_SIMILAR_DEPTH:
                 continue
-            count = 0
-            for item in data.get("results", []):
-                t = (item.get("title") or item.get("name", "")).strip()
-                k = t.lower()
-                if t and k not in seen:
-                    seen.add(k)
-                    titles.append(t)
-                    count += 1
-            log(f"  +{count} (total {len(seen)})")
+            similar_key = f"{item_id}_{media_type}"
+            if similar_key in processed_similar:
+                continue
+            processed_similar.add(similar_key)
+            
+            similar_items = fetch_similar(item_id, media_type)
+            for t in similar_items[:MAX_SIMILAR_PER_ITEM]:
+                key = f"{t['id']}_{t['type'] or media_type}"
+                if key not in seen:
+                    seen.add(key)
+                    t["source"] = f"相似推荐(深度{depth})"
+                    t["type"] = t["type"] or media_type
+                    all_titles.append(t)
+                    similar_count += 1
+                    if depth < MAX_SIMILAR_DEPTH:
+                        queue.append((t["id"], t["type"], depth + 1))
+            
+            status["similar_count"] = similar_count
+            save_status()
             time.sleep(0.3)
-
-        status["total"] = len(titles)
-        save_status()
-        log(f"Total {len(titles)} titles\n")
-
-        # Phase 2: Search and import
-        log("Phase 2: Searching and importing...")
+        
+        log(f"Phase 3 完成: 相似推荐新增 {similar_count} 个")
+        log(f"总计: {len(all_titles)} 个作品")
+        
+        # Phase 4: 搜索并导入
+        status["phase"] = "搜索导入"
+        status["total"] = len(all_titles)
+        log("Phase 4: 搜索并导入资源")
+        
         db = pymysql.connect(**DB_CONFIG)
         cur = db.cursor()
         imported = 0
-
-        for i, title in enumerate(titles, 1):
+        
+        for i, title_text in enumerate(all_titles, 1):
             status["progress"] = i
-            log(f"[{i}/{len(titles)}] {title}")
+            kw = title_text["title"]
+            
+            if i % 50 == 0:
+                log(f"  进度: {i}/{len(all_titles)}, 已导入: {imported}")
+            
             try:
-                resp = requests.post(SEARCH_API, json={"kw": title, "limit": 30}, timeout=60)
+                resp = requests.post(SEARCH_API, json={"kw": kw, "limit": 30}, timeout=60)
                 result = resp.json()
                 if result.get("code") != 0:
                     continue
@@ -130,10 +274,7 @@ def main():
                 items = []
                 for src, its in merged.items():
                     items.extend(its)
-                if not items:
-                    log("  No results")
-                    continue
-
+                
                 added = 0
                 nw = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                 for it in items:
@@ -143,29 +284,31 @@ def main():
                     cur.execute("SELECT 1 FROM resources WHERE url=%s", (url,))
                     if cur.fetchone():
                         continue
-                    title_text = it.get("note") or it.get("title") or title
+                    title = it.get("note") or it.get("title") or kw
                     src = (it.get("source") or "other").lower()
                     cur.execute(
                         "INSERT INTO resources(url,title,keyword,password,source,datetime,created_at) VALUES(%s,%s,%s,%s,%s,%s,%s)",
-                        (url, title_text, title, it.get("password", ""), src, nw, nw),
+                        (url, title, kw, it.get("password", ""), src, nw, nw),
                     )
                     added += 1
                 db.commit()
                 imported += added
                 status["imported"] = imported
-                log(f"  +{added}" if added else "  Already exists")
             except Exception as e:
                 log(f"  Error: {str(e)[:60]}")
+            
             save_status()
-            time.sleep(0.3)
-
+            time.sleep(0.2)
+        
         cur.close()
         db.close()
-        log(f"\nDone! {len(titles)} titles, {imported} new resources")
+        log(f"\n🎉 完成! {len(all_titles)} 作品, {imported} 新资源")
+        
     except Exception as e:
         log(f"\nError: {e}")
     finally:
         status["running"] = False
+        status["phase"] = "完成"
         save_status()
 
 
