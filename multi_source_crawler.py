@@ -521,23 +521,38 @@ def import_db(items, kw):
         )
         cur = c.cursor()
         nw = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        existing = set()
+        rows_to_insert = []
+        batch_size = 500
         imp = 0
         for it in items:
             url = it.get("url") or ""
-            if not url:
+            if not url or url in existing:
+                continue
+            cur.execute("SELECT 1 FROM resources WHERE url=%s", (url,))
+            if cur.fetchone():
+                existing.add(url)
                 continue
             title = it.get("note") or it.get("title") or kw
             pw = it.get("password") or ""
             src = (it.get("source") or it.get("type") or "other").lower()
-            cur.execute("SELECT 1 FROM resources WHERE url=%s", (url,))
-            if cur.fetchone():
-                continue
-            cur.execute(
+            rows_to_insert.append((url, title, kw, pw, src, nw, nw))
+            existing.add(url)
+            if len(rows_to_insert) >= batch_size:
+                cur.executemany(
+                    "INSERT INTO resources(url,title,keyword,password,source,datetime,created_at) "
+                    "VALUES(%s,%s,%s,%s,%s,%s,%s)",
+                    rows_to_insert,
+                )
+                imp += cur.rowcount
+                rows_to_insert.clear()
+        if rows_to_insert:
+            cur.executemany(
                 "INSERT INTO resources(url,title,keyword,password,source,datetime,created_at) "
                 "VALUES(%s,%s,%s,%s,%s,%s,%s)",
-                (url, title, kw, pw, src, nw, nw),
+                rows_to_insert,
             )
-            imp += 1
+            imp += cur.rowcount
         c.commit()
         cur.close()
         c.close()
