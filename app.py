@@ -273,6 +273,20 @@ def reset_login_failures(ip):
 
 # ==================== 内存缓存 ====================
 _cache = {}  # key -> (data, expire_time)
+_CACHE_MAX_SIZE = 500  # 最大缓存条目数，防止内存泄漏
+
+
+def _cleanup_cache():
+    """清理过期条目，必要时淘汰最旧条目以控制内存"""
+    now = time.time()
+    expired = [k for k, (_, expire) in _cache.items() if now >= expire]
+    for k in expired:
+        _cache.pop(k, None)
+    if len(_cache) > _CACHE_MAX_SIZE:
+        # FIFO 淘汰，只保留最新的一半
+        keep = list(_cache.items())[-_CACHE_MAX_SIZE // 2:]
+        _cache.clear()
+        _cache.update(keep)
 
 
 def cached(ttl=300):
@@ -282,6 +296,8 @@ def cached(ttl=300):
         def wrapper(*args, **kwargs):
             key = request.url
             now = time.time()
+            if len(_cache) > _CACHE_MAX_SIZE:
+                _cleanup_cache()
             if key in _cache:
                 data, expire = _cache[key]
                 if now < expire:
