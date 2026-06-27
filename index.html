@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>🎬 网盘资源浏览器</title>
+<title>🎬 资源雷达</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Noto+Sans+SC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
@@ -178,6 +178,29 @@ body::after {
   transition: color var(--t);
 }
 .search-wrap input:focus ~ .si { color: var(--cyan); }
+.search-wrap .search-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: var(--cyan);
+  color: #000;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.78rem;
+  transition: all var(--t);
+  padding: 0;
+}
+.search-wrap .search-btn:hover {
+  background: #fff;
+  box-shadow: 0 0 12px rgba(0,210,255,0.35);
+}
 
 .nav-btn {
   width: 36px; height: 36px; border-radius: 50%;
@@ -288,7 +311,7 @@ body::after {
 .hero-search-wrap input {
   width: 100%;
   height: 56px;
-  padding: 0 var(--sp-6) 0 52px;
+  padding: 0 60px 0 52px;
   background: rgba(255,255,255,0.95);
   border: none;
   border-radius: var(--r-xl);
@@ -309,6 +332,30 @@ body::after {
 .hero-search-wrap input:focus {
   box-shadow: 0 8px 40px rgba(0,210,255,0.2), 0 0 0 2px var(--cyan), 0 0 0 6px var(--cyan-dim);
   transform: translateY(-1px);
+}
+.hero-search-wrap .hero-search-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--cyan);
+  color: #000;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  transition: all var(--t);
+  padding: 0;
+}
+.hero-search-wrap .hero-search-btn:hover {
+  background: #000;
+  color: #fff;
+  box-shadow: 0 0 16px rgba(0,210,255,0.4);
 }
 
 /* ═══════════ AUTOCOMPLETE ═══════════ */
@@ -1140,6 +1187,7 @@ mark {
   box-shadow: 0 0 8px rgba(0,210,255,0.3);
 }
 </style>
+<script src="/site-settings.js"></script>
 </head>
 <body>
 
@@ -1149,6 +1197,7 @@ mark {
     <div class="logo"><i class="fas fa-satellite-dish"></i> 资源雷达</div>
     <div class="search-wrap" id="navSearchWrap" style="display:none">
       <input type="text" id="searchInput" placeholder="搜索电影、剧集、动漫、软件..." onkeydown="if(event.key==='Enter')doSearch()">
+      <button class="search-btn" onclick="doSearch()" title="搜索"><i class="fas fa-search"></i></button>
       <div class="autocomplete-dropdown" id="acDropdown"></div>
       <i class="fas fa-search si"></i>
     </div>
@@ -1164,6 +1213,7 @@ mark {
   <div class="hero-sub">海量网盘资源，智能聚合搜索</div>
   <div class="hero-search-wrap">
     <input type="text" id="heroSearchInput" placeholder="输入关键词搜索..." onkeydown="if(event.key==='Enter')heroSearch()">
+    <button class="search-btn hero-search-btn" onclick="heroSearch()" title="搜索"><i class="fas fa-search"></i></button>
     <i class="fas fa-search hsi"></i>
   </div>
 </div>
@@ -1269,11 +1319,27 @@ mark {
 </div>
 
 <!-- Footer -->
-<div class="footer">🎬 网盘资源浏览器 · Powered by Flask</div>
+<div class="footer" id="siteFooter">🎬 资源雷达 · Powered by Flask</div>
 
 <script>
 /* ═══════════ ALL JS PRESERVED FROM ORIGINAL ═══════════ */
 var curKw='',curPage=1,curSrc='',curPerPage=20,_copyUrl='',_batchIds=new Set();
+
+// 加载网站设置
+function loadSiteSettings(){
+  fetch('/api/site-settings').then(function(r){return r.json()}).then(function(d){
+    if(d.site_name){
+      document.title = d.site_name;
+      var logo = document.querySelector('.nav .logo');
+      if(logo) logo.innerHTML = '<i class="fas fa-satellite-dish"></i> ' + d.site_name;
+    }
+    if(d.site_footer){
+      var footer = document.getElementById('siteFooter');
+      if(footer) footer.textContent = d.site_footer;
+    }
+  }).catch(function(){});
+}
+loadSiteSettings();
 function esc(s){var d=document.createElement('div');d.textContent=s;return d.innerHTML}
 function hl(text,kw){var safe=esc(text);if(!kw)return safe;var escaped=kw.replace(/[-\/\\^$*+?.()|[\]{}]/g,'\\$&');return safe.replace(new RegExp(escaped,'gi'),function(m){return '<mark>'+m+'</mark>'});}
 function recordSearch(kw){return fetch('/api/search_log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword:kw})}).then(function(r){return r.json()}).then(function(d){return d.ok!==false}).catch(function(){return false})}
