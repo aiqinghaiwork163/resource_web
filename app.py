@@ -21,6 +21,7 @@ import bcrypt
 import hashlib
 
 from flask_wtf.csrf import CSRFProtect, generate_csrf
+from pinyin_utils import is_pinyin_query, pinyin_match, to_initials
 
 # ==================== Redis 缓存 ====================
 _redis_client = None
@@ -220,6 +221,84 @@ def get_db():
     except Exception:
         pass
     return conn
+
+
+# ==================== 扩展表（求片 / 观看状态） ====================
+_extra_tables_ready = False
+
+
+def _ensure_extra_tables():
+    global _extra_tables_ready
+    if _extra_tables_ready:
+        return
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS movie_requests ("
+            "id INT AUTO_INCREMENT PRIMARY KEY,"
+            "user_id INT DEFAULT NULL,"
+            "keyword VARCHAR(255) NOT NULL,"
+            "message TEXT,"
+            "ip VARCHAR(45),"
+            "created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,"
+            "INDEX idx_created (created_at)"
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        )
+        cur.execute(
+            "CREATE TABLE IF NOT EXISTS watch_status ("
+            "id INT AUTO_INCREMENT PRIMARY KEY,"
+            "user_id INT NOT NULL,"
+            "resource_id INT NOT NULL,"
+            "status ENUM('watched','want') NOT NULL DEFAULT 'want',"
+            "progress INT DEFAULT 0,"
+            "updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,"
+            "UNIQUE KEY uk_user_resource (user_id, resource_id),"
+            "INDEX idx_user_status (user_id, status)"
+            ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+        )
+        db.commit()
+        _extra_tables_ready = True
+    except Exception:
+        pass
+    finally:
+        db.close()
+
+
+# ==================== 拼音索引缓存 ====================
+_pinyin_kw_cache = {"data": {}, "expire": 0}
+
+
+def _get_pinyin_keywords():
+    """缓存 distinct keyword → initials 映射，用于拼音首字母搜索"""
+    now = time.time()
+    if _pinyin_kw_cache["data"] and now < _pinyin_kw_cache["expire"]:
+        return _pinyin_kw_cache["data"]
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            "SELECT DISTINCT keyword FROM resources WHERE keyword != '' "
+            "UNION SELECT keyword FROM search_suggestions WHERE keyword != ''"
+        )
+        mapping = {}
+        for row in cur.fetchall():
+            kw = row["keyword"]
+            if kw:
+                mapping[kw] = to_initials(kw)
+        _pinyin_kw_cache["data"] = mapping
+        _pinyin_kw_cache["expire"] = now + 600
+        return mapping
+    except Exception:
+        return {}
+    finally:
+        db.close()
+
+
+def _pinyin_matching_keywords(query):
+    """返回拼音首字母匹配 query 的关键词列表"""
+    q = query.lower()
+    return [kw for kw, initials in _get_pinyin_keywords().items() if q in initials or initials.startswith(q)]
 
 
 def _get_tmdb_api_key():
@@ -516,9 +595,12 @@ def api_resources():
     per_page = min(request.args.get("per_page", 20, type=int), 100)
     query = request.args.get("q", "").strip()
     filter_type = request.args.get("filter", "all")
+    type_filter = request.args.get("type", "").strip()
+    quality_filter = request.args.get("quality", "").strip()
     source_filter = request.args.get("source", "all")
+    year_filter = request.args.get("year", "").strip()
 
-    cache_key = _make_cache_key("resources", query, filter_type, source_filter, page, per_page)
+    cache_key = _make_cache_key("resources", query, filter_type, type_filter, quality_filter, source_filter, year_filter, page, per_page)
     try:
         cached = get_redis().get(cache_key)
         if cached:
@@ -533,10 +615,21 @@ def api_resources():
         conditions, params = [], []
 
         if query:
-            conditions.append("(title LIKE %s OR note LIKE %s)")
-            params.extend([f"%{query}%", f"%{query}%"])
+            pinyin_kws = _pinyin_matching_keywords(query) if is_pinyin_query(query) else []
+            if pinyin_kws:
+                placeholders = ",".join(["%s"] * len(pinyin_kws))
+                conditions.append(
+                    f"(title LIKE %s OR note LIKE %s OR keyword LIKE %s OR keyword IN ({placeholders}))"
+                )
+                params.extend([f"%{query}%", f"%{query}%", f"%{query}%"] + pinyin_kws[:50])
+            else:
+                conditions.append("(title LIKE %s OR note LIKE %s OR keyword LIKE %s)")
+                params.extend([f"%{query}%", f"%{query}%", f"%{query}%"])
 
-        if filter_type != "all":
+        if type_filter:
+            conditions.append("type = %s")
+            params.append(type_filter)
+        elif filter_type != "all":
             if filter_type in ["电影", "剧集", "动漫", "综艺"]:
                 conditions.append("type = %s")
                 params.append(filter_type)
@@ -544,7 +637,15 @@ def api_resources():
                 conditions.append("quality = %s")
                 params.append(filter_type)
 
-        if source_filter != "all":
+        if quality_filter:
+            conditions.append("quality = %s")
+            params.append(quality_filter)
+
+        if year_filter:
+            conditions.append("year = %s")
+            params.append(year_filter)
+
+        if source_filter and source_filter != "all":
             conditions.append("source = %s")
             params.append(source_filter)
 
@@ -562,13 +663,23 @@ def api_resources():
 
         cur.execute(
             f"""SELECT id, keyword, source, url, title, note, password,
-                   quality, type, year, rating, datetime, created_at
+                   quality, type, year, rating, datetime, images, created_at
             FROM resources {where}
             ORDER BY created_at DESC
             LIMIT %s OFFSET %s""",
             params + [per_page, offset],
         )
         items = cur.fetchall()
+        for it in items:
+            imgs = it.get("images") or ""
+            poster = ""
+            if imgs:
+                try:
+                    arr = json.loads(imgs) if isinstance(imgs, str) else imgs
+                    poster = arr[0] if arr else ""
+                except Exception:
+                    poster = imgs if imgs.startswith("http") else ""
+            it["poster"] = poster
 
         payload = {
             "items": items,
@@ -579,7 +690,7 @@ def api_resources():
             "importing": _auto_import_trigger(query) if total == 0 and query else False,
         }
         try:
-            get_redis().setex(cache_key, 120, json.dumps(payload, ensure_ascii=False))
+            get_redis().setex(cache_key, 120, json.dumps(payload, ensure_ascii=False, default=str))
         except Exception:
             pass
         return jsonify(payload)
@@ -1015,6 +1126,105 @@ def api_fav_del(rid):
         return jsonify({"ok": True})
     finally: db.close()
 
+
+# ==================== 观看状态 API ====================
+@app.route("/api/watch_status")
+def api_watch_status_list():
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"items": []})
+    status = request.args.get("status", "")
+    db = get_db()
+    try:
+        _ensure_extra_tables()
+        cur = db.cursor()
+        sql = (
+            "SELECT w.resource_id, w.status, w.progress, w.updated_at, "
+            "r.title, r.source, r.type, r.year, r.quality "
+            "FROM watch_status w LEFT JOIN resources r ON r.id = w.resource_id "
+            "WHERE w.user_id = %s"
+        )
+        params = [uid]
+        if status in ("watched", "want"):
+            sql += " AND w.status = %s"
+            params.append(status)
+        sql += " ORDER BY w.updated_at DESC LIMIT 100"
+        cur.execute(sql, params)
+        items = cur.fetchall()
+        for i in items:
+            if i.get("updated_at"):
+                i["updated_at"] = str(i["updated_at"])
+        return jsonify({"items": items})
+    finally:
+        db.close()
+
+
+@app.route("/api/watch_status", methods=["POST"])
+def api_watch_status_set():
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "请先登录"}), 401
+    data = request.get_json() or {}
+    rid = data.get("resource_id")
+    status = data.get("status", "want")
+    progress = int(data.get("progress") or 0)
+    if not rid or status not in ("watched", "want"):
+        return jsonify({"error": "参数无效"}), 400
+    db = get_db()
+    try:
+        _ensure_extra_tables()
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO watch_status (user_id, resource_id, status, progress) "
+            "VALUES (%s, %s, %s, %s) "
+            "ON DUPLICATE KEY UPDATE status=VALUES(status), progress=VALUES(progress)",
+            (uid, rid, status, progress),
+        )
+        db.commit()
+        return jsonify({"ok": True})
+    finally:
+        db.close()
+
+
+@app.route("/api/watch_status/<int:rid>", methods=["DELETE"])
+def api_watch_status_del(rid):
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"error": "未登录"}), 401
+    db = get_db()
+    try:
+        _ensure_extra_tables()
+        cur = db.cursor()
+        cur.execute("DELETE FROM watch_status WHERE user_id = %s AND resource_id = %s", (uid, rid))
+        db.commit()
+        return jsonify({"ok": True})
+    finally:
+        db.close()
+
+
+# ==================== 求片 API ====================
+@app.route("/api/movie_request", methods=["POST"])
+def api_movie_request():
+    data = request.get_json() or {}
+    keyword = (data.get("keyword") or "").strip()
+    message = (data.get("message") or "").strip()
+    if not keyword:
+        return jsonify({"error": "请输入片名"}), 400
+    uid = session.get("user_id")
+    ip = request.remote_addr or ""
+    db = get_db()
+    try:
+        _ensure_extra_tables()
+        cur = db.cursor()
+        cur.execute(
+            "INSERT INTO movie_requests (user_id, keyword, message, ip) VALUES (%s, %s, %s, %s)",
+            (uid, keyword, message, ip),
+        )
+        db.commit()
+        return jsonify({"ok": True, "message": "求片请求已提交，感谢反馈！"})
+    finally:
+        db.close()
+
 # ==================== 搜索历史 API ====================
 @app.route("/api/search_history")
 def api_search_hist():
@@ -1289,7 +1499,7 @@ def api_hot_searches():
 # ── ② 搜索自动补全 ──
 @app.route("/api/autocomplete")
 def api_autocomplete():
-    """输入时返回匹配的搜索建议（搜索建议 + 资源库关键词）"""
+    """输入时返回匹配的搜索建议（搜索建议 + 资源库关键词 + 拼音首字母）"""
     q = request.args.get("q", "").strip()
     if not q or len(q) < 1:
         return jsonify({"items": []})
@@ -1324,6 +1534,15 @@ def api_autocomplete():
             for r in cur.fetchall():
                 if r["keyword"] not in seen:
                     items.append(r)
+                    seen.add(r["keyword"])
+        # 拼音首字母匹配
+        if is_pinyin_query(q) and len(items) < 8:
+            for kw in _pinyin_matching_keywords(q):
+                if kw not in seen:
+                    items.append({"keyword": kw, "hit_count": 0})
+                    seen.add(kw)
+                    if len(items) >= 8:
+                        break
         return jsonify({"items": items[:8]})
     finally:
         db.close()
@@ -1345,6 +1564,15 @@ def api_resource_detail(rid):
         item = cur.fetchone()
         if not item:
             return jsonify({"error": "资源不存在"}), 404
+        imgs = item.get("images") or ""
+        poster = ""
+        if imgs:
+            try:
+                arr = json.loads(imgs) if isinstance(imgs, str) else imgs
+                poster = arr[0] if arr else ""
+            except Exception:
+                poster = imgs if str(imgs).startswith("http") else ""
+        item["poster"] = poster
         return jsonify({"item": item})
     finally:
         db.close()
@@ -1589,10 +1817,30 @@ def api_shared_resource(token):
         quality = item.get("quality", "")
         password = item.get("password", "")
         poster = item.get("poster_url", "")
+        year = item.get("year", "")
+        rating = item.get("rating", "")
+        note = item.get("note", "") or title
+
+        desc_parts = []
+        if year:
+            desc_parts.append(str(year))
+        if quality:
+            desc_parts.append(quality)
+        if source:
+            desc_parts.append(source)
+        if rating:
+            desc_parts.append(f"评分 {rating}")
+        og_desc = " · ".join(desc_parts) if desc_parts else note[:120]
+        og_image = poster or (request.host_url.rstrip("/") + "/static/icons/icon-512.png")
+        share_url = request.url
 
         poster_html = ""
         if poster:
-            poster_html = '<img src="' + html_mod.escape(poster, quote=True) + '" style="max-width:200px;border-radius:8px;margin-bottom:1rem">'
+            poster_html = (
+                '<img src="' + html_mod.escape(poster, quote=True)
+                + '" loading="lazy" decoding="async" '
+                + 'style="max-width:200px;border-radius:8px;margin-bottom:1rem">'
+            )
 
         quality_html = ""
         if quality:
@@ -1605,10 +1853,20 @@ def api_shared_resource(token):
         html_content = (
             '<!DOCTYPE html><html><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<meta name="theme-color" content="#06080f">'
             '<title>' + html_mod.escape(title) + ' - 分享</title>'
+            '<meta property="og:type" content="video.movie">'
+            '<meta property="og:title" content="' + html_mod.escape(title) + '">'
+            '<meta property="og:description" content="' + html_mod.escape(og_desc) + '">'
+            '<meta property="og:image" content="' + html_mod.escape(og_image, quote=True) + '">'
+            '<meta property="og:url" content="' + html_mod.escape(share_url, quote=True) + '">'
+            '<meta name="twitter:card" content="summary_large_image">'
+            '<meta name="twitter:title" content="' + html_mod.escape(title) + '">'
+            '<meta name="twitter:description" content="' + html_mod.escape(og_desc) + '">'
+            '<meta name="twitter:image" content="' + html_mod.escape(og_image, quote=True) + '">'
             '<style>'
             '*{margin:0;padding:0;box-sizing:border-box}'
-            'body{background:#0f0f14;color:#e4e4e7;font-family:-apple-system,sans-serif;'
+            'body{background:#0f0f14;color:#e4e4e7;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;'
             'display:flex;align-items:center;justify-content:center;min-height:100vh;padding:1rem}'
             '.card{background:#1a1a24;border:1px solid #2a2a3e;border-radius:16px;padding:2rem;max-width:480px;width:100%;text-align:center}'
             'h2{font-size:1.2rem;margin-bottom:0.5rem}'
@@ -2971,6 +3229,19 @@ def api_omdb_status():
 
 
 # ==================== Static Files ====================
+
+@app.route("/static/manifest.json")
+def pwa_manifest():
+    return send_from_directory("static", "manifest.json", mimetype="application/manifest+json")
+
+
+@app.route("/static/sw.js")
+def service_worker():
+    resp = send_from_directory("static", "sw.js", mimetype="application/javascript")
+    resp.headers["Service-Worker-Allowed"] = "/"
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
 
 @app.route("/site-settings.js")
 def site_settings_js():

@@ -466,6 +466,17 @@ a { color:var(--accent); text-decoration:none; }
     </div>
   </div>
 
+  <!-- Watch Status -->
+  <div class="card">
+    <div class="fav-header">
+      <h2><i class="fas fa-eye"></i> 观看列表</h2>
+      <span class="fav-count" id="watchCount"></span>
+    </div>
+    <div id="watchArea" class="fav-grid">
+      <div class="empty"><i class="fas fa-eye"></i>暂无观看记录</div>
+    </div>
+  </div>
+
   <!-- Change Password -->
   <div class="card">
     <h2><i class="fas fa-key"></i> 修改密码</h2>
@@ -526,6 +537,7 @@ async function loadUser(){
     }
     loadHistory();
     loadFavorites();
+    loadWatchList();
   }catch(e){location.href='/login'}
 }
 
@@ -616,6 +628,42 @@ async function removeFav(rid){
     loadFavorites();
     showToast('已取消收藏');
   }catch(e){showToast('操作失败，请重试',2500)}
+}
+
+/* ========== Watch List ========== */
+async function loadWatchList(){
+  try{
+    var r=await fetch('/api/watch_status');
+    if(!r.ok) throw 0;
+    var d=await r.json();
+    var items=d.items||[];
+    document.getElementById('watchCount').textContent='('+items.length+' 项)';
+    var el=document.getElementById('watchArea');
+    if(!items.length){
+      el.innerHTML='<div class="empty"><i class="fas fa-eye"></i>暂无观看记录，在搜索结果中标记已看/想看</div>';
+      return;
+    }
+    el.innerHTML=items.map(function(i){
+      var statusLabel=i.status==='watched'?'<span class="tag quality">已看</span>':'<span class="tag type">想看</span>';
+      return '<div class="fav-card">'+
+        '<div class="fav-title">'+esc(i.title||'未知资源')+'</div>'+
+        '<div class="fav-meta">'+statusLabel+
+          (i.type?'<span class="tag type">'+esc(i.type)+'</span>':'')+
+          (i.year?'<span class="tag quality">'+esc(String(i.year))+'</span>':'')+
+        '</div>'+
+        '<div class="fav-actions">'+
+          '<a href="/?q='+encodeURIComponent(i.title||'')+'"><i class="fas fa-search"></i> 搜索</a>'+
+          '<button class="del" onclick="removeWatch('+i.resource_id+')"><i class="fas fa-trash-alt"></i> 移除</button>'+
+        '</div></div>';
+    }).join('');
+  }catch(e){}
+}
+async function removeWatch(rid){
+  try{
+    await fetch('/api/watch_status/'+rid,{method:'DELETE'});
+    loadWatchList();
+    showToast('已移除');
+  }catch(e){showToast('操作失败',2500)}
 }
 
 /* ========== Change Password ========== */
