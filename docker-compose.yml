@@ -32,6 +32,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
+      # 设为 1 启用 VaultDrive UI（vault.aaaaaaaa.host）
+      - VAULT_UI=${VAULT_UI:-0}
     networks:
       - resource_db_default
     depends_on:

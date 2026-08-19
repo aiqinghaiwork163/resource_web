@@ -508,9 +508,14 @@ def logout():
 
 
 # ==================== 主页 ====================
+def _vault_ui():
+    return os.environ.get("VAULT_UI", "").lower() in ("1", "true", "yes")
+
+
 @app.route("/")
 def index():
-    resp = send_from_directory(".", "index.html")
+    folder = "vaultdrive" if _vault_ui() else "."
+    resp = send_from_directory(folder, "index.html")
     resp.cache_control.max_age = 0
     resp.cache_control.no_cache = True
     resp.cache_control.no_store = True
@@ -1667,6 +1672,91 @@ def api_tmdb_trending():
         return jsonify(result_data)
     except Exception as e:
         # 外部API故障，返回缓存的旧数据
+        if cache_key in _cache:
+            return jsonify(_cache[cache_key][0])
+        return jsonify({"items": [], "error": str(e)})
+
+
+@app.route("/api/tmdb/discover")
+def api_tmdb_discover():
+    """TMDB discover — VaultDrive 海报墙（动画/高分等）"""
+    import socket as _sock
+    import ssl as _ssl
+    import json as _json
+    import urllib.parse
+
+    media = request.args.get("type", "movie")
+    page = min(int(request.args.get("page", 1)), 10)
+    genre = request.args.get("genre", "")
+    sort = request.args.get("sort", "popularity.desc")
+    vote_min = request.args.get("vote", "")
+    endpoint = request.args.get("endpoint", "")
+    lang = request.args.get("with_original_language", "")
+
+    API_KEY = _get_tmdb_api_key()
+    cache_key = f"tmdb_discover:{media}:{genre}:{sort}:{vote_min}:{endpoint}:{lang}:{page}"
+    now = time.time()
+    if cache_key in _cache:
+        cached_data, expire = _cache[cache_key]
+        if now < expire:
+            return jsonify(cached_data)
+
+    params = f"api_key={API_KEY}&language=zh-CN&page={page}&sort_by={sort}"
+    if genre:
+        params += f"&with_genres={genre}"
+    if vote_min:
+        params += f"&vote_count.gte={vote_min}"
+    if lang:
+        params += f"&with_original_language={lang}"
+    if endpoint == "now_playing":
+        path = f"/3/movie/now_playing?{params}"
+    elif endpoint == "on_the_air":
+        path = f"/3/tv/on_the_air?{params}"
+    else:
+        path = f"/3/discover/{media}?{params}"
+
+    try:
+        ip = _sock.getaddrinfo("www.themoviedb.org", 443, _sock.AF_INET)[0][4][0]
+        s = _sock.create_connection((str(ip), 443), timeout=5)
+        ss = _ssl.create_default_context().wrap_socket(s, server_hostname="api.themoviedb.org")
+        ss.settimeout(5)
+        ss.sendall(
+            f"GET {path} HTTP/1.1\r\nHost: api.themoviedb.org\r\n"
+            f"Accept: application/json\r\nConnection: close\r\n\r\n".encode()
+        )
+        r = b""
+        while True:
+            c = ss.recv(65536)
+            if not c:
+                break
+            r += c
+        ss.close()
+        h = r.find(b"\r\n\r\n")
+        if h < 0:
+            return jsonify({"items": []})
+        body = r[h + 4:]
+        data = _json.loads(body)
+        items = []
+        for it in data.get("results", [])[:20]:
+            items.append({
+                "title": it.get("title") or it.get("name") or "",
+                "overview": (it.get("overview") or "")[:200],
+                "poster": ("/api/img_proxy?url=" + urllib.parse.quote(
+                    "https://image.tmdb.org/t/p/w500" + it["poster_path"]
+                )) if it.get("poster_path") else "",
+                "backdrop": ("/api/img_proxy?url=" + urllib.parse.quote(
+                    "https://image.tmdb.org/t/p/w780" + it["backdrop_path"]
+                )) if it.get("backdrop_path") else "",
+                "rating": round(it.get("vote_average", 0), 1),
+                "media_type": media,
+                "year": (it.get("release_date") or it.get("first_air_date") or "")[:4],
+                "tmdb_id": it.get("id"),
+                "genre_ids": it.get("genre_ids") or [],
+            })
+        result_data = {"items": items, "total": data.get("total_results", 0)}
+        _cache[cache_key] = (result_data, now + 1800)
+        return jsonify(result_data)
+    except Exception as e:
         if cache_key in _cache:
             return jsonify(_cache[cache_key][0])
         return jsonify({"items": [], "error": str(e)})
@@ -3228,7 +3318,56 @@ def api_omdb_status():
         return jsonify(_omdb_crawler_status)
 
 
+# ==================== VaultDrive API ====================
+from vault_api import register_vault_routes
+
+register_vault_routes(app, get_db, _auto_import_trigger)
+
+
 # ==================== Static Files ====================
+
+@app.route("/manifest.webmanifest")
+def vault_manifest_web():
+    if _vault_ui():
+        return send_from_directory(
+            "vaultdrive", "manifest.webmanifest", mimetype="application/manifest+json"
+        )
+    return send_from_directory("static", "manifest.json", mimetype="application/manifest+json")
+
+
+@app.route("/sw.js")
+def root_service_worker():
+    folder = "vaultdrive" if _vault_ui() else "static"
+    fname = "sw.js"
+    resp = send_from_directory(folder, fname, mimetype="application/javascript")
+    resp.headers["Service-Worker-Allowed"] = "/"
+    resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
+@app.route("/favicon.svg")
+def vault_favicon_svg():
+    if _vault_ui() and os.path.isfile(os.path.join("vaultdrive", "favicon.svg")):
+        return send_from_directory("vaultdrive", "favicon.svg", mimetype="image/svg+xml")
+    return "", 404
+
+
+@app.route("/static/home-enhance.css")
+def vault_home_css():
+    return send_from_directory("vaultdrive/static", "home-enhance.css", mimetype="text/css")
+
+
+@app.route("/static/home-enhance.js")
+def vault_home_js():
+    return send_from_directory("vaultdrive/static", "home-enhance.js", mimetype="application/javascript")
+
+
+@app.route("/static/perf.js")
+def perf_js():
+    path = "vaultdrive/static/perf.js" if _vault_ui() else "static/js/perf.js"
+    folder, fname = os.path.split(path)
+    return send_from_directory(folder, fname, mimetype="application/javascript")
+
 
 @app.route("/static/manifest.json")
 def pwa_manifest():
