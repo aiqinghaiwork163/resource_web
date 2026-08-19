@@ -58,7 +58,8 @@ def register_vault_routes(app, get_db, auto_import_fn=None):
 
     @app.route("/api/home/feed")
     def api_home_feed():
-        limit = min(int(request.args.get("limit", 18)), 30)
+        limit = min(int(request.args.get("limit", 18)), 48)
+        offset = max(int(request.args.get("offset", 0)), 0)
         db = get_db()
         try:
             cur = db.cursor()
@@ -68,13 +69,17 @@ def register_vault_routes(app, get_db, auto_import_fn=None):
             )
             hot = [{"keyword": r["keyword"], "count": r["count"]} for r in cur.fetchall()]
 
+            cur.execute("SELECT COUNT(*) as c FROM resources")
+            latest_total = cur.fetchone()["c"]
+
             cur.execute(
                 "SELECT id, keyword, source, url, title, note, quality, type, year, "
                 "rating, images, created_at FROM resources "
-                "ORDER BY created_at DESC LIMIT %s",
-                (limit,),
+                "ORDER BY created_at DESC LIMIT %s OFFSET %s",
+                (limit, offset),
             )
             latest = [_row_to_feed_item(r) for r in cur.fetchall()]
+            latest_next = offset + len(latest)
 
             cur.execute(
                 "SELECT sl.keyword, COUNT(*) as cnt FROM search_logs sl "
@@ -83,7 +88,7 @@ def register_vault_routes(app, get_db, auto_import_fn=None):
             )
             hot_kws = [r["keyword"] for r in cur.fetchall()]
             clicks = []
-            if hot_kws:
+            if hot_kws and offset == 0:
                 placeholders = ",".join(["%s"] * len(hot_kws))
                 cur.execute(
                     f"SELECT id, keyword, source, url, title, note, quality, type, year, "
@@ -94,7 +99,14 @@ def register_vault_routes(app, get_db, auto_import_fn=None):
                 )
                 clicks = [_row_to_feed_item(r) for r in cur.fetchall()]
 
-            return jsonify({"hot": hot, "latest": latest, "clicks": clicks})
+            return jsonify({
+                "hot": hot,
+                "latest": latest,
+                "clicks": clicks,
+                "latest_total": latest_total,
+                "latest_offset": offset,
+                "latest_next_offset": latest_next,
+            })
         finally:
             db.close()
 

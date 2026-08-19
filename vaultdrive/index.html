@@ -17,8 +17,8 @@
 <link rel="alternate icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/favicon.svg">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="preload" href="/static/home-enhance.css?v=20260819a" as="style">
-<link rel="stylesheet" href="/static/home-enhance.css?v=20260819a">
+<link rel="preload" href="/static/home-enhance.css?v=20260819b" as="style">
+<link rel="stylesheet" href="/static/home-enhance.css?v=20260819b">
 <script src="/static/perf.js" defer></script>
 <!-- 字体：异步加载 Google Fonts，系统字体作 fallback -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -3066,6 +3066,12 @@ tbody tr:last-child td {
         <select id="searchYearFilter" class="filter-chip" style="cursor:pointer" onchange="APP.yearFilter=this.value;APP.searchPage=1;loadSearchResults(APP.searchQuery,1,true)">
           <option value="">全部年份</option>
         </select>
+        <select id="searchSortFilter" class="filter-chip" style="cursor:pointer" onchange="APP.sortFilter=this.value;APP.searchPage=1;loadSearchResults(APP.searchQuery,1,true)">
+          <option value="created_at">最新入库</option>
+          <option value="click_count">热度</option>
+          <option value="year">年份</option>
+          <option value="rating">评分</option>
+        </select>
       </div>
       <div id="searchResults">
         <div class="empty-state">
@@ -4319,10 +4325,13 @@ function _doSearch(q) {
   APP.typeFilter = '';
   APP.qualityFilter = '';
   APP.yearFilter = '';
+  APP.sortFilter = 'created_at';
   document.querySelectorAll('#searchMetaFilters .filter-chip[data-sf="type"]').forEach((c,i)=>c.classList.toggle('active',i===0));
   document.querySelectorAll('#searchMetaFilters .filter-chip[data-sf="quality"]').forEach((c,i)=>c.classList.toggle('active',i===0));
   const yf = document.getElementById('searchYearFilter');
   if (yf) yf.value = '';
+  const sfSort = document.getElementById('searchSortFilter');
+  if (sfSort) sfSort.value = 'created_at';
   const sf = document.getElementById('searchMetaFilters');
   if (sf) sf.style.display = 'flex';
   fetch('/api/search_log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ keyword: q }) }).catch(() => {});
@@ -4370,7 +4379,8 @@ function loadSearchResults(q, page, isNew, appendOnly) {
   const typeParam = APP.typeFilter ? '&type=' + encodeURIComponent(APP.typeFilter) : '';
   const qualityParam = APP.qualityFilter ? '&quality=' + encodeURIComponent(APP.qualityFilter) : '';
   const yearParam = APP.yearFilter ? '&year=' + encodeURIComponent(APP.yearFilter) : '';
-  const resourcesUrl = '/api/resources?q=' + encodeURIComponent(q) + '&page=' + page + '&per_page=' + APP.pageSize + srcParam + typeParam + qualityParam + yearParam;
+  const sortParam = APP.sortFilter ? '&sort=' + encodeURIComponent(APP.sortFilter) + '&order=desc' : '';
+  const resourcesUrl = '/api/resources?q=' + encodeURIComponent(q) + '&page=' + page + '&per_page=' + APP.pageSize + srcParam + typeParam + qualityParam + yearParam + sortParam;
   const tagsPromise = (!srcParam && isNew && !appendOnly)
     ? fetch('/api/src_tags?q=' + encodeURIComponent(q)).then(r => r.json()).catch(() => null)
     : Promise.resolve(null);
@@ -5311,7 +5321,7 @@ function showSkeleton(containerId, count = 6) {
 })();
 
 </script>
-<script src="/static/home-enhance.js?v=20260819a" defer></script>
+<script src="/static/home-enhance.js?v=20260819b" defer></script>
 
 </body>
 </html>

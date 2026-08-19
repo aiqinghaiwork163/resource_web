@@ -1,16 +1,90 @@
 /* VaultDrive home enhance — feed / badges / drawer / search / PWA */
 (function () {
   const HIST_KEY = 'vd_search_hist_v1';
+  const LOCAL_FAV_KEY = 'vd_local_favs_v1';
   let acTimer = null;
   let acItems = [];
   let acIndex = -1;
+  let globalAcTimer = null;
+  let globalAcItems = [];
+  let globalAcIndex = -1;
   let deferredInstall = null;
+  let latestOffset = 0;
+  let latestTotal = 0;
+  let latestItems = [];
 
   function esc(s) {
     if (window.esc) return window.esc(s);
     const d = document.createElement('div');
     d.textContent = String(s == null ? '' : s);
     return d.innerHTML;
+  }
+
+  function hashHue(str) {
+    let h = 0;
+    const s = String(str || '');
+    for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+    return h % 360;
+  }
+
+  function typeIcon(type, mediaType) {
+    const t = String(type || mediaType || '').toLowerCase();
+    if (t.includes('剧') || t === 'tv') return '📺';
+    if (t.includes('动') || t === 'anime') return '✨';
+    if (t.includes('综')) return '🎤';
+    return '🎬';
+  }
+
+  function firstGlyph(title) {
+    const t = String(title || '').trim();
+    if (!t) return '·';
+    const m = t.match(/[\u4e00-\u9fffA-Za-z0-9]/);
+    return m ? m[0] : t[0];
+  }
+
+  window.vdPosterFail = function (img) {
+    if (!img) return;
+    img.style.display = 'none';
+    const fb = img.nextElementSibling;
+    if (fb && fb.classList.contains('poster-fallback')) fb.hidden = false;
+  };
+
+  window.vdPosterRetry = function (btn) {
+    const fb = btn && btn.closest('.poster-fallback');
+    const wrap = fb && fb.parentElement;
+    const img = wrap && wrap.querySelector('img');
+    const src = (img && (img.getAttribute('data-src') || img.src)) || '';
+    if (!img || !src) return;
+    fb.hidden = true;
+    img.style.display = '';
+    const base = src.split('?')[0];
+    img.src = base + '?retry=' + Date.now();
+  };
+
+  function posterFallbackHtml(title, type, mediaType, visible) {
+    const hue = hashHue(title);
+    const ch = firstGlyph(title);
+    const ico = typeIcon(type, mediaType);
+    return `
+      <div class="poster-fallback"${visible ? '' : ' hidden'}>
+        <div class="pf-bg" style="--pf-hue:${hue}"></div>
+        <span class="pf-type" aria-hidden="true">${ico}</span>
+        <span class="pf-glyph">${esc(ch)}</span>
+        <button type="button" class="pf-retry" onclick="event.stopPropagation();vdPosterRetry(this)" title="重试加载海报">↻</button>
+      </div>`;
+  }
+
+  function posterThumbHtml(opts) {
+    const title = opts.title || '';
+    const poster = opts.poster || '';
+    const type = opts.type || '';
+    const mediaType = opts.mediaType || '';
+    if (!poster) return posterFallbackHtml(title, type, mediaType, true);
+    return `
+      <img src="${esc(poster)}" data-src="${esc(poster)}" alt="${esc(title)}"
+           loading="lazy" decoding="async" onerror="vdPosterFail(this)">
+      ${posterFallbackHtml(title, type, mediaType, false)}
+    `;
   }
 
   function getHist() {
@@ -77,8 +151,11 @@
       <section class="home-rail" id="homeLatestRail">
         <div class="home-rail-head">
           <div><h2>最新入库</h2><p>本站刚收录的资源</p></div>
+          <div class="home-rail-actions">
+            <button type="button" class="home-pill" id="homeLatestMore" hidden>加载更多</button>
+          </div>
         </div>
-        <div class="home-hscroll" id="homeLatestRow"></div>
+        <div class="home-latest-grid" id="homeLatestRow"></div>
       </section>
       <section class="home-rail" id="homeClickRail">
         <div class="home-rail-head">
@@ -90,6 +167,54 @@
 
     wallHead.parentNode.insertBefore(personal, wallHead);
     wallHead.parentNode.insertBefore(feed, wallHead);
+
+    if (!document.getElementById('homeCatNav')) {
+      const catNav = document.createElement('div');
+      catNav.className = 'home-cat-nav';
+      catNav.id = 'homeCatNav';
+      catNav.innerHTML = `
+        <button type="button" class="home-cat-btn" data-type="movie"><span class="ico">🎬</span>电影</button>
+        <button type="button" class="home-cat-btn" data-type="tv"><span class="ico">📺</span>剧集</button>
+        <button type="button" class="home-cat-btn" data-type="anime"><span class="ico">✨</span>动画</button>
+        <button type="button" class="home-cat-btn" data-type="top_rated"><span class="ico">★</span>高分</button>
+        <button type="button" class="home-cat-btn" data-act="latest"><span class="ico">🆕</span>最新入库</button>
+      `;
+      wallHead.parentNode.insertBefore(catNav, wallHead);
+      catNav.querySelectorAll('.home-cat-btn').forEach(btn => {
+        btn.onclick = () => {
+          const act = btn.getAttribute('data-act');
+          if (act === 'latest') {
+            document.getElementById('homeLatestRail')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+          }
+          const type = btn.getAttribute('data-type');
+          const bar = document.getElementById('posterFilterBar');
+          if (bar && typeof window.setHomeChip === 'function') {
+            const chip = bar.querySelector(`[onclick*="'${type}'"]`);
+            if (chip) setHomeChip(chip, type);
+          } else if (typeof window.loadPosterWall === 'function') {
+            loadPosterWall(type);
+          }
+          document.getElementById('posterWallGrid')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        };
+      });
+    }
+
+    if (!document.getElementById('siteFooter')) {
+      const footer = document.createElement('footer');
+      footer.className = 'site-footer';
+      footer.id = 'siteFooter';
+      footer.innerHTML = `
+        <p>VaultDrive · 私人胶片库 · 搜索免费；收藏需登录（未登录可本地暂存）</p>
+        <nav aria-label="页脚链接">
+          <a href="/privacy">隐私政策</a>
+          <a href="https://github.com/aiqinghaiwork163/resource_web" target="_blank" rel="noopener noreferrer">GitHub</a>
+          <a href="#" onclick="event.preventDefault();openMovieRequest && openMovieRequest()">反馈 / 求片</a>
+        </nav>
+      `;
+      const main = document.querySelector('.main-content') || document.body;
+      main.appendChild(footer);
+    }
 
     if (!document.getElementById('detailDrawer')) {
       const mask = document.createElement('div');
@@ -255,22 +380,23 @@
     el.innerHTML = `<div class="home-skel-row">${Array.from({ length: n || 6 }, () => '<div class="home-skel"></div>').join('')}</div>`;
   }
 
+  function skelGrid(el, n) {
+    if (!el) return;
+    el.innerHTML = `<div class="home-latest-grid">${Array.from({ length: n || 12 }, () => '<div class="home-skel" style="height:160px;border-radius:10px"></div>').join('')}</div>`;
+  }
+
   function cardHtml(it) {
     const title = it.display_title || it.hot_keyword || it.title || it.keyword || '';
-    const poster = it.poster || '';
     const src = it.source_label || it.source || '';
     const titleJs = JSON.stringify(it.hot_keyword || title);
-    const ch = (title.trim()[0] || '·');
+    const fullTitle = title.trim();
     return `
       <article class="home-chip-card" data-q="${esc(title)}" onclick='openDetailDrawer(${titleJs})'>
-        <div class="thumb">
-          ${poster
-            ? `<img src="${esc(poster)}" alt="${esc(title)}" loading="lazy" decoding="async" onerror="this.style.display='none';if(this.nextElementSibling)this.nextElementSibling.hidden=false">
-               <div class="home-chip-ph" hidden>${esc(ch)}</div>`
-            : `<div class="home-chip-ph">${esc(ch)}</div>`}
+        <div class="thumb poster-thumb">
+          ${posterThumbHtml({ title, poster: it.poster || '', type: it.type, mediaType: it.media_type })}
         </div>
         <div class="meta">
-          <div class="t">${esc(title)}</div>
+          <div class="t" title="${esc(fullTitle)}">${esc(title)}</div>
           <div class="s">${esc([src, it.year].filter(Boolean).join(' · '))}</div>
         </div>
       </article>
@@ -306,21 +432,32 @@
     } catch (e) {}
   }
 
-  async function loadHomeFeed() {
+  async function loadHomeFeed(appendLatest) {
     const latest = document.getElementById('homeLatestRow');
     const clicks = document.getElementById('homeClickRow');
     const hot = document.getElementById('homeHotRow');
-    skelRow(latest, 7);
-    skelRow(clicks, 7);
-    if (hot) hot.innerHTML = '<span style="color:var(--text-muted);font-size:.8rem">加载中…</span>';
+    const moreBtn = document.getElementById('homeLatestMore');
+    if (!appendLatest) {
+      latestOffset = 0;
+      latestItems = [];
+      skelGrid(latest, 12);
+      skelRow(clicks, 7);
+      if (hot) hot.innerHTML = '<span style="color:var(--text-muted);font-size:.8rem">加载中…</span>';
+    } else if (moreBtn) {
+      moreBtn.disabled = true;
+      moreBtn.textContent = '加载中…';
+    }
     try {
-      const r = await fetch('/api/home/feed?limit=18');
+      const off = appendLatest ? latestOffset : 0;
+      const r = await fetch('/api/home/feed?limit=24&offset=' + off);
       const d = await r.json();
-      if (hot) {
+      if (hot && !appendLatest) {
         const items = d.hot || [];
         hot.innerHTML = items.length
-          ? items.map(it =>
-              `<button type="button" class="home-hot-chip" data-q="${esc(it.keyword)}">${esc(it.keyword)}<span class="n">${it.count || ''}</span></button>`
+          ? items.map((it, i) =>
+              `<button type="button" class="home-hot-chip" data-q="${esc(it.keyword)}">
+                <span class="rank">${i + 1}</span>${esc(it.keyword)}<span class="n">${it.count || ''}</span>
+              </button>`
             ).join('')
           : '<span style="color:var(--text-muted);font-size:.8rem">暂无热搜</span>';
         hot.querySelectorAll('.home-hot-chip').forEach(btn => {
@@ -333,13 +470,26 @@
         });
       }
       if (latest) {
-        const items = d.latest || [];
-        latest.innerHTML = items.length
-          ? items.map(cardHtml).join('')
+        const batch = d.latest || [];
+        latestTotal = d.latest_total != null ? d.latest_total : batch.length;
+        latestOffset = d.latest_next_offset != null ? d.latest_next_offset : (off + batch.length);
+        if (appendLatest) {
+          latestItems = latestItems.concat(batch);
+        } else {
+          latestItems = batch.slice();
+        }
+        latest.innerHTML = latestItems.length
+          ? latestItems.map(cardHtml).join('')
           : '<span style="color:var(--text-muted);font-size:.8rem;padding:12px">暂无新入库</span>';
-        fillMissingPosters(items, latest);
+        fillMissingPosters(latestItems, latest);
+        if (moreBtn) {
+          const hasMore = latestOffset < latestTotal;
+          moreBtn.hidden = !hasMore;
+          moreBtn.disabled = false;
+          moreBtn.textContent = '加载更多';
+        }
       }
-      if (clicks) {
+      if (clicks && !appendLatest) {
         const items = d.clicks || [];
         clicks.innerHTML = items.length
           ? items.map(cardHtml).join('')
@@ -347,9 +497,14 @@
         fillMissingPosters(items, clicks);
       }
     } catch (e) {
-      if (latest) latest.innerHTML = '<span style="color:#f87171;font-size:.8rem">加载失败</span>';
-      if (clicks) clicks.innerHTML = '';
-      if (hot) hot.innerHTML = '';
+      if (!appendLatest) {
+        if (latest) latest.innerHTML = '<span style="color:#f87171;font-size:.8rem">加载失败</span>';
+        if (clicks) clicks.innerHTML = '';
+        if (hot) hot.innerHTML = '';
+      } else if (moreBtn) {
+        moreBtn.disabled = false;
+        moreBtn.textContent = '加载更多';
+      }
     }
   }
 
@@ -399,6 +554,162 @@
     }
   }
 
+  function bindGlobalSearch() {
+    const input = document.getElementById('globalSearch');
+    const box = input && input.closest('.search-global');
+    if (!input || input.dataset.enhanceBound === '1') return;
+    input.dataset.enhanceBound = '1';
+    if (box && !document.getElementById('globalAcPanel')) {
+      const panel = document.createElement('div');
+      panel.className = 'global-ac-panel home-ac-panel';
+      panel.id = 'globalAcPanel';
+      box.appendChild(panel);
+    }
+    input.addEventListener('input', () => {
+      clearTimeout(globalAcTimer);
+      globalAcTimer = setTimeout(() => loadGlobalAutocomplete(input.value.trim()), 180);
+    });
+    input.addEventListener('keydown', (e) => {
+      const panel = document.getElementById('globalAcPanel');
+      if (e.key === 'ArrowDown' && globalAcItems.length) {
+        e.preventDefault();
+        globalAcIndex = Math.min(globalAcIndex + 1, globalAcItems.length - 1);
+        paintGlobalAc();
+      } else if (e.key === 'ArrowUp' && globalAcItems.length) {
+        e.preventDefault();
+        globalAcIndex = Math.max(globalAcIndex - 1, 0);
+        paintGlobalAc();
+      } else if (e.key === 'Enter') {
+        if (globalAcIndex >= 0 && globalAcItems[globalAcIndex]) {
+          e.preventDefault();
+          e.stopImmediatePropagation();
+          pickGlobalAc(globalAcItems[globalAcIndex].keyword);
+        }
+      } else if (e.key === 'Escape' && panel) {
+        panel.classList.remove('open');
+      }
+    });
+    document.addEventListener('click', (e) => {
+      const panel = document.getElementById('globalAcPanel');
+      if (panel && box && !box.contains(e.target)) panel.classList.remove('open');
+    });
+  }
+
+  async function loadGlobalAutocomplete(q) {
+    const panel = document.getElementById('globalAcPanel');
+    if (!panel) return;
+    if (!q) {
+      panel.classList.remove('open');
+      panel.innerHTML = '';
+      globalAcItems = [];
+      globalAcIndex = -1;
+      return;
+    }
+    try {
+      const r = await fetch('/api/autocomplete?q=' + encodeURIComponent(q));
+      const d = await r.json();
+      globalAcItems = d.items || [];
+      globalAcIndex = -1;
+      paintGlobalAc();
+    } catch (e) {
+      panel.classList.remove('open');
+    }
+  }
+
+  function paintGlobalAc() {
+    const panel = document.getElementById('globalAcPanel');
+    if (!panel) return;
+    if (!globalAcItems.length) {
+      panel.classList.remove('open');
+      panel.innerHTML = '';
+      return;
+    }
+    panel.innerHTML = globalAcItems.map((it, i) =>
+      `<div class="home-ac-item${i === globalAcIndex ? ' active' : ''}" data-i="${i}">
+        <span>${esc(it.keyword || '')}</span>
+        <span style="color:var(--text-muted);font-size:.72rem">${it.hit_count != null ? it.hit_count : ''}</span>
+      </div>`
+    ).join('');
+    panel.classList.add('open');
+    panel.querySelectorAll('.home-ac-item').forEach(el => {
+      el.onclick = () => pickGlobalAc(globalAcItems[Number(el.getAttribute('data-i'))].keyword);
+    });
+  }
+
+  function pickGlobalAc(keyword) {
+    const input = document.getElementById('globalSearch');
+    if (input) input.value = keyword;
+    document.getElementById('globalAcPanel')?.classList.remove('open');
+    if (typeof window.searchResource === 'function') window.searchResource(keyword);
+    else if (typeof window.executeSearch === 'function') window.executeSearch();
+  }
+
+  function getLocalFavs() {
+    try { return JSON.parse(localStorage.getItem(LOCAL_FAV_KEY) || '{}'); }
+    catch (e) { return {}; }
+  }
+
+  function saveLocalFavs(map) {
+    localStorage.setItem(LOCAL_FAV_KEY, JSON.stringify(map));
+  }
+
+  function patchFavorites() {
+    if (typeof window.toggleFavorite !== 'function' || window.toggleFavorite.__localPatch) return;
+    const origToggle = window.toggleFavorite;
+    window.toggleFavorite = async function (btn, rid) {
+      if (!btn || !rid) return;
+      if (window.VD_LOGGED_IN) return origToggle(btn, rid);
+      const map = getLocalFavs();
+      const key = String(rid);
+      const isFav = !!map[key];
+      if (isFav) {
+        delete map[key];
+        btn.classList.remove('is-fav', 'is-local-fav');
+        btn.innerHTML = '♡';
+        btn.title = '本地收藏';
+        if (typeof showToast === 'function') showToast('已取消本地收藏');
+      } else {
+        map[key] = { id: rid, at: Date.now() };
+        btn.classList.add('is-fav', 'is-local-fav');
+        btn.innerHTML = '♥';
+        btn.title = '取消本地收藏（登录后可同步）';
+        if (typeof showToast === 'function') showToast('已加入本地收藏（登录可同步）', 'success');
+      }
+      saveLocalFavs(map);
+    };
+    window.toggleFavorite.__localPatch = true;
+
+    if (typeof window.checkFavoriteStatus === 'function' && !window.checkFavoriteStatus.__localPatch) {
+      const origCheck = window.checkFavoriteStatus;
+      window.checkFavoriteStatus = async function (rids) {
+        await origCheck(rids);
+        if (window.VD_LOGGED_IN) return;
+        const map = getLocalFavs();
+        document.querySelectorAll('.fav-btn').forEach(btn => {
+          const id = String(btn.getAttribute('data-id') || '');
+          if (map[id]) {
+            btn.classList.add('is-fav', 'is-local-fav');
+            btn.innerHTML = '♥';
+            btn.title = '取消本地收藏（登录后可同步）';
+          }
+        });
+      };
+      window.checkFavoriteStatus.__localPatch = true;
+    }
+  }
+
+  function injectSearchAuthHint() {
+    const sf = document.getElementById('searchMetaFilters');
+    if (!sf || document.getElementById('vdAuthHint')) return;
+    const hint = document.createElement('div');
+    hint.className = 'vd-auth-hint';
+    hint.id = 'vdAuthHint';
+    hint.textContent = window.VD_LOGGED_IN
+      ? '已登录：收藏会同步到账号'
+      : '搜索免费 · 收藏可本地暂存 · 登录后可云端同步';
+    sf.parentNode.insertBefore(hint, sf);
+  }
+
   function badgeHtml(info) {
     if (!info) return '';
     const st = info.status || 'none';
@@ -441,20 +752,34 @@
     window.renderPosterCard = function (it) {
       const html = orig(it);
       const titleJs = JSON.stringify(it.title || '');
-      // 点击改开抽屉
       let out = html.replace(
         /onclick="searchResource\('[\s\S]*?'\)"/,
         `onclick='openDetailDrawer(${titleJs})'`
       );
-      // 注入角标容器
       if (!out.includes('poster-badges')) {
         out = out.replace(
           '<div class="poster-wrap">',
           `<div class="poster-wrap" data-title="${esc(it.title || '')}"><div class="poster-badges" data-badge-for="${esc(it.title || '')}"></div>`
         );
       }
-      // overlay 文案
+      // 海报 fallback 升级
+      const title = it.title || '';
+      const poster = it.poster || it.backdrop || '';
+      const thumbInner = posterThumbHtml({
+        title,
+        poster,
+        type: it.type,
+        mediaType: it.media_type,
+      });
+      out = out.replace(
+        /<img[^>]*class="poster-item"[\s\S]*?<div style="display:none[^>]*>无海报<\/div>/,
+        `<div class="poster-thumb" style="position:absolute;inset:0">${thumbInner}</div>`
+      );
       out = out.replace('检索片源', '查看片源');
+      out = out.replace(
+        /<div class="poster-overlay-title">([^<]*)<\/div>/,
+        `<div class="poster-overlay-title" title="${esc(title)}">$1</div>`
+      );
       return out;
     };
     window.renderPosterCard.__enhanced = true;
@@ -588,11 +913,22 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => {});
     }
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+      || window.navigator.standalone === true;
+    if (isStandalone) {
+      localStorage.setItem('vd_pwa_dismiss', '1');
+      document.getElementById('pwaHint')?.remove();
+      return;
+    }
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredInstall = e;
       const hint = document.getElementById('pwaHint');
       if (hint && !localStorage.getItem('vd_pwa_dismiss')) hint.classList.add('show');
+    });
+    window.addEventListener('appinstalled', () => {
+      localStorage.setItem('vd_pwa_dismiss', '1');
+      document.getElementById('pwaHint')?.classList.remove('show');
     });
     document.getElementById('pwaOk')?.addEventListener('click', async () => {
       if (!deferredInstall) return;
@@ -600,6 +936,7 @@
       await deferredInstall.userChoice;
       deferredInstall = null;
       document.getElementById('pwaHint')?.classList.remove('show');
+      localStorage.setItem('vd_pwa_dismiss', '1');
     });
     document.getElementById('pwaNo')?.addEventListener('click', () => {
       localStorage.setItem('vd_pwa_dismiss', '1');
@@ -610,9 +947,13 @@
   function boot() {
     ensureHomeSections();
     patchPosterWall();
-    loadHomeFeed();
+    patchFavorites();
+    bindGlobalSearch();
+    injectSearchAuthHint();
+    loadHomeFeed(false);
     loadPersonal();
     setupPwa();
+    document.getElementById('homeLatestMore')?.addEventListener('click', () => loadHomeFeed(true));
     // 不重绘海报墙（会骨架屏闪一下、随机打乱、看起来像改布局）
     // 只在已有卡片上盖角标
     setTimeout(() => { try { stampWallBadges(); } catch (e) {} }, 200);
@@ -626,6 +967,9 @@
   // 主页脚本较晚执行时再补丁一次
   window.addEventListener('load', () => {
     patchPosterWall();
+    patchFavorites();
     ensureHomeSections();
+    bindGlobalSearch();
+    injectSearchAuthHint();
   });
 })();

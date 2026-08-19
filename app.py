@@ -668,8 +668,10 @@ def api_resources():
     quality_filter = request.args.get("quality", "").strip()
     source_filter = request.args.get("source", "all")
     year_filter = request.args.get("year", "").strip()
+    sort = request.args.get("sort", "created_at").strip()
+    order = request.args.get("order", "desc").strip().lower()
 
-    cache_key = _make_cache_key("resources", query, filter_type, type_filter, quality_filter, source_filter, year_filter, page, per_page)
+    cache_key = _make_cache_key("resources", query, filter_type, type_filter, quality_filter, source_filter, year_filter, sort, order, page, per_page)
     try:
         cached = get_redis().get(cache_key)
         if cached:
@@ -730,11 +732,22 @@ def api_resources():
         total = cur.fetchone()["total"]
         total_pages = max(1, (total + per_page - 1) // per_page)
 
+        allowed_sorts = {"created_at", "click_count", "year", "rating", "id"}
+        if sort not in allowed_sorts:
+            sort = "created_at"
+        order_dir = "DESC" if order != "asc" else "ASC"
+        if sort == "year":
+            order_sql = f"CAST(NULLIF(year, '') AS UNSIGNED) {order_dir}, created_at DESC"
+        elif sort == "rating":
+            order_sql = f"CAST(NULLIF(rating, '') AS DECIMAL(4,1)) {order_dir}, created_at DESC"
+        else:
+            order_sql = f"{sort} {order_dir}"
+
         cur.execute(
             f"""SELECT id, keyword, source, url, title, note, password,
-                   quality, type, year, rating, datetime, images, created_at
+                   quality, type, year, rating, datetime, images, created_at, click_count
             FROM resources {where}
-            ORDER BY created_at DESC
+            ORDER BY {order_sql}
             LIMIT %s OFFSET %s""",
             params + [per_page, offset],
         )
