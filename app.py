@@ -76,6 +76,16 @@ app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY")
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+# HTTPS 部署时启用 Secure Cookie（Cloudflare / 反代后检查 X-Forwarded-Proto）
+if os.environ.get("SESSION_COOKIE_SECURE", "").lower() in ("1", "true", "yes"):
+    app.config['SESSION_COOKIE_SECURE'] = True
+
+# 隐藏 Werkzeug 版本信息
+app.config['SERVER_NAME'] = None
+try:
+    app.config['JSONIFY_PRETTYPRINT_REGULAR'] = False
+except Exception:
+    pass
 
 # ==================== CSRF 保护 ====================
 csrf = CSRFProtect(app)
@@ -153,24 +163,78 @@ def img_proxy():
 
 
 # ==================== 静态文件长缓存 ====================
+_STATIC_LONG_CACHE = (
+    "/static/", "/favicon.svg", "/favicon.ico", "/manifest.webmanifest", "/sw.js",
+)
+
+
 @app.after_request
 def cache_static(response):
-    """静态文件设置长缓存"""
-    if request.path.startswith("/api/") or request.path.startswith("/login"):
+    """静态资源长缓存；API 与 HTML 页面不缓存"""
+    path = request.path
+    if path.startswith("/api/"):
+        if not response.headers.get("Cache-Control"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
         return response
-    if response.status_code == 200 and not response.headers.get("Cache-Control"):
-        response.headers["Cache-Control"] = "public, max-age=300"
+    if path in ("/", "/login", "/profile", "/admin") or path.endswith(".html"):
+        return response
+    if response.status_code == 200:
+        ct = response.content_type or ""
+        if any(path.startswith(p) for p in _STATIC_LONG_CACHE) or any(
+            t in ct for t in ("javascript", "css", "svg", "font", "woff", "image")
+        ):
+            if "?" in request.url or path.startswith("/static/"):
+                response.headers["Cache-Control"] = "public, max-age=604800, immutable"
+            elif not response.headers.get("Cache-Control"):
+                response.headers["Cache-Control"] = "public, max-age=86400"
     return response
 
+
+def _request_is_https():
+    if request.is_secure:
+        return True
+    proto = request.headers.get("X-Forwarded-Proto", "")
+    return proto.split(",")[0].strip().lower() == "https"
+
+
+def _build_csp():
+    """Content-Security-Policy — 兼容 VaultDrive 内联脚本与 Google Fonts"""
+    parts = [
+        "default-src 'self'",
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com",
+        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com data:",
+        "img-src 'self' data: blob: https://image.tmdb.org https://*.tmdb.org",
+        "connect-src 'self'",
+        "frame-ancestors 'none'",
+        "base-uri 'self'",
+        "form-action 'self'",
+        "object-src 'none'",
+    ]
+    return "; ".join(parts)
 
 
 @app.after_request
 def add_security_headers(response):
-    """添加安全响应头"""
+    """安全响应头 — OWASP 推荐基线"""
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["X-XSS-Protection"] = "0"  # 现代浏览器依赖 CSP，禁用旧 XSS Auditor
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = _build_csp()
+    response.headers["Permissions-Policy"] = (
+        "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    )
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin"
+    response.headers["Cross-Origin-Resource-Policy"] = "same-site"
+    # HSTS：仅在 HTTPS 请求或显式启用时注入（Cloudflare 也可在边缘配置）
+    if _request_is_https() or os.environ.get("ENABLE_HSTS", "").lower() in ("1", "true", "yes"):
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=63072000; includeSubDomains; preload"
+        )
+    # 移除可能泄露技术栈的头
+    for h in ("Server", "X-Powered-By", "X-AspNet-Version", "X-AspNetMvc-Version"):
+        response.headers.pop(h, None)
     return response
 
 
@@ -3322,6 +3386,54 @@ def api_omdb_status():
 from vault_api import register_vault_routes
 
 register_vault_routes(app, get_db, _auto_import_trigger)
+
+
+# ==================== SEO & 合规 ====================
+
+@app.route("/robots.txt")
+def robots_txt():
+    """搜索引擎抓取规则"""
+    base = request.host_url.rstrip("/")
+    body = (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /admin\n"
+        "Disallow: /api/\n"
+        "Disallow: /login\n"
+        f"Sitemap: {base}/sitemap.xml\n"
+    )
+    return body, 200, {"Content-Type": "text/plain; charset=utf-8"}
+
+
+@app.route("/sitemap.xml")
+def sitemap_xml():
+    """站点地图 — 公开页面"""
+    base = request.host_url.rstrip("/")
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+    urls = [
+        ("/", "daily", "1.0"),
+        ("/login", "monthly", "0.3"),
+        ("/privacy", "yearly", "0.2"),
+    ]
+    items = "\n".join(
+        f"  <url><loc>{base}{loc}</loc><lastmod>{today}</lastmod>"
+        f"<changefreq>{freq}</changefreq><priority>{pri}</priority></url>"
+        for loc, freq, pri in urls
+    )
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"{items}\n</urlset>"
+    )
+    return xml, 200, {"Content-Type": "application/xml; charset=utf-8"}
+
+
+@app.route("/privacy")
+def privacy_page():
+    """隐私政策"""
+    resp = send_from_directory(".", "privacy.html")
+    resp.cache_control.max_age = 86400
+    return resp
 
 
 # ==================== Static Files ====================
