@@ -1,0 +1,88 @@
+# Homelab / Docker 项目 — 通用 Git 忽略
+.env
+.env.*
+!.env.example
+!.env.sample
+*.pem
+*.key
+*.p12
+*credentials*
+*secret*
+
+# runtime / data / DB
+data/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
+*.session
+*.session-journal
+*.log
+*.log.*
+*.pid
+cache/
+caches/
+tmp/
+temp/
+.cache/
+storage/
+uploads/
+media/
+recordings/
+
+# browser / electron residue (e.g. 115 client profile)
+Default/
+GraphiteDawnCache/
+ShaderCache/
+Singleton*
+"Last Version"
+"Local State"
+segmentation_platform/
+
+# deps / build
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+dist/
+build/
+.next/
+.nuxt/
+target/
+vendor/
+
+# IDE / OS / editor junk
+.idea/
+.vscode/
+.DS_Store
+*.swp
+*~
+*.~#*
+
+# large geo / dumps / backups
+*.dat
+GeoIP*
+GeoSite*
+*.dump
+*.bak
+*.bak_*
+*.tar
+*.tar.gz
+*.zip
+*.7z
+*.iso
+*.img
+*.qcow2
+
+db/
+halo2/
+config/
+programdata/
+
+db/
+halo2/
+config/
+programdata/

@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>个人中心 · VaultDrive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+/* ==========================================================================
+   Design Tokens (Linear Design System Standard)
+   ========================================================================== */
+:root {
+  /* Surface Ladder */
+  --canvas: #010102;
+  --surface-1: #0f1011;
+  --surface-2: #141516;
+  --surface-3: #18191a;
+  --surface-4: #1f2022;
+
+  /* Borders & Hairlines */
+  --hairline: #23252a;
+  --hairline-strong: #34343a;
+  --hairline-tertiary: #3e3e44;
+  --border-highlight: rgba(255, 255, 255, 0.05);
+
+  /* Typography / Inks */
+  --ink: #f7f8f8;
+  --ink-muted: #d0d6e0;
+  --ink-subtle: #8a8f98;
+  --ink-tertiary: #62666d;
+
+  /* Brand Accents (Linear Lavender / Cyber Teal) */
+  --primary: #5e6ad2;
+  --primary-hover: #717de8;
+  --primary-focus: #5e69d1;
+  --teal: #2dd4bf;
+  --teal-dim: #14b8a6;
+  --teal-glow: rgba(45, 212, 191, 0.12);
+
+  /* Semantic Colors */
+  --semantic-success: #27a644;
+  --semantic-danger: #f87171;
+  --semantic-danger-surface: rgba(248, 113, 113, 0.10);
+  --semantic-danger-border: rgba(248, 113, 113, 0.22);
+  --semantic-warning: #f59e0b;
+
+  /* Radius Ladder */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-pill: 9999px;
+
+  /* Fonts */
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Sora", "Noto Sans SC", sans-serif;
+  --font-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Sora", "Noto Sans SC", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", monospace;
+
+  /* Transitions */
+  --trans-fast: 150ms cubic-bezier(0.22, 1, 0.36, 1);
+  --trans-smooth: 220ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+*, *::before, *::after {
+  margin: 0; padding: 0; box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--canvas);
+  color: var(--ink);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: 1.5;
+  background-image: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(94, 106, 210, 0.08), transparent 70%);
+}
+
+/* ==========================================================================
+   Header / Top Navigation
+   ========================================================================== */
+header {
+  position: sticky; top: 0; z-index: 60;
+  background: rgba(1, 1, 2, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--hairline);
+  padding: 0 32px;
+  height: 58px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+.logo {
+  display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none; color: var(--ink);
+  font-family: var(--font-display);
+  font-weight: 600; font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.logo-dot {
+  width: 8px; height: 8px; border-radius: var(--radius-xs);
+  background: var(--teal);
+  box-shadow: 0 0 10px var(--teal-glow);
+}
+
+.header-actions { display: flex; align-items: center; gap: 8px; }
+
+/* ==========================================================================
+   Buttons & Micro-interactions
+   ========================================================================== */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-md);
+  font-family: var(--font-body);
+  font-size: 13px; font-weight: 500; letter-spacing: 0;
+  text-decoration: none; cursor: pointer;
+  border: 1px solid var(--hairline);
+  background-color: var(--surface-1);
+  color: var(--ink);
+  transition: all var(--trans-fast);
+  user-select: none;
+}
+
+.btn:hover {
+  background-color: var(--surface-2);
+  border-color: var(--hairline-strong);
+  color: #ffffff;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.btn-primary {
+  background-color: var(--primary);
+  border-color: transparent;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.btn-primary:hover {
+  background-color: var(--primary-hover);
+  border-color: transparent;
+  color: #ffffff;
+}
+
+.btn-accent {
+  background-color: var(--teal);
+  border-color: transparent;
+  color: #010102;
+  font-weight: 600;
+}
+
+.btn-accent:hover {
+  background-color: var(--teal-dim);
+  border-color: transparent;
+  color: #010102;
+}
+
+.btn-danger {
+  background-color: var(--semantic-danger-surface);
+  border-color: var(--semantic-danger-border);
+  color: var(--semantic-danger);
+}
+
+.btn-danger:hover {
+  background-color: #ef4444;
+  border-color: #ef4444;
+  color: #ffffff;
+}
+
+.btn-sm {
+  padding: 5px 10px; font-size: 12px; border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   Layout & Profile Hero Section
+   ========================================================================== */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 24px 80px;
+}
+
+.user-hero {
+  background-color: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-xl);
+  padding: 28px 32px;
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 24px; flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 0 var(--border-highlight) inset;
+}
+
+.user-hero::after {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
+}
+
+.user-profile-left {
+  display: flex; align-items: center; gap: 20px;
+}
+
+.user-avatar {
+  width: 64px; height: 64px; border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--surface-3), var(--surface-2));
+  border: 1px solid var(--hairline-strong);
+  display: grid; place-items: center;
+  font-size: 1.5rem; font-weight: 700; color: var(--ink);
+  font-family: var(--font-display);
+}
+
+.user-titles h1 {
+  font-family: var(--font-display);
+  font-size: 1.5rem; font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 4px;
+}
+
+.badge-role {
+  font-family: var(--font-mono);
+  font-size: 11px; font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-xs);
+  background-color: var(--surface-3);
+  color: var(--teal);
+  border: 1px solid var(--hairline-strong);
+  letter-spacing: 0.04em;
+}
+
+.user-titles p {
+  color: var(--ink-subtle);
+  font-size: 13px;
+}
+
+.user-stats-bar {
+  display: flex; gap: 12px; align-items: center; flex-wrap: wrap;
+}
+
+.stat-pill {
+  background-color: var(--surface-2);
+  border: 1px solid var(--hairline);
+  padding: 8px 18px;
+  border-radius: var(--radius-lg);
+  text-align: center;
+  min-width: 96px;
+}
+
+.stat-pill .num {
+  font-family: var(--font-mono);
+  font-size: 1.25rem; font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.stat-pill .label {
+  font-size: 11px; color: var(--ink-subtle);
+  margin-top: 2px; letter-spacing: 0.02em;
+}
+
+#checkinBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed !important;
+  pointer-events: none;
+  background-color: var(--surface-2) !important;
+  color: var(--ink-subtle) !important;
+  border-color: var(--hairline) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+/* ==========================================================================
+   Navigation Tabs (Pill / Linear Style)
+   ========================================================================== */
+.nav-tabs {
+  display: flex; gap: 8px;
+  border-bottom: 1px solid var(--hairline);
+  margin: 32px 0 24px;
+  padding-bottom: 8px;
+  overflow-x: auto;
+}
+
+.nav-tab {
+  padding: 8px 16px;
+  font-size: 13px; font-weight: 500;
+  color: var(--ink-subtle);
+  cursor: pointer;
+  border-radius: var(--radius-pill);
+  transition: all var(--trans-fast);
+  border: 1px solid transparent;
+  background: transparent;
+  display: inline-flex; align-items: center; gap: 6px;
+  white-space: nowrap;
+}
+
+.nav-tab:hover:not(.active) {
+  color: var(--ink);
+  background-color: var(--surface-1);
+}
+
+.nav-tab.active {
+  color: var(--ink);
+  background-color: var(--surface-2);
+  border-color: var(--hairline-strong);
+}
+
+/* ==========================================================================
+   Content Grid & Cards (Clean Linear Visual Standard)
+   ========================================================================== */
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 20px;
+}
+
+.content-card {
+  background-color: var(--surface-1);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--hairline);
+  transition: transform var(--trans-smooth), border-color var(--trans-smooth);
+  display: flex; flex-direction: column;
+}
+
+.content-card:hover {
+  transform: translateY(-3px);
+  border-color: var(--hairline-strong);
+  background-color: var(--surface-2);
+}
+
+.poster-box {
+  width: 100%; aspect-ratio: 2/3;
+  background-color: var(--surface-2);
+  overflow: hidden; position: relative;
+}
+
+.poster-box img {
+  width: 100%; height: 100%; object-fit: cover;
+  transition: opacity 0.3s ease;
+}
+
+.card-info {
+  padding: 14px; flex: 1;
+  display: flex; flex-direction: column; justify-content: space-between;
+}
+
+.card-title {
+  font-size: 13.5px; font-weight: 500;
+  line-height: 1.4; color: var(--ink);
+  margin-bottom: 8px;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-meta {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px;
+}
+
+.tag-badge {
+  font-family: var(--font-mono);
+  font-size: 11px; padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  background-color: var(--surface-3);
+  color: var(--ink-subtle);
+  border: 1px solid var(--hairline);
+}
+
+/* ==========================================================================
+   Settings Panels & Tables
+   ========================================================================== */
+.settings-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 20px;
+}
+
+.settings-card {
+  background-color: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+}
+
+.settings-card h3 {
+  font-family: var(--font-display);
+  font-size: 15px; font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+
+.form-item { margin-bottom: 16px; }
+.form-item label {
+  display: block; font-size: 12px; font-weight: 500;
+  color: var(--ink-subtle); margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%; padding: 8px 12px;
+  border-radius: var(--radius-md);
+  background-color: var(--surface-2);
+  border: 1px solid var(--hairline);
+  color: var(--ink); font-size: 13px;
+  font-family: inherit;
+  transition: border-color var(--trans-fast);
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.sub-item {
+  background-color: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-md);
+  padding: 12px 16px;
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.empty-tip {
+  text-align: center; padding: 64px 20px; color: var(--ink-tertiary);
+  font-size: 14px;
+}
+
+.toast {
+  position: fixed; bottom: 32px; left: 50%; transform: translateX(-50%);
+  padding: 10px 20px; border-radius: var(--radius-pill);
+  background-color: var(--surface-3); color: var(--ink);
+  border: 1px solid var(--hairline-strong);
+  font-size: 13px; font-weight: 500; z-index: 1000;
+  opacity: 0; transition: opacity 0.25s ease; pointer-events: none;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+}
+.toast.show { opacity: 1; }
+
+@media (max-width: 768px) {
+  header { padding: 0 16px; }
+  .container { padding: 20px 16px 64px; }
+  .user-hero { padding: 20px; }
+  .card-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+}
+</style>
+</head>
+<body>
+<header>
+  <a href="/" class="logo">
+    <div class="logo-dot"></div>
+    <div>VaultDrive</div>
+  </a>
+  <div class="header-actions">
+    <a href="/" class="btn btn-sm">返回资源库</a>
+    <button class="btn btn-danger btn-sm" onclick="doLogout()">退出</button>
+  </div>
+</header>
+
+<div class="container">
+  <!-- 用户状态 Hero Banner -->
+  <div class="user-hero">
+    <div class="user-profile-left">
+      <div class="user-avatar" id="avatarText">U</div>
+      <div class="user-titles">
+        <h1><span id="usernameDisplay">加载中…</span> <span class="badge-role" id="roleBadge">MEMBER</span></h1>
+        <p id="userSubtext">用户 ID: <span id="uidDisplay">-</span> · VaultDrive 会员工作台</p>
+      </div>
+    </div>
+    <div class="user-stats-bar">
+      <div class="stat-pill">
+        <div class="num" id="pointsVal">0</div>
+        <div class="label">可用积分</div>
+      </div>
+      <div class="stat-pill">
+        <div class="num" id="streakVal">0</div>
+        <div class="label">连续签到</div>
+      </div>
+      <button class="btn btn-accent" id="checkinBtn" onclick="doCheckin()">
+        每日签到
+      </button>
+    </div>
+  </div>
+
+  <!-- 导航 Tabs -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="switchTab('favTab', this)">我的网盘收藏 (<span id="favCount">0</span>)</button>
+    <button class="nav-tab" onclick="switchTab('watchTab', this)">影视追剧清单 (<span id="watchCount">0</span>)</button>
+    <button class="nav-tab" onclick="switchTab('subTab', this)">关键词订阅 (<span id="subCount">0</span>)</button>
+    <button class="nav-tab" onclick="switchTab('pointsTab', this); loadPointLogs();">积分账单明细</button>
+    <button class="nav-tab" onclick="switchTab('settingsTab', this)">账号与绑定设置</button>
+  </div>
+
+  <!-- Tab 1: 网盘收藏 -->
+  <div id="favTab" class="tab-content">
+    <div id="favList" class="card-grid"></div>
+  </div>
+
+  <!-- Tab 2: 影视追剧单 -->
+  <div id="watchTab" class="tab-content" style="display:none;">
+    <div id="watchList" class="card-grid"></div>
+  </div>
+
+  <!-- Tab 3: 关键词订阅 -->
+  <div id="subTab" class="tab-content" style="display:none;">
+    <div class="settings-card" style="max-width: 680px; margin-bottom: 20px;">
+      <h3>添加新关键词监控</h3>
+      <div style="display:flex;gap:8px;">
+        <input class="form-input" id="newSubKeyword" placeholder="输入影视名或关键词 (如: 庆余年)">
+        <button class="btn btn-primary" style="flex-shrink:0;" onclick="addSubscription()">添加监控</button>
+      </div>
+      <p style="font-size:12px;color:var(--ink-tertiary);margin-top:8px;">全网爬虫抓取到新网盘资源时，将通过绑定的 Telegram Bot 实时私信推送通知。</p>
+    </div>
+    <div id="subList" style="max-width: 680px;"></div>
+  </div>
+
+  <!-- Tab 4: 积分明细 -->
+  <div id="pointsTab" class="tab-content" style="display:none;">
+    <div class="settings-card" style="max-width: 840px; margin: 0 auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--hairline);padding-bottom:12px;margin-bottom:16px;">
+        <h3 style="border:none;margin:0;padding:0;">积分收支流水</h3>
+        <div style="font-size:12px;color:var(--ink-subtle);">当前余额: <strong style="color:var(--teal);font-family:var(--font-mono);font-size:14px;" id="pointsTabTotal">0</strong></div>
+      </div>
+      <div id="pointLogsList">
+        <div class="empty-tip">加载中…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab 5: 账号与设置 -->
+  <div id="settingsTab" class="tab-content" style="display:none;">
+    <div class="settings-grid">
+      <!-- 个人资料 -->
+      <div class="settings-card">
+        <h3>个人资料修改</h3>
+        <div class="form-item">
+          <label>用户昵称</label>
+          <input class="form-input" id="setNickname" placeholder="显示昵称">
+        </div>
+        <div class="form-item">
+          <label>电子邮箱</label>
+          <input class="form-input" id="setEmail" placeholder="接收通知邮箱">
+        </div>
+        <button class="btn btn-primary" onclick="saveProfile()">保存资料</button>
+      </div>
+
+      <!-- 修改密码 -->
+      <div class="settings-card">
+        <h3>修改密码</h3>
+        <div class="form-item">
+          <label>当前旧密码</label>
+          <input class="form-input" id="oldPass" type="password" placeholder="原密码">
+        </div>
+        <div class="form-item">
+          <label>新密码</label>
+          <input class="form-input" id="newPass" type="password" placeholder="至少 6 位新密码">
+        </div>
+        <button class="btn btn-primary" onclick="changePassword()">更新密码</button>
+      </div>
+
+      <!-- 第三方绑定 -->
+      <div class="settings-card">
+        <h3>多平台账号绑定</h3>
+        <div class="form-item">
+          <label>Telegram 账号</label>
+          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);padding:10px 14px;border-radius:var(--radius-md);border:1px solid var(--hairline);">
+            <span id="tgStatusText" style="font-size:13px;font-weight:500;">未绑定</span>
+            <div id="tgActions"></div>
+          </div>
+          <div id="tgBindHint" style="font-size:12px;color:var(--ink-subtle);margin-top:6px;display:none;"></div>
+        </div>
+        <div class="form-item" style="margin-top:20px;">
+          <label>GitHub 账号</label>
+          <div style="display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);padding:10px 14px;border-radius:var(--radius-md);border:1px solid var(--hairline);">
+            <span id="ghStatusText" style="font-size:13px;font-weight:500;">未绑定</span>
+            <div id="ghActions"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let CURRENT_USER = null;
+
+async function init() {
+  await loadUserMe();
+  await loadFavorites();
+  await loadWatchlist();
+  await loadSubscriptions();
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2200);
+}
+
+function switchTab(tabId, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.style.display = 'none');
+  document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById(tabId).style.display = 'block';
+  btn.classList.add('active');
+}
+
+async function loadUserMe() {
+  try {
+    const r = await fetch('/api/user/me');
+    const d = await r.json();
+    if (!d.logged_in) {
+      location.href = '/login';
+      return;
+    }
+    CURRENT_USER = d;
+    document.getElementById('usernameDisplay').textContent = d.nickname || d.username;
+    document.getElementById('avatarText').textContent = (d.nickname || d.username || 'U')[0].toUpperCase();
+    document.getElementById('uidDisplay').textContent = d.user_id;
+    document.getElementById('roleBadge').textContent = d.is_superadmin ? 'SUPERADMIN' : (d.is_admin ? 'ADMIN' : 'MEMBER');
+    document.getElementById('pointsVal').textContent = d.points || 0;
+    document.getElementById('streakVal').textContent = (d.checkin_streak || 0) + '天';
+    document.getElementById('favCount').textContent = d.favorites_count || 0;
+    document.getElementById('watchCount').textContent = d.watchlist_count || 0;
+    document.getElementById('subCount').textContent = d.subscriptions_count || 0;
+
+    if (document.getElementById('setNickname')) document.getElementById('setNickname').value = d.nickname || '';
+    if (document.getElementById('setEmail')) document.getElementById('setEmail').value = d.email || '';
+
+    const tgTxt = document.getElementById('tgStatusText');
+    const tgAct = document.getElementById('tgActions');
+    if (d.telegram_id) {
+      tgTxt.textContent = '已绑定 · ' + d.telegram_id;
+      tgAct.innerHTML = `<button class="btn btn-danger btn-sm" onclick="unbindTelegram()">解绑</button>`;
+    } else {
+      tgTxt.textContent = '未绑定';
+      tgAct.innerHTML = `<button class="btn btn-primary btn-sm" onclick="startTgBind()">获取绑定码</button>`;
+    }
+
+    const ghTxt = document.getElementById('ghStatusText');
+    const ghAct = document.getElementById('ghActions');
+    if (d.github_id) {
+      ghTxt.textContent = '已绑定 · ' + d.github_id;
+      ghAct.innerHTML = `<button class="btn btn-danger btn-sm" onclick="unbindGithub()">解绑</button>`;
+    } else {
+      ghTxt.textContent = '未绑定';
+      ghAct.innerHTML = `<a class="btn btn-primary btn-sm" href="/login/github?bind=1&next=/profile">绑定账号</a>`;
+    }
+    // 签到按钮状态初始化
+    const btn = document.getElementById('checkinBtn');
+    if (btn) {
+      if (d.already_checked || (d.last_checkin_at && d.last_checkin_at.startsWith(new Date().toISOString().slice(0, 10)))) {
+        btn.textContent = '今日已签到 ✓';
+        btn.disabled = true;
+        btn.classList.remove('btn-accent');
+      } else {
+        btn.textContent = '每日签到 (+10~50)';
+        btn.disabled = false;
+        btn.classList.add('btn-accent');
+      }
+    }
+  } catch(e) {
+    location.href = '/login';
+  }
+}
+
+async function doCheckin() {
+  const btn = document.getElementById('checkinBtn');
+  if (btn && btn.disabled) return;
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '签到中...';
+  }
+  try {
+    const r = await fetch('/api/user/checkin', {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      credentials: 'same-origin'
+    });
+    const d = await r.json().catch(() => ({}));
+    if (r.ok && d.ok) {
+      showToast(d.message || '签到成功！');
+      if (d.points !== undefined) document.getElementById('pointsVal').textContent = d.points;
+      if (d.streak !== undefined) document.getElementById('streakVal').textContent = d.streak + '天';
+      if (btn) {
+        btn.textContent = '今日已签到 ✓';
+        btn.disabled = true;
+        btn.classList.remove('btn-accent');
+      }
+      loadPointLogs();
+    } else {
+      showToast(d.error || d.message || '今天已经签过到啦！');
+      if (btn) {
+        btn.textContent = '今日已签到 ✓';
+        btn.disabled = true;
+        btn.classList.remove('btn-accent');
+      }
+    }
+  } catch(e) {
+    showToast('签到请求异常: ' + (e.message || e));
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = '每日签到 (+10~50)';
+    }
+  }
+}
+
+async function loadFavorites() {
+  const container = document.getElementById('favList');
+  try {
+    const r = await fetch('/api/favorites');
+    const d = await r.json();
+    const items = Array.isArray(d) ? d : (d.items || d.favorites || []);
+    document.getElementById('favCount').textContent = items.length || 0;
+    if (!items || !items.length) {
+      container.innerHTML = `<div class="empty-tip" style="grid-column:1/-1;">暂无网盘收藏</div>`;
+      return;
+    }
+    container.innerHTML = items.map(it => `
+      <div class="content-card">
+        <div class="poster-box">
+          <img src="${it.tmdb_poster || it.poster || '/favicon.svg'}" loading="lazy" onerror="this.src='/favicon.svg'">
+        </div>
+        <div class="card-info">
+          <div class="card-title">${it.title || '资源'}</div>
+          <div class="card-meta">
+            <span class="tag-badge">${it.pan_type || it.source || '网盘'}</span>
+            ${it.quality ? `<span class="tag-badge">${it.quality}</span>` : ''}
+          </div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <a href="${it.url}" target="_blank" class="btn btn-primary" style="flex:1;font-size:12px;padding:6px;">打开链接</a>
+            <button class="btn btn-danger btn-sm" onclick="removeFavorite(${it.resource_id || it.id})">移除</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    container.innerHTML = `<div class="empty-tip">加载失败</div>`;
+  }
+}
+
+async function removeFavorite(id) {
+  if (!confirm('确定取消收藏该资源？')) return;
+  await fetch(`/api/favorites/${id}`, { method: 'DELETE' });
+  showToast('已取消收藏');
+  loadFavorites();
+}
+
+async function loadWatchlist() {
+  const container = document.getElementById('watchList');
+  try {
+    const r = await fetch('/api/watchlist');
+    const d = await r.json();
+    const items = Array.isArray(d) ? d : (d.items || d.watchlist || []);
+    document.getElementById('watchCount').textContent = items.length || 0;
+    if (!items || !items.length) {
+      container.innerHTML = `<div class="empty-tip" style="grid-column:1/-1;">追剧清单为空</div>`;
+      return;
+    }
+    container.innerHTML = items.map(it => `
+      <div class="content-card">
+        <div class="poster-box">
+          <img src="${it.poster_url || it.poster || '/favicon.svg'}" loading="lazy" onerror="this.src='/favicon.svg'">
+        </div>
+        <div class="card-info">
+          <div class="card-title">${it.title || '影视'}</div>
+          <div class="card-meta">
+            <span class="tag-badge">${it.media_type === 'tv' ? '电视剧' : '电影'}</span>
+            <span class="tag-badge">★ ${it.rating || 'N/A'}</span>
+            ${it.year ? `<span class="tag-badge">${it.year}</span>` : ''}
+          </div>
+          <button class="btn btn-danger" onclick="removeWatchlist(${it.tmdb_id}, '${it.media_type}')" style="width:100%;font-size:12px;padding:6px;">移出追剧清单</button>
+        </div>
+      </div>
+    `).join('');
+  } catch(e) {
+    container.innerHTML = `<div class="empty-tip">加载失败</div>`;
+  }
+}
+
+async function removeWatchlist(tmdbId, mediaType) {
+  await fetch(`/api/watchlist/${tmdbId}?media_type=${encodeURIComponent(mediaType)}`, { method: 'DELETE' });
+  showToast('已从追剧清单移除');
+  loadWatchlist();
+}
+
+async function loadSubscriptions() {
+  const container = document.getElementById('subList');
+  try {
+    const r = await fetch('/api/subscriptions');
+    const d = await r.json();
+    const items = Array.isArray(d) ? d : (d.items || []);
+    document.getElementById('subCount').textContent = items.length || 0;
+    if (!items || !items.length) {
+      container.innerHTML = `<div class="empty-tip">暂无监控中的关键词</div>`;
+      return;
+    }
+    container.innerHTML = items.map(it => `
+      <div class="sub-item">
+        <div>
+          <span style="font-weight:500;color:var(--ink);font-size:13.5px;">${it.keyword}</span>
+          <span style="font-size:11px;color:var(--ink-tertiary);margin-left:8px;font-family:var(--font-mono);">${(it.created_at || '').substring(0,10)}</span>
+        </div>
+        <button class="btn btn-danger btn-sm" onclick="removeSubscription(${it.id})">删除</button>
+      </div>
+    `).join('');
+  } catch(e) {
+    container.innerHTML = `<div class="empty-tip">加载失败</div>`;
+  }
+}
+
+async function addSubscription() {
+  const kw = document.getElementById('newSubKeyword').value.trim();
+  if (!kw) return showToast('请输入关键词');
+  const r = await fetch('/api/subscriptions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keyword: kw })
+  });
+  if (r.ok) {
+    showToast('监控添加成功');
+    document.getElementById('newSubKeyword').value = '';
+    loadSubscriptions();
+  } else {
+    showToast('添加失败');
+  }
+}
+
+async function removeSubscription(id) {
+  await fetch(`/api/subscriptions/${id}`, { method: 'DELETE' });
+  showToast('已移除监控');
+  loadSubscriptions();
+}
+
+async function loadPointLogs() {
+  const container = document.getElementById('pointLogsList');
+  document.getElementById('pointsTabTotal').textContent = CURRENT_USER ? (CURRENT_USER.points || 0) : 0;
+  try {
+    const r = await fetch('/api/user/points/logs');
+    const d = await r.json();
+    const items = d.items || [];
+    if (!items || !items.length) {
+      container.innerHTML = `<div class="empty-tip">暂无积分变动流水</div>`;
+      return;
+    }
+    container.innerHTML = `
+      <table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead>
+          <tr style="border-bottom:1px solid var(--hairline);color:var(--ink-subtle);text-align:left;">
+            <th style="padding:10px 8px;font-weight:500;">事项</th>
+            <th style="padding:10px 8px;font-weight:500;">变动分值</th>
+            <th style="padding:10px 8px;font-weight:500;">变动后余额</th>
+            <th style="padding:10px 8px;font-weight:500;">记录时间</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${items.map(it => {
+            const isPlus = it.change_amount > 0;
+            const changeColor = isPlus ? 'var(--teal)' : 'var(--semantic-danger)';
+            const changeStr = isPlus ? `+${it.change_amount}` : `${it.change_amount}`;
+            return `
+              <tr style="border-bottom:1px solid var(--hairline);">
+                <td style="padding:12px 8px;color:var(--ink);font-weight:500;">${it.remark || it.action}</td>
+                <td style="padding:12px 8px;font-family:var(--font-mono);font-weight:600;color:${changeColor};">${changeStr}</td>
+                <td style="padding:12px 8px;font-family:var(--font-mono);color:var(--ink-muted);">${it.balance_after}</td>
+                <td style="padding:12px 8px;color:var(--ink-tertiary);font-size:12px;font-family:var(--font-mono);">${(it.created_at || '').substring(0,16)}</td>
+              </tr>
+            `;
+          }).join('')}
+        </tbody>
+      </table>
+    `;
+  } catch(e) {
+    container.innerHTML = `<div class="empty-tip">加载失败</div>`;
+  }
+}
+
+async function saveProfile() {
+  const nick = document.getElementById('setNickname').value.trim();
+  const email = document.getElementById('setEmail').value.trim();
+  const r = await fetch('/api/user/profile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname: nick, email: email })
+  });
+  const d = await r.json();
+  if (r.ok && d.ok) {
+    showToast(d.message || '资料已更新');
+    loadUserMe();
+  } else {
+    showToast(d.error || '更新失败');
+  }
+}
+
+async function changePassword() {
+  const oldP = document.getElementById('oldPass').value.trim();
+  const newP = document.getElementById('newPass').value.trim();
+  if (!oldP || !newP) return showToast('请输入完整密码');
+  const r = await fetch('/api/user/change-password', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ old_password: oldP, new_password: newP })
+  });
+  const d = await r.json();
+  if (r.ok && d.ok) {
+    showToast(d.message || '密码修改成功');
+    document.getElementById('oldPass').value = '';
+    document.getElementById('newPass').value = '';
+  } else {
+    showToast(d.error || '修改失败');
+  }
+}
+
+async function startTgBind() {
+  const hint = document.getElementById('tgBindHint');
+  hint.style.display = 'block';
+  hint.textContent = '生成绑定码中…';
+  const r = await fetch('/api/user/telegram/bind-code', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' }
+  });
+  const d = await r.json();
+  if (r.ok && d.ok) {
+    hint.innerHTML = `私聊 <a href="${d.bot_link || '#'}" target="_blank" style="color:var(--primary);">@${d.bot_username}</a> 发送: <code style="color:var(--teal);font-weight:600;font-family:var(--font-mono);margin-left:4px;">${d.code}</code>`;
+  } else {
+    hint.textContent = d.error || '生成失败';
+  }
+}
+
+async function unbindTelegram() {
+  if (!confirm('确定解绑 Telegram？')) return;
+  await fetch('/api/user/telegram/unbind', { method: 'POST' });
+  showToast('已解绑 Telegram');
+  loadUserMe();
+}
+
+async function unbindGithub() {
+  if (!confirm('确定解绑 GitHub？')) return;
+  await fetch('/api/user/bind_github', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ github_id: null })
+  });
+  showToast('已解绑 GitHub');
+  loadUserMe();
+}
+
+function doLogout() {
+  location.href = '/logout?next=/login';
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
