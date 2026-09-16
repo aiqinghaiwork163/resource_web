@@ -1,29 +1,12 @@
 services:
-  mysql:
-    image: mysql:8.0
-    container_name: resource-mysql
-    restart: unless-stopped
-    environment:
-      - MYSQL_ROOT_PASSWORD=***REMOVED***
-      - MYSQL_DATABASE=pan_resource
-      - TZ=Asia/Shanghai
-    command:
-      - --character-set-server=utf8mb4
-      - --collation-server=utf8mb4_unicode_ci
-    volumes:
-      - mysql_data:/var/lib/mysql
-    networks:
-      - resource-net
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-p***REMOVED***"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-
   resource-web:
-    image: resource_web-resource-web:latest
+    build: .
     container_name: resource_web
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
     ports:
       - "5000:5000"
     restart: unless-stopped
@@ -31,24 +14,158 @@ services:
       - .env
     environment:
       - TZ=Asia/Shanghai
+      - REQUIRE_LOGIN=0
+      - HTTPS_PROXY=http://192.168.0.201:7890
+      - HTTP_PROXY=http://192.168.0.201:7890
+      - NO_PROXY=localhost,127.0.0.1,resource_web_redis,resource-mysql,192.168.0.201,::1
+      - GITHUB_HTTP_PROXY=http://192.168.0.201:7890
+      - REDIS_HOST=resource_web_redis
     volumes:
       - ./:/app
     command:
       [
         "gunicorn",
         "--bind", "0.0.0.0:5000",
-        "--workers", "2",
+        "--workers", "4",
         "--threads", "2",
         "--timeout", "60",
-        "--reload",
         "--access-logfile", "-",
         "app:app",
       ]
     networks:
-      - resource-net
+      - resource_web_resource-net
     depends_on:
-      mysql:
+      redis:
         condition: service_healthy
+
+  # ── Celery（Python 消息队列）死链流水线 ──
+  # extract → check → write；broker = Redis
+  # 扩容检测: docker compose up -d --scale deadlink-celery-check=4 deadlink-celery-check
+
+  deadlink-celery-extract:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Shanghai
+      - DEADLINK_NO_PROXY=1
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - ALL_PROXY=
+      - all_proxy=
+      - REDIS_HOST=resource_web_redis
+      - DEADLINK_FETCH_BATCH=3000
+      - DEADLINK_CHECK_CHUNK=40
+    volumes:
+      - ./:/app
+    command:
+      [
+        "celery",
+        "-A",
+        "services.celery_app",
+        "worker",
+        "-Q",
+        "deadlink.extract",
+        "-c",
+        "1",
+        "-l",
+        "info",
+        "-n",
+        "extract@%h",
+        "--without-mingle",
+        "--without-gossip",
+      ]
+    networks:
+      - resource_web_resource-net
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  deadlink-celery-check:
+    build: .
+    restart: unless-stopped
+    deploy:
+      replicas: 1
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Shanghai
+      - DEADLINK_NO_PROXY=1
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - ALL_PROXY=
+      - all_proxy=
+      - REDIS_HOST=resource_web_redis
+      - DEADLINK_CHECK_CHUNK=1
+    volumes:
+      - ./:/app
+    # 单条任务 + threads 池：每容器 64 路并发 HTTP，scale=4 ≈ 256 路
+    command:
+      [
+        "celery",
+        "-A",
+        "services.celery_app",
+        "worker",
+        "-Q",
+        "deadlink.check",
+        "--pool=threads",
+        "-c",
+        "64",
+        "-l",
+        "info",
+        "-n",
+        "check@%h",
+        "--without-mingle",
+        "--without-gossip",
+      ]
+    networks:
+      - resource_web_resource-net
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  deadlink-celery-write:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - TZ=Asia/Shanghai
+      - DEADLINK_NO_PROXY=1
+      - HTTP_PROXY=
+      - HTTPS_PROXY=
+      - http_proxy=
+      - https_proxy=
+      - ALL_PROXY=
+      - all_proxy=
+      - REDIS_HOST=resource_web_redis
+    volumes:
+      - ./:/app
+    command:
+      [
+        "celery",
+        "-A",
+        "services.celery_app",
+        "worker",
+        "-Q",
+        "deadlink.write",
+        "-c",
+        "8",
+        "-l",
+        "info",
+        "-n",
+        "write@%h",
+        "--without-mingle",
+        "--without-gossip",
+      ]
+    networks:
+      - resource_web_resource-net
+    depends_on:
       redis:
         condition: service_healthy
 
@@ -56,15 +173,16 @@ services:
     image: redis:7-alpine
     container_name: resource_web_redis
     restart: unless-stopped
+    # Celery broker 任务无过期时间，使用 volatile-lru 仅淘汰带过期的图片/API缓存，防止 OOM
     command: >
       redis-server
       --appendonly yes
-      --maxmemory 128mb
-      --maxmemory-policy allkeys-lru
+      --maxmemory 512mb
+      --maxmemory-policy volatile-lru
     volumes:
-      - redis_data:/data
+      - resource_web_redis_data:/data
     networks:
-      - resource-net
+      - resource_web_resource-net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -73,9 +191,8 @@ services:
       start_period: 5s
 
 networks:
-  resource-net:
+  resource_web_resource-net:
     external: true
 
 volumes:
-  mysql_data:
-  redis_data:
+  resource_web_redis_data:

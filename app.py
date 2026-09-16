@@ -289,11 +289,21 @@ def cache_static(response):
 
 @app.after_request
 def add_security_headers(response):
-    """添加安全响应头"""
+    """添加安全响应头：HSTS / CSP / 防嗅探 / 防嵌框"""
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
-    response.headers["X-XSS-Protection"] = "1; mode=block"
+    # 现代浏览器已弃用 X-XSS-Protection，留着反而可能引入反射XSS问题，移除
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    # CSP：默认仅同源，挡 XSS / 注入；图片允许 tmdb/douban 代理域名
+    response.headers["Content-Security-Policy"] = (
+        "default-src 'self'; "
+        "img-src 'self' https://image.tmdb.org https://*.doubanio.com data:; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        "font-src 'self' https://fonts.gstatic.com; "
+        "script-src 'self' 'unsafe-inline'; "
+        "connect-src 'self'"
+    )
     return response
 
 
@@ -306,9 +316,9 @@ DB_CONFIG = {
     "database": os.environ.get("DB_NAME", "pan_resource"),
     "charset": "utf8mb4",
     "cursorclass": pymysql.cursors.DictCursor,
-    "connect_timeout": 5,
-    "read_timeout": 10,
-    "write_timeout": 10,
+    "connect_timeout": 10,
+    "read_timeout": 30,
+    "write_timeout": 30,
 }
 
 # ==================== 限流 ====================
@@ -316,25 +326,19 @@ from dbutils.pooled_db import PooledDB
 
 _pool = PooledDB(
     creator=pymysql,
-    maxconnections=20,
-    mincached=2,
-    maxcached=5,
+    maxconnections=30,
+    mincached=3,
+    maxcached=8,
     blocking=True,
     maxusage=None,
-    setsession=["SET NAMES utf8mb4"],
+    setsession=["SET NAMES utf8mb4", "SET time_zone = '+08:00'"],
     ping=1,  # ping before use
     **DB_CONFIG,
 )
 
 
 def get_db():
-    conn = _pool.connection()
-    try:
-        with conn.cursor() as _cur:
-            _cur.execute("SET time_zone = '+08:00'")
-    except Exception:
-        pass
-    return conn
+    return _pool.connection()
 
 
 def _get_tmdb_api_key():
@@ -740,7 +744,7 @@ def login_page():
         db = get_db()
         try:
             cur = db.cursor()
-            cur.execute("SELECT id, username, role, status, password, telegram_id FROM users WHERE username=%s", (username,))
+            cur.execute("SELECT id, username, role, status, password, telegram_id FROM users WHERE username=%s OR email=%s LIMIT 1", (username, username.lower()))
             user = cur.fetchone()
         finally:
             db.close()
@@ -1087,6 +1091,62 @@ def _telegram_channel() -> str:
     return "@" + v.lstrip("@")
 
 
+
+def _is_foreign_ip(client_ip: str) -> bool:
+    """精准判断客户端是否为境外 IP。国内 IP / 内网 IP 均返回 False（隐藏 TG 登录）。"""
+    import ipaddress
+    if not client_ip:
+        return False
+    try:
+        ip_obj = ipaddress.ip_address(client_ip.strip())
+        if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_reserved:
+            return False
+    except Exception:
+        return False
+
+    r = get_redis()
+    cache_key = f"res_web:ip_geo:{client_ip}"
+    if r:
+        try:
+            cached = r.get(cache_key)
+            if cached:
+                return cached.decode("utf-8") == "foreign"
+        except Exception:
+            pass
+
+    # 双通道地理位置解析
+    is_foreign = False
+    try:
+        import urllib.request
+        # 1. 优先查国内权威库 pconline，国内 IP 100% 极速命中
+        req = urllib.request.Request(
+            f"http://whois.pconline.com.cn/ipJson.jsp?ip={client_ip}&json=true",
+            headers={"User-Agent": "Mozilla/5.0"}
+        )
+        with urllib.request.urlopen(req, timeout=1.2) as resp:
+            data = json.loads(resp.read().decode("gbk", errors="ignore"))
+            if data.get("proCode") and data.get("proCode") != "999999":
+                is_foreign = False
+            else:
+                # 2. 非国内库省份时，查 ip-api
+                req2 = urllib.request.Request(
+                    f"http://ip-api.com/json/{client_ip}?fields=countryCode",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                with urllib.request.urlopen(req2, timeout=1.2) as resp2:
+                    d2 = json.loads(resp2.read().decode("utf-8"))
+                    is_foreign = bool(d2.get("countryCode") and d2.get("countryCode") != "CN")
+    except Exception:
+        is_foreign = False
+
+    if r:
+        try:
+            r.setex(cache_key, 86400, "foreign" if is_foreign else "china")
+        except Exception:
+            pass
+
+    return is_foreign
+
 def _growth_info() -> dict:
     """首页/登录/收藏拦截共用的引流文案。"""
     chat = _telegram_required_chat() or "@heikuangchangshare"
@@ -1402,24 +1462,30 @@ def _telegram_group_gate(telegram_id) -> tuple[bool, str]:
 
 
 def _user_pass_internal_beta_gate(user_id=None, telegram_id=None, role=None) -> tuple[bool, str]:
-    """纯内测总闸：开启必加群后，任何人登录都必须证明在群内（超管 TG 可兜底）。
-    无 telegram_id 一律拒绝（请用 Telegram 登录）。
-    """
+    """纯内测总闸：开启必加群后，已绑定 Telegram 的账号需在群内；普通邮箱/站内账号允许正常登录。"""
     if not _telegram_required_chat():
         return True, ""
+    if _is_staff_role(role) or _is_superadmin_role(role):
+        return True, ""
     tg_id = str(telegram_id or "").strip() or None
-    if not tg_id and user_id:
+    has_email_or_local = False
+    if user_id:
         db = get_db()
         try:
             cur = db.cursor()
-            cur.execute("SELECT telegram_id, role FROM users WHERE id=%s", (user_id,))
+            cur.execute("SELECT telegram_id, role, email, username FROM users WHERE id=%s", (user_id,))
             row = cur.fetchone() or {}
-            tg_id = row.get("telegram_id")
+            if not tg_id:
+                tg_id = row.get("telegram_id")
             if role is None:
                 role = row.get("role")
+            if row.get("email") or row.get("username"):
+                has_email_or_local = True
         finally:
             db.close()
     if not tg_id:
+        if has_email_or_local:
+            return True, ""
         chat = _telegram_required_chat()
         link = chat if chat.startswith("http") else f"https://t.me/{chat.lstrip('@')}"
         return False, f"纯内测：请使用 Telegram 登录，并先加入 {link}"
@@ -1558,23 +1624,38 @@ def _session_login_user(user):
 
 @app.route("/api/telegram/login-config")
 def api_telegram_login_config():
-    """前端拉 Bot 用户名；未配置则 enabled=false"""
+    """前端拉 Bot 用户名及第三方登录开关与 IP 限制"""
     _ensure_telegram_settings_keys()
     token = _telegram_bot_token()
     bot_username = _telegram_bot_username()
-    enabled = bool(token and bot_username)
+    
+    tg_switch = _setting_db("enable_telegram_login")
+    if tg_switch is None:
+        tg_switch = "1"
+    tg_enabled = bool(token and bot_username and str(tg_switch).strip() in ("1", "true", "on"))
+
+    gh_switch = _setting_db("enable_github_login")
+    if gh_switch is None:
+        gh_switch = "1"
+    gh_enabled = bool(GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET and str(gh_switch).strip() in ("1", "true", "on"))
+
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    is_foreign = _is_foreign_ip(client_ip)
+
     chat = _telegram_required_chat()
     chat_link = ""
     if chat:
         chat_link = chat if chat.startswith("http") else f"https://t.me/{chat.lstrip('@')}"
     return jsonify({
-        "enabled": enabled,
+        "enabled": tg_enabled,
+        "github_enabled": gh_enabled,
+        "is_foreign": is_foreign,
         "bot_username": bot_username or "vaultdrive_bot",
         "login_bot": bot_username or "vaultdrive_bot",
         "required_chat": chat,
         "required_chat_link": chat_link,
         "growth": _growth_info(),
-        "hint": "" if enabled else "请管理员在后台「系统设置」填写 Telegram Bot Token 与 Bot 用户名，并在 BotFather /setdomain",
+        "hint": "" if tg_enabled else "Telegram 登录已关闭或未配置",
     })
 
 
@@ -2922,16 +3003,11 @@ def _clear_filter_words_cache():
 
 
 def _filter_words_condition(cur):
-    """返回 (sql_fragment, params) 用于排除含过滤词的资源（内存缓存300秒）"""
-    fwords = _get_cached_filter_words()
-    if not fwords:
-        return "", []
-    conds = []
-    params = []
-    for w in fwords:
-        conds.append("(title NOT LIKE %s AND note NOT LIKE %s AND keyword NOT LIKE %s)")
-        params.extend([f"%{w}%", f"%{w}%", f"%{w}%"])
-    return "(" + " AND ".join(conds) + ")", params
+    """
+    v2: 结构化优化，放弃 70+ NOT LIKE 全表扫。
+    直接利用 DB 层新增的 is_filtered = 0 字段查询。
+    """
+    return "is_filtered = 0", []
 
 
 @app.route("/api/sources")
@@ -3421,16 +3497,28 @@ def api_users():
                     session["username"] = me_row["username"]
 
         me_super = bool(session.get("is_superadmin"))
-        hide = "WHERE role NOT IN ('superadmin','super','root')"
-        if me_super:
-            hide = ""
-        cur.execute(f"SELECT COUNT(*) as total FROM users {hide}")
+        q = (request.args.get("q") or "").strip()
+        role_f = (request.args.get("role") or "").strip()
+
+        conds = []
+        params_cnt = []
+        if not me_super:
+            conds.append("role NOT IN ('superadmin','super','root')")
+        if q:
+            conds.append("(username LIKE %s OR email LIKE %s OR telegram_id LIKE %s)")
+            params_cnt.extend([f"%{q}%", f"%{q}%", f"%{q}%"])
+        if role_f:
+            conds.append("role = %s")
+            params_cnt.append(role_f)
+
+        where_sql = ("WHERE " + " AND ".join(conds)) if conds else ""
+        cur.execute(f"SELECT COUNT(*) as total FROM users {where_sql}", params_cnt)
         total = cur.fetchone()["total"]
 
         cur.execute(
-            f"""SELECT id, username, email, role, status, last_login, created_at, updated_at, github_id, telegram_id
-            FROM users {hide} ORDER BY FIELD(role,'superadmin','admin','user'), id ASC LIMIT %s OFFSET %s""",
-            (per_page, offset),
+            f"""SELECT id, username, email, role, status, points, checkin_streak, last_login, created_at, updated_at, github_id, telegram_id
+            FROM users {where_sql} ORDER BY id DESC LIMIT %s OFFSET %s""",
+            params_cnt + [per_page, offset],
         )
         items = cur.fetchall()
 
@@ -3440,10 +3528,30 @@ def api_users():
             i["updated_at"] = str(i["updated_at"]) if i["updated_at"] else ""
             i["role"] = _norm_role(i.get("role"))
 
+        # 用户看板全局统计指标
+        cur.execute("""
+            SELECT 
+                COUNT(*) as total_users,
+                SUM(CASE WHEN created_at >= CURDATE() THEN 1 ELSE 0 END) as today_new,
+                SUM(CASE WHEN last_login >= CURDATE() THEN 1 ELSE 0 END) as today_active,
+                SUM(CASE WHEN telegram_id IS NOT NULL AND telegram_id != '' THEN 1 ELSE 0 END) as tg_bound,
+                SUM(CASE WHEN github_id IS NOT NULL AND github_id != '' THEN 1 ELSE 0 END) as gh_bound
+            FROM users
+        """)
+        user_stats_raw = cur.fetchone() or {}
+        user_stats = {
+            "total_users": int(user_stats_raw.get("total_users") or 0),
+            "today_new": int(user_stats_raw.get("today_new") or 0),
+            "today_active": int(user_stats_raw.get("today_active") or 0),
+            "tg_bound": int(user_stats_raw.get("tg_bound") or 0),
+            "gh_bound": int(user_stats_raw.get("gh_bound") or 0),
+        }
+
         return jsonify({
             "items": items,
             "total": total,
             "page": page,
+            "stats": user_stats,
             "me": {
                 "user_id": session.get("user_id"),
                 "is_superadmin": me_super,
@@ -3504,6 +3612,12 @@ def api_user_update(uid):
             sets.append("role=%s"); vals.append(new_role)
         if "status" in data:
             sets.append("status=%s"); vals.append(data["status"])
+        if "points" in data and data["points"] is not None:
+            try:
+                pts = int(data["points"])
+                sets.append("points=%s"); vals.append(pts)
+            except Exception:
+                pass
         if "telegram_id" in data:
             if not me_super:
                 return jsonify({"error": "只有超管能改 Telegram ID"}), 403
@@ -3619,6 +3733,7 @@ def api_user_bind_github(uid):
 
 
 @app.route("/api/user/bind_github", methods=["POST"])
+@csrf.exempt
 def api_user_bind_github_self():
     """当前登录用户解绑 GitHub（绑定请走 /login/github?bind=1 OAuth）"""
     uid = session.get("user_id")
@@ -3639,6 +3754,7 @@ def api_user_bind_github_self():
 
 
 @app.route("/api/user/profile", methods=["POST"])
+@csrf.exempt
 def api_user_update_profile():
     """更新个人资料（昵称、邮箱）"""
     uid = session.get("user_id")
@@ -3658,6 +3774,7 @@ def api_user_update_profile():
 
 
 @app.route("/api/user/change-password", methods=["POST"])
+@csrf.exempt
 def api_user_change_password():
     """用户自行修改密码"""
     uid = session.get("user_id")
@@ -3696,6 +3813,7 @@ def page_terms():
 
 # ==================== 积分与签到管理接口 ====================
 @app.route("/api/admin/points/adjust", methods=["POST"])
+@csrf.exempt
 @admin_required
 def api_admin_points_adjust():
     """管理员手动给指定用户增减积分"""
@@ -3838,6 +3956,7 @@ def api_user_point_logs():
 
 
 @app.route("/api/user/checkin", methods=["POST"])
+@csrf.exempt
 def api_user_checkin():
     """每日签到领积分（防重入、阶梯奖励、流水记录）"""
     uid = session.get("user_id")
@@ -3892,7 +4011,233 @@ def api_user_checkin():
         db.close()
 
 
+
+# ==================== 官方邮箱验证码与邮箱注册 ====================
+
+@app.route("/api/auth/email/send-code", methods=["POST"])
+@csrf.exempt
+def api_email_send_code():
+    """发送 6 位邮箱验证码（防刷：60秒CD，10分钟有效）"""
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email") or "").strip().lower()
+    action = str(data.get("action") or "register").strip().lower()
+
+    if not email or not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email):
+        return jsonify({"ok": False, "error": "请输入有效的电子邮箱地址"}), 400
+
+    r = get_redis()
+    cd_key = f"res_web:email_cd:{email}:{action}"
+    if r and r.get(cd_key):
+        ttl = r.ttl(cd_key)
+        return jsonify({"ok": False, "error": f"发送太频繁，请在 {ttl} 秒后再试"}), 429
+
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("SELECT id FROM users WHERE email=%s LIMIT 1", (email,))
+        existing_user = cur.fetchone()
+        if action == "register" and existing_user:
+            return jsonify({"ok": False, "error": "该邮箱已被注册，请直接登录"}), 400
+        elif action in ("login", "reset") and not existing_user:
+            return jsonify({"ok": False, "error": "该邮箱尚未注册，请先注册"}), 400
+        elif action == "bind":
+            my_uid = session.get("user_id")
+            if not my_uid:
+                return jsonify({"ok": False, "error": "请先登录后再绑定邮箱"}), 401
+            if existing_user and existing_user["id"] != my_uid:
+                return jsonify({"ok": False, "error": "该邮箱已被其他账号绑定"}), 400
+    finally:
+        db.close()
+
+    import random
+    code = f"{random.randint(100000, 999999)}"
+
+    # 发送邮件
+    try:
+        from services import mailer
+        ok, msg = mailer.send_otp_email(to_email=email, code=code, action=action)
+        if not ok:
+            return jsonify({"ok": False, "error": f"邮件发送失败: {msg}"}), 500
+    except Exception as e:
+        return jsonify({"ok": False, "error": f"发信服务异常: {str(e)}"}), 500
+
+    # 写入 Redis 缓存验证码 (10分钟有效，60秒限制)
+    if r:
+        r.setex(f"res_web:email_otp:{email}:{action}", 600, code)
+        r.setex(cd_key, 60, "1")
+
+    return jsonify({"ok": True, "message": "验证码已发送至您的邮箱，10分钟内有效"})
+
+
+
+@app.route("/api/auth/email/reset-password", methods=["POST"])
+@csrf.exempt
+def api_email_reset_password():
+    """邮箱验证码重置密码（忘记密码）"""
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email") or "").strip().lower()
+    code = str(data.get("code") or "").strip()
+    new_password = str(data.get("password") or "").strip()
+
+    if not email or not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email):
+        return jsonify({"ok": False, "error": "请输入有效的电子邮箱地址"}), 400
+    if not code or len(code) != 6:
+        return jsonify({"ok": False, "error": "请输入6位有效数字验证码"}), 400
+    if not new_password or len(new_password) < 6:
+        return jsonify({"ok": False, "error": "新密码长度至少需要 6 个字符"}), 400
+
+    r = get_redis()
+    otp_key = f"res_web:email_otp:{email}:reset"
+    cached_code = r.get(otp_key).decode("utf-8") if (r and r.get(otp_key)) else None
+
+    if not cached_code or cached_code != code:
+        return jsonify({"ok": False, "error": "验证码错误或已过期，请重新获取"}), 400
+
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("SELECT id, username FROM users WHERE email=%s LIMIT 1", (email,))
+        user = cur.fetchone()
+        if not user:
+            return jsonify({"ok": False, "error": "该邮箱未绑定任何账号"}), 404
+
+        pw_hash = hash_password(new_password)
+        cur.execute("UPDATE users SET password=%s, updated_at=NOW() WHERE id=%s", (pw_hash, user["id"]))
+        db.commit()
+
+        if r:
+            r.delete(otp_key)
+
+        return jsonify({"ok": True, "message": "密码重置成功！请使用新密码登录"})
+    finally:
+        db.close()
+
+
+@app.route("/api/user/bind-email", methods=["POST"])
+@csrf.exempt
+def api_user_bind_email():
+    """个人中心：绑定 / 换绑邮箱（需验证码）"""
+    uid = session.get("user_id")
+    if not uid:
+        return jsonify({"ok": False, "error": "请先登录"}), 401
+
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email") or "").strip().lower()
+    code = str(data.get("code") or "").strip()
+
+    if not email or not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email):
+        return jsonify({"ok": False, "error": "请输入有效的电子邮箱地址"}), 400
+    if not code or len(code) != 6:
+        return jsonify({"ok": False, "error": "请输入6位有效数字验证码"}), 400
+
+    r = get_redis()
+    otp_key = f"res_web:email_otp:{email}:bind"
+    cached_code = r.get(otp_key).decode("utf-8") if (r and r.get(otp_key)) else None
+
+    if not cached_code or cached_code != code:
+        return jsonify({"ok": False, "error": "验证码错误或已过期，请重新获取"}), 400
+
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute("SELECT id FROM users WHERE email=%s AND id!=%s LIMIT 1", (email, uid))
+        if cur.fetchone():
+            return jsonify({"ok": False, "error": "该邮箱已被其他账号绑定"}), 400
+
+        cur.execute("UPDATE users SET email=%s, updated_at=NOW() WHERE id=%s", (email, uid))
+        db.commit()
+
+        if r:
+            r.delete(otp_key)
+
+        return jsonify({"ok": True, "message": "邮箱绑定成功！", "email": email})
+    finally:
+        db.close()
+
+@app.route("/api/auth/email/register", methods=["POST"])
+@csrf.exempt
+def api_email_register():
+    """邮箱 + 验证码注册新账号"""
+    data = request.get_json(silent=True) or {}
+    email = str(data.get("email") or "").strip().lower()
+    code = str(data.get("code") or "").strip()
+    password = str(data.get("password") or "").strip()
+    username = str(data.get("username") or "").strip()
+
+    if not email or not re.match(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$", email):
+        return jsonify({"ok": False, "error": "请输入有效的电子邮箱地址"}), 400
+    if not code or len(code) != 6:
+        return jsonify({"ok": False, "error": "请输入6位有效数字验证码"}), 400
+    if not username or len(username) < 3 or len(username) > 30:
+        return jsonify({"ok": False, "error": "用户名长度需在 3-30 个字符之间"}), 400
+    if not password or len(password) < 6:
+        return jsonify({"ok": False, "error": "密码长度至少需要 6 个字符"}), 400
+
+    r = get_redis()
+    otp_key = f"res_web:email_otp:{email}:register"
+    cached_code = r.get(otp_key).decode("utf-8") if (r and r.get(otp_key)) else None
+
+    # 若未命中缓存或不一致
+    if not cached_code or cached_code != code:
+        return jsonify({"ok": False, "error": "验证码错误或已过期，请重新获取"}), 400
+
+    db = get_db()
+    try:
+        cur = db.cursor()
+        # 检查邮箱和用户名
+        cur.execute("SELECT id FROM users WHERE email=%s LIMIT 1", (email,))
+        if cur.fetchone():
+            return jsonify({"ok": False, "error": "该邮箱已被注册，请直接登录"}), 400
+
+        cur.execute("SELECT id FROM users WHERE username=%s LIMIT 1", (username,))
+        if cur.fetchone():
+            return jsonify({"ok": False, "error": "该用户名已被占用，请换一个"}), 400
+
+        pw_hash = hash_password(password)
+        cur.execute(
+            """
+            INSERT INTO users (username, email, password, role, status, points, created_at, updated_at)
+            VALUES (%s, %s, %s, 'user', 1, 100, NOW(), NOW())
+            """,
+            (username, email, pw_hash),
+        )
+        new_uid = cur.lastrowid
+        cur.execute(
+            """
+            INSERT INTO point_logs (user_id, action, change_amount, balance_after, remark, created_at)
+            VALUES (%s, 'welcome', 100, 100, '新用户邮箱注册奖励', NOW())
+            """,
+            (new_uid,),
+        )
+        db.commit()
+
+        # 消费掉验证码
+        if r:
+            r.delete(otp_key)
+
+        # 建立 session 自动登录
+        session["user_id"] = new_uid
+        session["username"] = username
+        session["role"] = "user"
+        session["is_admin"] = False
+        session["is_superadmin"] = False
+        session.permanent = True
+        session.modified = True
+
+        next_url = _safe_next_url(data.get("next") or request.args.get("next") or "/profile")
+        return jsonify({
+            "ok": True,
+            "message": "注册成功并已自动登录",
+            "user_id": new_uid,
+            "username": username,
+            "role": "user",
+            "redirect": next_url,
+        })
+    finally:
+        db.close()
+
 @app.route("/register", methods=["POST"])
+@csrf.exempt
 def api_register():
     """新用户注册（支持邀请码或普通注册）"""
     data = request.get_json() or {}
@@ -3959,7 +4304,10 @@ def api_register():
 # ==================== API: 公告管理 ====================
 @app.route("/api/announcements")
 def api_announcements():
-    """获取当前生效的公告（公开）"""
+    """获取当前生效的公告（公开），国内访问自动过滤敏感 TG 提示文案"""
+    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    is_foreign = _is_foreign_ip(client_ip)
+
     db = get_db()
     try:
         cur = db.cursor()
@@ -3969,10 +4317,21 @@ def api_announcements():
         row = cur.fetchone()
         if not row:
             return jsonify({})
+
+        content = str(row["content"] or "")
+        # 国内访问时，自动净化过滤 TG / Bot 敏感提示
+        if not is_foreign:
+            content = content.replace("先进本群，私聊 @vaultdrive_bot 发片名即可搜，或", "")
+            content = content.replace("私聊 @vaultdrive_bot 发片名即可搜，或", "")
+            content = content.replace("先进本群，私聊 @vaultdrive_bot 发片名即可搜，", "")
+            content = content.replace("私聊 @vaultdrive_bot 发片名即可搜", "")
+            content = content.replace("先进本群，", "")
+            content = content.strip()
+
         return jsonify({
             "id": row["id"],
             "title": row["title"],
-            "content": row["content"],
+            "content": content,
             "type": row["type"],
         })
     finally:
@@ -4212,6 +4571,7 @@ def api_favorites():
     finally: db.close()
 
 @app.route("/api/favorites", methods=["POST"])
+@csrf.exempt
 @group_required_for_favorites
 def api_fav_add():
     uid = session.get("user_id")
@@ -4227,6 +4587,7 @@ def api_fav_add():
     finally: db.close()
 
 @app.route("/api/favorites/<int:rid>", methods=["DELETE"])
+@csrf.exempt
 @group_required_for_favorites
 def api_fav_del(rid):
     uid = session.get("user_id")
@@ -4292,6 +4653,7 @@ def api_watchlist():
 
 
 @app.route("/api/watchlist", methods=["POST"])
+@csrf.exempt
 @group_required_for_favorites
 def api_watchlist_add():
     uid = session.get("user_id")
@@ -4333,6 +4695,7 @@ def api_watchlist_add():
 
 
 @app.route("/api/watchlist/<int:tmdb_id>", methods=["DELETE"])
+@csrf.exempt
 @group_required_for_favorites
 def api_watchlist_del(tmdb_id):
     uid = session.get("user_id")
@@ -4365,6 +4728,7 @@ def api_search_hist():
     finally: db.close()
 
 @app.route("/api/search_history", methods=["POST"])
+@csrf.exempt
 def api_search_hist_add():
     uid = session.get("user_id")
     if not uid: return jsonify({"ok": False}), 200
@@ -4380,6 +4744,7 @@ def api_search_hist_add():
     finally: db.close()
 
 @app.route("/api/search_history", methods=["DELETE"])
+@csrf.exempt
 def api_search_hist_clear():
     uid = session.get("user_id")
     if not uid: return jsonify({"error": "未登录"}), 401
@@ -4586,6 +4951,18 @@ def api_filter_words_add():
         cur.execute("INSERT IGNORE INTO filter_words (word, category) VALUES (%s, %s)", (word, cat))
         db.commit()
         _clear_filter_words_cache()
+        # 后台异步更新这一个新词的打标，不卡前台响应
+        import threading
+        def _bg_update_one_word(w):
+            try:
+                d = get_db()
+                c = d.cursor()
+                c.execute("UPDATE resources SET is_filtered = 1 WHERE is_filtered = 0 AND (title LIKE %s OR note LIKE %s OR keyword LIKE %s)", (f"%{w}%", f"%{w}%", f"%{w}%"))
+                d.commit()
+                d.close()
+            except Exception as e:
+                app.logger.error(f"后台更新过滤词 {w} 失败: {e}")
+        threading.Thread(target=_bg_update_one_word, args=(word,)).start()
         return jsonify({"ok": True})
     finally:
         db.close()
@@ -4599,6 +4976,23 @@ def api_filter_words_del(fid):
         cur.execute("DELETE FROM filter_words WHERE id = %s", (fid,))
         db.commit()
         _clear_filter_words_cache()
+        # 后台异步重建全量打标
+        import threading
+        def _bg_rebuild_all():
+            try:
+                import time
+                time.sleep(1) # wait for cache clear
+                d = get_db()
+                c = d.cursor()
+                c.execute("UPDATE resources SET is_filtered = 0")
+                words = _get_cached_filter_words()
+                for w in words:
+                    c.execute("UPDATE resources SET is_filtered = 1 WHERE is_filtered = 0 AND (title LIKE %s OR note LIKE %s OR keyword LIKE %s)", (f"%{w}%", f"%{w}%", f"%{w}%"))
+                d.commit()
+                d.close()
+            except Exception as e:
+                app.logger.error(f"后台重建过滤词失败: {e}")
+        threading.Thread(target=_bg_rebuild_all).start()
         return jsonify({"ok": True})
     finally:
         db.close()
@@ -4679,6 +5073,44 @@ def api_autocomplete():
 
 
 # ── ③ 资源详情面板 ──
+# ==================== 众包死链报错 ====================
+@app.route("/api/resource/<int:rid>/report_dead", methods=["POST"])
+@csrf.exempt
+def api_report_dead(rid):
+    client_ip = request.remote_addr or "unknown"
+    r = get_redis()
+    limit_key = f"res_web:report_limit:{client_ip}:{rid}"
+    try:
+        if r and r.get(limit_key):
+            return jsonify({"ok": False, "error": "您已反馈过该链接，请勿频繁提交"}), 429
+    except Exception:
+        pass
+
+    cnt = 1
+    try:
+        if r:
+            r.setex(limit_key, 1800, "1")
+            cnt = r.incr(f"res_web:report_cnt:{rid}")
+    except Exception:
+        pass
+
+    if cnt >= 2:
+        db = get_db()
+        try:
+            cur = db.cursor()
+            cur.execute(
+                "UPDATE resources SET link_status='suspect' WHERE id=%s AND (link_status IS NULL OR link_status != 'dead')",
+                (rid,)
+            )
+            db.commit()
+        except Exception:
+            pass
+        finally:
+            db.close()
+
+    return jsonify({"ok": True, "message": "感谢反馈！已记录并加入优先复检队列", "reports": cnt})
+
+
 @app.route("/api/resource/<int:rid>/detail")
 def api_resource_detail(rid):
     """返回资源完整详情（含TMDB数据）"""
@@ -4959,6 +5391,7 @@ def api_subscriptions():
 
 
 @app.route("/api/subscriptions", methods=["POST"])
+@csrf.exempt
 def api_subscription_add():
     """添加关键词订阅"""
     uid = session.get("user_id")
@@ -4982,6 +5415,7 @@ def api_subscription_add():
 
 
 @app.route("/api/subscriptions/<int:sid>", methods=["DELETE"])
+@csrf.exempt
 def api_subscription_del(sid):
     """取消关键词订阅"""
     uid = session.get("user_id")
@@ -4999,6 +5433,7 @@ def api_subscription_del(sid):
 
 # ── ⑧ 资源分享 ──
 @app.route("/api/resource/<int:rid>/share", methods=["POST"])
+@csrf.exempt
 def api_resource_share(rid):
     """生成分享链接"""
     import secrets
@@ -5536,46 +5971,127 @@ def api_admin_resource_update(rid):
 @app.route("/api/admin/duplicates")
 @admin_required
 def api_admin_duplicates():
-    """资源去重：按 URL 或标题分组统计重复"""
+    """资源去重：按 URL 或标题分组统计重复（毫秒级高并发子查询优化版）"""
     by = request.args.get("by", "url").strip()
     if by not in ("url", "title", "keyword"):
         by = "url"
     limit = min(int(request.args.get("limit", 50)), 200)
+    scan_scope = min(int(request.args.get("scope", 100000)), 300000)
     db = get_db()
     try:
-        cur = db.cursor()
-        # 按规范化字段分组统计
+        cur = db.cursor(pymysql.cursors.DictCursor)
         if by == "url":
             cur.execute(
-                "SELECT url as key, COUNT(*) as cnt, GROUP_CONCAT(id) as ids, "
-                "GROUP_CONCAT(title SEPARATOR ' | ') as titles, "
-                "GROUP_CONCAT(source SEPARATOR ',') as sources "
-                "FROM resources WHERE url IS NOT NULL AND url != '' "
-                "GROUP BY url HAVING cnt > 1 ORDER BY cnt DESC LIMIT %s",
-                (limit,)
+                f"""
+                SELECT url as key_val, COUNT(*) as cnt, GROUP_CONCAT(id ORDER BY id DESC) as ids,
+                       GROUP_CONCAT(title SEPARATOR ' | ') as titles,
+                       GROUP_CONCAT(source SEPARATOR ',') as sources
+                FROM (
+                    SELECT id, url, title, source FROM resources WHERE url IS NOT NULL AND url != '' ORDER BY id DESC LIMIT %s
+                ) sub
+                GROUP BY url HAVING cnt > 1 ORDER BY cnt DESC LIMIT %s
+                """,
+                (scan_scope, limit)
             )
         elif by == "title":
             cur.execute(
-                "SELECT title as key, COUNT(*) as cnt, GROUP_CONCAT(id) as ids, "
-                "GROUP_CONCAT(url SEPARATOR ' | ') as urls, "
-                "GROUP_CONCAT(source SEPARATOR ',') as sources "
-                "FROM resources WHERE title IS NOT NULL AND title != '' "
-                "GROUP BY title HAVING cnt > 1 ORDER BY cnt DESC LIMIT %s",
-                (limit,)
+                f"""
+                SELECT title as key_val, COUNT(*) as cnt, GROUP_CONCAT(id ORDER BY id DESC) as ids,
+                       GROUP_CONCAT(url SEPARATOR ' | ') as urls,
+                       GROUP_CONCAT(source SEPARATOR ',') as sources
+                FROM (
+                    SELECT id, title, url, source FROM resources WHERE title IS NOT NULL AND title != '' ORDER BY id DESC LIMIT %s
+                ) sub
+                GROUP BY title HAVING cnt > 1 ORDER BY cnt DESC LIMIT %s
+                """,
+                (scan_scope, limit)
             )
         else:
             cur.execute(
-                "SELECT keyword as key, COUNT(*) as cnt, GROUP_CONCAT(id) as ids, "
-                "GROUP_CONCAT(title SEPARATOR ' | ') as titles, "
-                "GROUP_CONCAT(source SEPARATOR ',') as sources "
-                "FROM resources WHERE keyword IS NOT NULL AND keyword != '' "
-                "GROUP BY keyword HAVING cnt > 1 ORDER BY cnt DESC LIMIT %s",
-                (limit,)
+                f"""
+                SELECT keyword as key_val, COUNT(*) as cnt, GROUP_CONCAT(id ORDER BY id DESC) as ids,
+                       GROUP_CONCAT(title SEPARATOR ' | ') as titles,
+                       GROUP_CONCAT(source SEPARATOR ',') as sources
+                FROM (
+                    SELECT id, keyword, title, source FROM resources WHERE keyword IS NOT NULL AND keyword != '' ORDER BY id DESC LIMIT %s
+                ) sub
+                GROUP BY keyword HAVING cnt > 1 ORDER BY cnt DESC LIMIT %s
+                """,
+                (scan_scope, limit)
             )
-        items = cur.fetchall()
+        items = cur.fetchall() or []
         return jsonify({"items": items, "by": by, "total": len(items)})
     finally:
         db.close()
+
+
+@app.route("/api/admin/duplicates/clean", methods=["POST"])
+@admin_required
+def api_admin_duplicates_clean():
+    """执行真实资源库物理去重：彻底删除多余记录，极速安全版"""
+    data = request.get_json() or {}
+    by = data.get("by", "url")
+    keep = data.get("keep", "newest")
+    group_key = data.get("key")
+
+    import pymysql
+    conn = pymysql.connect(
+        host=DB_CONFIG["host"],
+        port=DB_CONFIG["port"],
+        user=DB_CONFIG["user"],
+        password=DB_CONFIG["password"],
+        database=DB_CONFIG["database"],
+        charset="utf8mb4",
+        cursorclass=pymysql.cursors.DictCursor,
+        read_timeout=60,
+        write_timeout=60,
+    )
+    try:
+        cur = conn.cursor()
+        deleted_count = 0
+        
+        if group_key:
+            field = "url" if by == "url" else ("title" if by == "title" else "keyword")
+            cur.execute(f"SELECT id FROM resources WHERE {field} = %s ORDER BY id {'DESC' if keep == 'newest' else 'ASC'}", (group_key,))
+            rows = cur.fetchall()
+            if len(rows) > 1:
+                del_ids = [r["id"] for r in rows[1:]]
+                for i in range(0, len(del_ids), 200):
+                    batch = del_ids[i:i+200]
+                    fmt = ','.join(['%s'] * len(batch))
+                    cur.execute(f"DELETE FROM resources WHERE id IN ({fmt})", tuple(batch))
+                    deleted_count += cur.rowcount
+        else:
+            order_clause = "ORDER BY id DESC" if keep == "newest" else "ORDER BY id ASC"
+            partition_field = "url" if by == "url" else ("title" if by == "title" else "keyword")
+            
+            cur.execute(f"""
+                SELECT r.id 
+                FROM (
+                    SELECT id, {partition_field},
+                           ROW_NUMBER() OVER(PARTITION BY {partition_field} {order_clause}) as rn
+                    FROM resources
+                    WHERE {partition_field} IS NOT NULL AND {partition_field} != ''
+                ) r
+                WHERE r.rn > 1
+            """)
+            rows = cur.fetchall() or []
+            del_ids = [row["id"] for row in rows]
+            
+            if del_ids:
+                for i in range(0, len(del_ids), 200):
+                    batch = del_ids[i:i+200]
+                    fmt = ','.join(['%s'] * len(batch))
+                    cur.execute(f"DELETE FROM resources WHERE id IN ({fmt})", tuple(batch))
+                    deleted_count += cur.rowcount
+
+        conn.commit()
+        _invalidate_resource_cache()
+        return jsonify({"ok": True, "deleted_count": deleted_count})
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        conn.close()
 
 
 # ── 自动导入队列 ──
@@ -6089,101 +6605,10 @@ def _extract_id(url, source):
 
 
 def _check_single_link(url, source=""):
-    """根据链接URL与网盘类型智能精准检测"""
-    if not url:
-        return "invalid", 0, "空链接"
-    
-    u = url.lower().strip()
-    if u.startswith("magnet:") or u.startswith("ed2k:"):
-        return "skip", 0, "磁力/电驴链接免测"
+    """委托给 services.link_checker（各盘官方/半官方 API）。"""
+    from services.link_checker import check_single_link
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept-Language": "zh-CN,zh;q=0.9",
-        "Accept-Encoding": "identity",
-    }
-
-    try:
-        # 1. 夸克网盘 (精准官方 API)
-        if "pan.quark.cn" in u or "quark" in (source or "").lower():
-            share_id = _extract_id(url, "quark")
-            if not share_id:
-                return "unknown", 0, "无法提取夸克分享ID"
-            r = http_requests.post(
-                "https://drive-pc.quark.cn/1/clouddrive/share/sharepage/token",
-                json={"pwd_id": share_id, "passcode": ""},
-                timeout=8,
-                headers=headers,
-            )
-            if r.status_code == 404:
-                return "dead", 404, "夸克分享不存在或已失效"
-            if r.status_code == 200:
-                d = r.json() if r.text else {}
-                if d.get("code") == 0 or d.get("status") == 200:
-                    return "alive", 200, "正常"
-            return "alive", r.status_code, ""
-
-        # 2. 阿里云盘 (精准官方 API)
-        elif "alipan.com" in u or "aliyundrive.com" in u or "ali" in (source or "").lower():
-            share_id = _extract_id(url, "aliyun")
-            if not share_id:
-                return "unknown", 0, "无法提取阿里分享ID"
-            r = http_requests.post(
-                "https://api.aliyundrive.com/adrive/v3/share_link/get_share_by_anonymous",
-                json={"share_id": share_id},
-                timeout=8,
-                headers=headers,
-            )
-            if r.status_code == 404:
-                return "dead", 404, "阿里分享不存在或已被取消"
-            elif r.status_code == 200:
-                return "alive", 200, "正常"
-            return "unknown", r.status_code, ""
-
-        # 3. 百度网盘 (网页特征探测)
-        elif "pan.baidu.com" in u or "baidu" in (source or "").lower():
-            r = http_requests.get(url, timeout=8, headers=headers, allow_redirects=True)
-            if r.status_code == 404:
-                return "dead", 404, "百度页面不存在(404)"
-            body = r.text
-            dead_signals = [
-                "啊哦，你来晚了，分享的文件已经被取消了",
-                "此链接分享内容可能因为涉及侵权",
-                "给您带来的不便敬请谅解",
-                "分享的文件已经失效",
-                "该分享已不存在",
-            ]
-            for sig in dead_signals:
-                if sig in body:
-                    return "dead", 200, f"百度提示:{sig[:10]}"
-            if "请输入提取码" in body or "init?" in r.url or r.status_code == 200:
-                return "alive", 200, "正常"
-            return "unknown", r.status_code, ""
-
-        # 4. 迅雷 / UC / 115 / PikPak / 其他网盘通用探测
-        else:
-            r = http_requests.get(url, timeout=8, allow_redirects=True, headers=headers)
-            if r.status_code == 404:
-                return "dead", 404, "页面不存在(404)"
-            body = r.text[:3000].lower()
-            dead_words = [
-                '已失效', '已过期', '已删除', '文件不存在', '取消分享', '违规', '侵权已处理',
-                '无法访问该分享', '该分享已删除', '该链接已失效', '分享已被取消', '该分享不存在',
-                'expired', 'share has been deleted', 'not found'
-            ]
-            for word in dead_words:
-                if word in body:
-                    return "dead", r.status_code, f"页面提示:{word}"
-            if r.status_code == 200:
-                return "alive", 200, "正常"
-            return "unknown", r.status_code, ""
-
-    except http_requests.exceptions.Timeout:
-        return "timeout", 0, "请求超时"
-    except http_requests.exceptions.ConnectionError:
-        return "dead", 0, "连接失败(域名或网络不可达)"
-    except Exception as e:
-        return "error", 0, str(e)[:50]
+    return check_single_link(url, source)
 
 
 @app.route("/api/admin/deadlinks/scan", methods=["POST"])
@@ -6294,6 +6719,62 @@ def api_admin_deadlinks_scan():
             "alive_count": alive_count,
             "unknown_count": unknown_count,
             "scanned": len(items),
+        })
+    finally:
+        db.close()
+
+
+@app.route("/api/admin/deadlinks/list")
+@admin_required
+def api_admin_deadlinks_list():
+    """获取所有被标记为失效(dead)或可疑(suspect)的死链明细列表"""
+    page = max(1, request.args.get("page", 1, type=int))
+    per_page = min(max(1, request.args.get("per_page", 20, type=int)), 100)
+    source = (request.args.get("source") or "").strip()
+    status_filter = (request.args.get("status") or "dead").strip()
+    offset = (page - 1) * per_page
+
+    db = get_db()
+    try:
+        cur = db.cursor(pymysql.cursors.DictCursor)
+        conds = []
+        params = []
+        
+        if status_filter == "suspect":
+            conds.append("link_status = 'suspect'")
+        elif status_filter == "all_dead":
+            conds.append("link_status IN ('dead', 'suspect')")
+        else:
+            conds.append("link_status = 'dead'")
+
+        if source:
+            conds.append("source = %s")
+            params.append(source)
+
+        where_sql = "WHERE " + " AND ".join(conds) if conds else ""
+        cur.execute(f"SELECT COUNT(*) as total FROM resources {where_sql}", params)
+        total = cur.fetchone()["total"]
+
+        cur.execute(
+            f"""
+            SELECT id, title, source, url, quality, type, link_status, last_checked, created_at
+            FROM resources {where_sql}
+            ORDER BY last_checked DESC, id DESC
+            LIMIT %s OFFSET %s
+            """,
+            params + [per_page, offset],
+        )
+        items = cur.fetchall() or []
+        for i in items:
+            i["last_checked"] = str(i["last_checked"]) if i.get("last_checked") else ""
+            i["created_at"] = str(i["created_at"]) if i.get("created_at") else ""
+
+        return jsonify({
+            "items": items,
+            "total": total,
+            "page": page,
+            "per_page": per_page,
+            "total_pages": (total + per_page - 1) // per_page,
         })
     finally:
         db.close()
@@ -6828,6 +7309,43 @@ def api_home_title_detail():
         db.close()
 
 
+# ==================== 数据清洗与分类归一化 ====================
+
+@app.route("/api/admin/cleaner/preview")
+@admin_required
+def api_admin_cleaner_preview():
+    limit = request.args.get("limit", 20, type=int)
+    db = get_db()
+    try:
+        from services import cleaner
+        cur = db.cursor()
+        preview = cleaner.preview_clean_batch(cur, limit=limit)
+        return jsonify(preview)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        db.close()
+
+
+@app.route("/api/admin/cleaner/run", methods=["POST"])
+@admin_required
+@csrf.exempt
+def api_admin_cleaner_run():
+    data = request.get_json(silent=True) or {}
+    batch_size = int(data.get("batch_size") or 1000)
+    db = get_db()
+    try:
+        from services import cleaner
+        cur = db.cursor()
+        result = cleaner.run_clean_batch(cur, batch_size=batch_size)
+        db.commit()
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+    finally:
+        db.close()
+
+
 # ==================== 去重 / 自动清理 / 订阅推送 ====================
 
 @app.route("/api/admin/dedup/rebuild", methods=["POST"])
@@ -7080,10 +7598,12 @@ _bg_scan_state = {
     "elapsed_s": 0,
     "last_error": "",
     "source_filter": "",
+    "rescan_alive": False,
 }
 _bg_scan_stop_event = threading.Event()
 
-def _bg_scan_worker_thread(source_filter="", batch_size=1000):
+def _bg_scan_worker_thread(source_filter="", batch_size=1000, rescan_alive=False, stale_days=3):
+    """进程内兜底巡检（无独立 worker 容器时使用）。"""
     global _bg_scan_state
     _bg_scan_state["running"] = True
     _bg_scan_state["scanned"] = 0
@@ -7091,6 +7611,7 @@ def _bg_scan_worker_thread(source_filter="", batch_size=1000):
     _bg_scan_state["dead"] = 0
     _bg_scan_state["start_time"] = time.time()
     _bg_scan_state["source_filter"] = source_filter
+    _bg_scan_state["rescan_alive"] = rescan_alive
     _bg_scan_stop_event.clear()
 
     try:
@@ -7102,18 +7623,29 @@ def _bg_scan_worker_thread(source_filter="", batch_size=1000):
         if source_filter:
             conds.append("source = %s")
             params.append(source_filter)
-        conds.append("(last_checked IS NULL OR link_status IS NULL OR link_status = '' OR link_status = 'unknown')")
-        
+        if rescan_alive:
+            conds.append(
+                "(last_checked IS NULL OR link_status IS NULL OR link_status IN ('','unknown','timeout','error','suspect') "
+                "OR (link_status='alive' AND (last_checked IS NULL OR last_checked < DATE_SUB(NOW(), INTERVAL %s DAY))))"
+            )
+            params.append(int(stale_days))
+        else:
+            conds.append("(last_checked IS NULL OR link_status IS NULL OR link_status = '' OR link_status = 'unknown')")
+
         where = " AND ".join(conds)
         cur.execute(f"SELECT COUNT(*) as c FROM resources WHERE {where}", params)
         total_links = cur.fetchone()["c"]
         _bg_scan_state["total"] = total_links
         db.close()
 
+        workers = int(os.environ.get("DEADLINK_THREADS", "25"))
         while not _bg_scan_stop_event.is_set():
             db = get_db()
             cur = db.cursor()
-            cur.execute(f"SELECT id, url, source FROM resources WHERE {where} ORDER BY id DESC LIMIT %s", params + [batch_size])
+            cur.execute(
+                f"SELECT id, url, source FROM resources WHERE {where} ORDER BY id DESC LIMIT %s",
+                params + [batch_size],
+            )
             rows = cur.fetchall()
             db.close()
 
@@ -7129,7 +7661,7 @@ def _bg_scan_worker_thread(source_filter="", batch_size=1000):
                 status, code, msg = _check_single_link(url, src)
                 return rid, status
 
-            with ThreadPoolExecutor(max_workers=25) as executor:
+            with ThreadPoolExecutor(max_workers=workers) as executor:
                 results = list(executor.map(_check_row, rows))
 
             db = get_db()
@@ -7138,7 +7670,10 @@ def _bg_scan_worker_thread(source_filter="", batch_size=1000):
                 if not res:
                     continue
                 rid, status = res
-                cur.execute("UPDATE resources SET link_status=%s, last_checked=NOW() WHERE id=%s", (status, rid))
+                cur.execute(
+                    "UPDATE resources SET link_status=%s, last_checked=NOW() WHERE id=%s",
+                    (status, rid),
+                )
                 _bg_scan_state["scanned"] += 1
                 if status == "dead":
                     _bg_scan_state["dead"] += 1
@@ -7157,30 +7692,108 @@ def _bg_scan_worker_thread(source_filter="", batch_size=1000):
         _bg_scan_state["running"] = False
         _bg_scan_state["elapsed_s"] = int(time.time() - _bg_scan_state["start_time"])
 
+def _cluster_workers_online() -> int:
+    try:
+        from services.celery_app import app as celery_app
+
+        insp = celery_app.control.inspect(timeout=1.0)
+        pings = insp.ping() if insp else None
+        if pings:
+            return len(pings)
+    except Exception:
+        pass
+    try:
+        from services.deadlink_queue import get_state
+
+        return int(get_state().get("workers") or 0)
+    except Exception:
+        return 0
+
 @app.route("/api/admin/deadlinks/bg_start", methods=["POST"])
 @admin_required
 def api_admin_deadlinks_bg_start():
-    if _bg_scan_state["running"]:
-        return jsonify({"ok": False, "msg": "巡检任务已在运行中", "state": _bg_scan_state})
     data = request.get_json() or {}
-    source_filter = data.get("source", "").strip()
-    t = threading.Thread(target=_bg_scan_worker_thread, args=(source_filter,), daemon=True)
+    source_filter = (data.get("source") or "").strip()
+    rescan_alive = bool(data.get("rescan_alive", True))
+    stale_days = int(data.get("stale_days") or 3)
+    force_local = bool(data.get("force_local", False))
+
+    if not force_local:
+        try:
+            from services.deadlink_worker import start_job
+            from services.deadlink_queue import get_state
+            st = get_state()
+            if st.get("running") and (
+                st.get("jobs", 0) > 0
+                or st.get("results", 0) > 0
+                or st.get("pending", 0) > 0
+                or st.get("extracting")
+            ):
+                return jsonify({"ok": False, "msg": "集群流水线任务已在运行中", "state": st, "mode": "cluster"})
+            st = start_job(source_filter=source_filter, rescan_alive=rescan_alive, stale_days=stale_days)
+            online = _cluster_workers_online()
+            tip = (
+                (st.get("msg") or "已投递 Celery 死链任务（Python 消息队列）")
+                + f"；worker 登记={online}。"
+                + (
+                    "请确认 deadlink-celery-extract/check/write 已启动。"
+                    if online <= 0
+                    else "Celery：extract→check→write。"
+                )
+            )
+            return jsonify({"ok": True, "msg": tip, "state": st, "mode": "celery", "workers_online": online})
+        except Exception as e:
+            app.logger.warning("cluster deadlink start failed, fallback local: %s", e)
+
+    if _bg_scan_state["running"]:
+        return jsonify({"ok": False, "msg": "本地巡检任务已在运行中", "state": _bg_scan_state, "mode": "local"})
+    t = threading.Thread(
+        target=_bg_scan_worker_thread,
+        args=(source_filter, 1000, rescan_alive, stale_days),
+        daemon=True,
+    )
     t.start()
-    return jsonify({"ok": True, "msg": "后台全量巡检任务已启动", "state": _bg_scan_state})
+    return jsonify({"ok": True, "msg": "本地线程池巡检已启动（无集群 worker 时的兜底）", "state": _bg_scan_state, "mode": "local"})
 
 @app.route("/api/admin/deadlinks/bg_stop", methods=["POST"])
 @admin_required
 def api_admin_deadlinks_bg_stop():
     _bg_scan_stop_event.set()
     _bg_scan_state["running"] = False
-    return jsonify({"ok": True, "msg": "已发送停止巡检信号", "state": _bg_scan_state})
+    try:
+        from services.deadlink_tasks import stop_job
+        st = stop_job()
+        return jsonify({"ok": True, "msg": "已停止 Celery 死链任务并清空队列", "state": st})
+    except Exception:
+        try:
+            from services.deadlink_queue import request_stop, set_running, get_state
+            request_stop()
+            set_running(False)
+            return jsonify({"ok": True, "msg": "已发送停止信号", "state": get_state()})
+        except Exception:
+            return jsonify({"ok": True, "msg": "已发送停止巡检信号", "state": _bg_scan_state})
 
 @app.route("/api/admin/deadlinks/bg_status")
 @admin_required
 def api_admin_deadlinks_bg_status():
+    try:
+        from services.deadlink_queue import get_state
+        st = get_state()
+        if (
+            st.get("running")
+            or st.get("jobs", 0)
+            or st.get("results", 0)
+            or st.get("queue_len", 0)
+            or st.get("celery_check", 0)
+            or st.get("celery_write", 0)
+            or st.get("workers", 0)
+        ):
+            return jsonify({"ok": True, "state": st, "mode": "celery"})
+    except Exception:
+        pass
     if _bg_scan_state["running"]:
         _bg_scan_state["elapsed_s"] = int(time.time() - _bg_scan_state["start_time"])
-    return jsonify({"ok": True, "state": _bg_scan_state})
+    return jsonify({"ok": True, "state": _bg_scan_state, "mode": "local"})
 
 @app.route("/api/admin/resources/<int:rid>/check", methods=["POST"])
 @admin_required

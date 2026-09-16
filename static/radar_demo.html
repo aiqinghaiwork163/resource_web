@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>资源雷达 - SVG Scanner Demo</title>
+<style>
+  body {
+    margin: 0;
+    padding: 0;
+    background-color: #050505; /* Pure Black Cinema base */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    font-family: 'Space Grotesk', sans-serif;
+  }
+  .radar-container {
+    position: relative;
+    width: 300px;
+    height: 300px;
+  }
+  .radar-svg {
+    width: 100%;
+    height: 100%;
+    filter: drop-shadow(0 0 15px rgba(0, 255, 128, 0.2));
+  }
+  /* Radar sweep animation */
+  .sweep {
+    transform-origin: 150px 150px;
+    animation: spin 3s linear infinite;
+  }
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+  /* Blinking targets */
+  .target {
+    animation: blink 3s ease-in-out infinite;
+    opacity: 0;
+  }
+  .target:nth-child(2) { animation-delay: 0.5s; }
+  .target:nth-child(3) { animation-delay: 1.5s; }
+  .target:nth-child(4) { animation-delay: 2.2s; }
+  @keyframes blink {
+    0%, 10% { opacity: 0; transform: scale(0.5); }
+    15% { opacity: 1; transform: scale(1.2); }
+    20%, 100% { opacity: 0; transform: scale(1); }
+  }
+  /* HUD Text */
+  .hud-text {
+    position: absolute;
+    bottom: -40px;
+    width: 100%;
+    text-align: center;
+    color: #00ff80;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    opacity: 0.8;
+  }
+  .scanning-text::after {
+    content: '';
+    animation: dots 1.5s infinite;
+  }
+  @keyframes dots {
+    0% { content: ''; }
+    33% { content: '.'; }
+    66% { content: '..'; }
+    100% { content: '...'; }
+  }
+</style>
+</head>
+<body>
+  <div class="radar-container">
+    <svg class="radar-svg" viewBox="0 0 300 300" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- Glow Filter -->
+        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="4" result="blur" />
+          <feComposite in="SourceGraphic" in2="blur" operator="over" />
+        </filter>
+        <!-- Sweep Gradient -->
+        <linearGradient id="sweepGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="rgba(0, 255, 128, 1)" stop-opacity="0.6" />
+          <stop offset="50%" stop-color="rgba(0, 255, 128, 0.1)" stop-opacity="0.1" />
+          <stop offset="100%" stop-color="transparent" stop-opacity="0" />
+        </linearGradient>
+      </defs>
+
+      <!-- Base Circles (Grid) -->
+      <circle cx="150" cy="150" r="145" fill="none" stroke="rgba(0, 255, 128, 0.1)" stroke-width="1" />
+      <circle cx="150" cy="150" r="100" fill="none" stroke="rgba(0, 255, 128, 0.15)" stroke-width="1" stroke-dasharray="4,4" />
+      <circle cx="150" cy="150" r="50" fill="none" stroke="rgba(0, 255, 128, 0.2)" stroke-width="1" />
+      <circle cx="150" cy="150" r="2" fill="rgba(0, 255, 128, 0.8)" />
+
+      <!-- Crosshairs -->
+      <line x1="150" y1="5" x2="150" y2="295" stroke="rgba(0, 255, 128, 0.15)" stroke-width="1" />
+      <line x1="5" y1="150" x2="295" y2="150" stroke="rgba(0, 255, 128, 0.15)" stroke-width="1" />
+
+      <!-- Animated Sweep (Wedge) -->
+      <g class="sweep">
+        <path d="M 150 150 L 150 5 A 145 145 0 0 1 270 65 Z" fill="url(#sweepGrad)" />
+        <!-- Leading Edge Line -->
+        <line x1="150" y1="150" x2="150" y2="5" stroke="rgba(0, 255, 128, 0.8)" stroke-width="2" filter="url(#glow)" />
+      </g>
+
+      <!-- Targets (Detected Resources) -->
+      <g fill="#fff" filter="url(#glow)">
+        <circle class="target" cx="220" cy="90" r="3" fill="#00ff80" />
+        <circle class="target" cx="80" cy="200" r="4" fill="#00ff80" />
+        <circle class="target" cx="200" cy="240" r="2.5" fill="#00ff80" />
+        <circle class="target" cx="100" cy="100" r="3.5" fill="#00ff80" />
+      </g>
+    </svg>
+    <div class="hud-text"><span class="scanning-text">Scanning Deep Web</span></div>
+  </div>
+</body>
+</html>
