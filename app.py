@@ -341,6 +341,34 @@ def get_db():
     return _pool.connection()
 
 
+from contextlib import contextmanager
+
+@contextmanager
+def db_session():
+    """数据库会话上下文管理器：统一 cursor 获取/commit/异常回滚/连接归还。
+
+    消除散落在 60+ 路由里的 db=get_db(); try: ... finally: db.close() 样板。
+    用法:
+        with db_session() as cur:
+            cur.execute(...)
+            rows = cur.fetchall()
+    语义: 正常退出自动 commit；抛异常自动 rollback 并向上抛；连接始终归还池。
+    """
+    db = get_db()
+    try:
+        cur = db.cursor()
+        yield cur
+        db.commit()
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
+        raise
+    finally:
+        db.close()
+
+
 def _get_tmdb_api_key():
     """从 settings 表中获取 TMDB API Key，环境变量 TMDB_API_KEY 优先"""
     env_key = os.environ.get("TMDB_API_KEY")
