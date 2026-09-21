@@ -1,35 +1,17 @@
 #!/bin/bash
-# 备份脚本：MySQL + Redis + 配置文件
-# 用法：bash backup.sh
+# ⚠️ 已弃用（DEPRECATED）——请使用 scripts/backup.sh
+#
+# 本脚本经审计确认从未成功备份过任何数据，保留仅供追溯。已知缺陷：
+#   1. `docker exec resource_web mysqldump` —— 应用容器内没有 mysqldump，该行必然失败
+#   2. 失败被 `2>/dev/null || true` 吞掉，始终打印"备份完成"
+#   3. /backup/resource_web 无 volume 挂载，即使成功也写进容器内部，删容器即丢
+#   4. 只备份 8/22 张表，漏掉 point_logs / watchlist / subscriptions / announcements 等 14 张
+#   5. `-a "${REDIS_PASSWORD}"` 但该变量未设置（Redis 实际无密码）
+#   6. `find -mtime +7 -delete` 无 -name 过滤，会删掉 backup.log 自身
+#   7. 从未接入任何 cron / systemd timer，根本不在运行
+#
+# 替代方案：scripts/backup.sh（全库 + Redis + 配置，含校验与恢复演练）
+#   crontab: 30 3 * * * cd /vol1/1000/docker/resource_web && bash scripts/backup.sh
 set -euo pipefail
-
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="/backup/resource_web"
-mkdir -p "$BACKUP_DIR"
-
-echo "[$(date)] 开始备份..." | tee -a "$BACKUP_DIR/backup.log"
-
-# 从 .env 读取配置
-if [ -f .env ]; then
-    set -a
-    source .env
-    set +a
-fi
-
-# MySQL 备份（跳过错误表，只备份核心表）
-TABLES="resources users search_logs import_queue settings operation_logs search_history favorites"
-docker exec resource_web mysqldump -h"${DB_HOST:-172.23.0.2}" -u"${DB_USER:-root}" -p"${DB_PASSWORD}" "${DB_NAME:-pan_resource}" $TABLES 2>/dev/null | gzip > "$BACKUP_DIR/db_${DATE}.sql.gz" || true
-
-# Redis 备份
-docker exec resource_web_redis redis-cli -a "${REDIS_PASSWORD}" BGSAVE 2>/dev/null || true
-sleep 2
-docker cp resource_web_redis:/data/dump.rdb "$BACKUP_DIR/redis_${DATE}.rdb" 2>/dev/null || true
-
-# 配置文件备份
-cp -f .env "$BACKUP_DIR/env_${DATE}.bak" 2>/dev/null || true
-cp -f docker-compose.yml "$BACKUP_DIR/docker-compose_${DATE}.yml" 2>/dev/null || true
-
-# 清理旧备份（保留最近7天）
-find "$BACKUP_DIR" -type f -mtime +7 -delete 2>/dev/null || true
-
-echo "[$(date)] 备份完成，保留最近7天" | tee -a "$BACKUP_DIR/backup.log"
+echo "此脚本已弃用，不再执行任何操作。请使用 scripts/backup.sh" >&2
+exit 1
