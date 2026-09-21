@@ -10,6 +10,15 @@ services:
     ports:
       - "5000:5000"
     restart: unless-stopped
+    # ── 安全加固：非 root 运行 + 根文件系统只读 ──
+    # 原来以 uid=0 运行且 ./ 以读写挂载到 /app，等于拿到应用即可改宿主代码。
+    # 现改为 uid 1000:1001（宿主机 admin:Users），/app 只读，仅 logs/ 与 data/ 可写。
+    user: "1000:1001"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,size=64m
     env_file:
       - .env
     environment:
@@ -20,8 +29,13 @@ services:
       - NO_PROXY=localhost,127.0.0.1,resource_web_redis,resource-mysql,192.168.0.201,::1
       - GITHUB_HTTP_PROXY=http://192.168.0.201:7890
       - REDIS_HOST=resource_web_redis
+      - PYTHONDONTWRITEBYTECODE=1
+      - GUNICORN_CMD_ARGS=--no-control-socket
     volumes:
-      - ./:/app
+      # /app 只读；仅这两个目录需要写（日志轮转、爬虫状态 json）
+      - ./:/app:ro
+      - ./logs:/app/logs:rw
+      - ./data:/app/data:rw
     command:
       [
         "gunicorn",
@@ -29,6 +43,10 @@ services:
         "--workers", "4",
         "--threads", "2",
         "--timeout", "60",
+        # 只读根文件系统下 gunicorn 控制 socket 无法写入 /.gunicorn
+        "--no-control-socket",
+        # worker 心跳临时目录（只读根 + tmpfs）
+        "--worker-tmp-dir", "/tmp",
         "--access-logfile", "-",
         "app:app",
       ]
@@ -59,8 +77,15 @@ services:
       - REDIS_HOST=resource_web_redis
       - DEADLINK_FETCH_BATCH=3000
       - DEADLINK_CHECK_CHUNK=1
+    # ── 安全加固：非 root + 根文件系统只读（celery 不写 /app，仅需 /tmp）──
+    user: "1000:1001"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,size=64m
     volumes:
-      - ./:/app
+      - ./:/app:ro
     command:
       [
         "celery",
@@ -102,8 +127,15 @@ services:
       - all_proxy=
       - REDIS_HOST=resource_web_redis
       - DEADLINK_CHECK_CHUNK=1
+    # ── 安全加固：非 root + 根文件系统只读（celery 不写 /app，仅需 /tmp）──
+    user: "1000:1001"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,size=64m
     volumes:
-      - ./:/app
+      - ./:/app:ro
     # 单条任务 + threads 池：每容器 16 路并发 HTTP（4核7.5G内存机器降配，原64导致swap爆满）
     command:
       [
@@ -144,8 +176,15 @@ services:
       - ALL_PROXY=
       - all_proxy=
       - REDIS_HOST=resource_web_redis
+    # ── 安全加固：非 root + 根文件系统只读（celery 不写 /app，仅需 /tmp）──
+    user: "1000:1001"
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp:rw,size=64m
     volumes:
-      - ./:/app
+      - ./:/app:ro
     command:
       [
         "celery",
