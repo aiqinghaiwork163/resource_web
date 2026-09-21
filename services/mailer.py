@@ -17,7 +17,7 @@ def get_mail_config():
         "host": os.environ.get("SMTP_HOST", "smtp.exmail.qq.com"),
         "port": int(os.environ.get("SMTP_PORT", 465)),
         "user": os.environ.get("SMTP_USER", "admin@aaaaaaaa.host"),
-        "password": os.environ.get("SMTP_PASS", "***REMOVED***"),
+        "password": os.environ.get("SMTP_PASS"),
         "from_name": os.environ.get("SMTP_FROM_NAME", "VaultDrive"),
     }
 
