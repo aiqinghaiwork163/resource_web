@@ -7844,10 +7844,39 @@ def api_admin_resource_check_one(rid):
 @app.route("/api/admin/system/flush_cache", methods=["POST"])
 @admin_required
 def api_admin_system_flush_cache():
+    """清空应用缓存。
+
+    修复历史 bug：原实现引用了未定义的 `redis_client`（全局变量实际名为
+    `_redis_client`），该分支永远抛 NameError，被外层 except 吞掉后返回泛化错误，
+    功能实际从未生效。同时原来的 `flushdb()` 会清空整个 Redis db0 —— 而 db0 与
+    Celery broker 共用，flushdb 会连任务队列一起清掉，掀翻死链流水线。
+
+    现改为：只按前缀精确删除本应用的缓存键，绝不触碰 Celery / 访问统计等其他键。
+    """
+    _APP_CACHE_PREFIXES = (
+        "res_web:resources:",
+        "res_web:rcount:",
+        "res_web:stats:",
+        "res_web:keywords:",
+        "res_web:hot_searches:",
+        "res_web:img:",
+        "res_web:ip_geo:",
+    )
     try:
         _invalidate_resource_cache()
-        if redis_client:
-            redis_client.flushdb()
-        return jsonify({"ok": True, "msg": "Redis 与本地搜索缓存已成功清空"})
+        removed = 0
+        r = get_redis()
+        if r is not None:
+            for prefix in _APP_CACHE_PREFIXES:
+                for key in r.scan_iter(match=prefix + "*", count=500):
+                    r.delete(key)
+                    removed += 1
+        return jsonify({
+            "ok": True,
+            "msg": f"应用缓存已清空（{removed} 个 Redis 键）",
+            "removed": removed,
+            "note": "仅清理本应用缓存前缀，Celery 队列与访问统计未受影响",
+        })
     except Exception as e:
+        app.logger.exception("flush_cache failed")
         return jsonify({"ok": False, "error": str(e)}), 500
