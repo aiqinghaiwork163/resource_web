@@ -58,7 +58,7 @@ services:
       - all_proxy=
       - REDIS_HOST=resource_web_redis
       - DEADLINK_FETCH_BATCH=3000
-      - DEADLINK_CHECK_CHUNK=40
+      - DEADLINK_CHECK_CHUNK=1
     volumes:
       - ./:/app
     command:
@@ -104,7 +104,7 @@ services:
       - DEADLINK_CHECK_CHUNK=1
     volumes:
       - ./:/app
-    # 单条任务 + threads 池：每容器 64 路并发 HTTP，scale=4 ≈ 256 路
+    # 单条任务 + threads 池：每容器 16 路并发 HTTP（4核7.5G内存机器降配，原64导致swap爆满）
     command:
       [
         "celery",
@@ -115,7 +115,7 @@ services:
         "deadlink.check",
         "--pool=threads",
         "-c",
-        "64",
+        "16",
         "-l",
         "info",
         "-n",

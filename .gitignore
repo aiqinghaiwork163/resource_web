@@ -1,5 +1,16 @@
-# 环境变量（含密钥）
-.env
+# 环境变量（含密钥）——必须匹配所有变体，历史泄露正是因为只忽略了 .env 本身
+.env*
+!.env.example
+
+# 手工备份文件（统一走 git tag + scripts/vm.sh，这些一律不入库）
+*.bak
+*.bak.*
+*.bak_*
+*.orig
+
+# 备份产物
+*.tgz
+/backup/
 
 # 版本快照
 versions/

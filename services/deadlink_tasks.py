@@ -78,14 +78,11 @@ def _supported_source_sql() -> str:
         "123",
         "123pan",
         "pikpak",
-        "guangya",
         "uc",
         "tianyi",
         "mobile",
         "caiyun",
         "yidong",
-        "xunlei",
-        "thunder",
     )
     in_list = ",".join(f"'{p}'" for p in pans)
     url_like = " OR ".join(
@@ -101,11 +98,9 @@ def _supported_source_sql() -> str:
             "url LIKE '%%123684.com%%'",
             "url LIKE '%%drive.uc.cn%%'",
             "url LIKE '%%cloud.189.cn%%'",
-            "url LIKE '%%guangyapan.com%%'",
             "url LIKE '%%mypikpak.com%%'",
             "url LIKE '%%yun.139.com%%'",
             "url LIKE '%%caiyun.139.com%%'",
-            "url LIKE '%%pan.xunlei.com%%'",
         ]
     )
     return f"(source IN ({in_list}) OR ({url_like}))"
@@ -119,7 +114,9 @@ def _where_sql(
     conds = [
         "url NOT LIKE 'magnet:%%'",
         "url NOT LIKE 'ed2k:%%'",
-        "source NOT IN ('magnet','ed2k','plugin:thepiratebay','plugin:nyaa')",
+        "source NOT IN ('magnet','ed2k','plugin:thepiratebay','plugin:nyaa','xunlei','thunder','guangya')",
+        "url NOT LIKE '%%pan.xunlei.com%%'",
+        "url NOT LIKE '%%guangyapan.com%%'",
         _supported_source_sql(),
     ]
     params: list = []
@@ -129,14 +126,18 @@ def _where_sql(
     if rescan_alive:
         conds.append(
             "("
-            "last_checked IS NULL OR link_status IS NULL OR link_status IN ('','unknown','timeout','error','suspect') "
+            "(last_checked IS NULL OR link_status IS NULL OR link_status = '') "
+            "OR (link_status IN ('unknown','timeout','error','suspect') AND (last_checked IS NULL OR last_checked < DATE_SUB(NOW(), INTERVAL 7 DAY))) "
             "OR (link_status='alive' AND (last_checked IS NULL OR last_checked < DATE_SUB(NOW(), INTERVAL %s DAY)))"
             ")"
         )
         params.append(int(stale_days))
     else:
         conds.append(
-            "(last_checked IS NULL OR link_status IS NULL OR link_status IN ('','unknown','timeout','error'))"
+            "("
+            "(last_checked IS NULL OR link_status IS NULL OR link_status = '') "
+            "OR (link_status IN ('unknown','timeout','error') AND (last_checked IS NULL OR last_checked < DATE_SUB(NOW(), INTERVAL 7 DAY)))"
+            ")"
         )
     return " AND ".join(conds), params
 
@@ -360,7 +361,7 @@ def _celery_queue_lens() -> tuple[int, int, int]:
 
 
 def _maybe_finish() -> None:
-    """抽完且三队列空、已写追上已抽 → running=0。"""
+    """抽完且三队列空 → running=0（增加队列排空死锁兜底）。"""
     st = get_state()
     if not st.get("running") or not st.get("extract_done") or st.get("extracting"):
         return
@@ -369,14 +370,13 @@ def _maybe_finish() -> None:
     written = int(st.get("written") or 0)
     scanned = int(st.get("scanned") or 0)
     if check_q == 0 and write_q == 0 and _ex == 0:
-        if extracted > 0 and written >= extracted and scanned >= extracted:
-            set_running(False)
-            log.info(
-                "celery pipeline drained extracted=%s scanned=%s written=%s",
-                extracted,
-                scanned,
-                written,
-            )
+        set_running(False)
+        log.info(
+            "celery pipeline drained extracted=%s scanned=%s written=%s",
+            extracted,
+            scanned,
+            written,
+        )
 
 
 # 兼容旧入口：deadlink_worker.start_job 转调这里
