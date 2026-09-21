@@ -197,6 +197,62 @@ def _img_cache_evict():
 def _img_redis_key(url):
     return "res_web:img:" + hashlib.md5(url.encode()).hexdigest()
 
+# 图片代理白名单（精确域名后缀匹配；校验见 _img_proxy_url_ok）
+_IMG_ALLOWED_HOSTS = ("tmdb.org", "doubanio.com")
+
+
+def _img_proxy_url_ok(url):
+    """校验 img_proxy 的 url 参数，防 SSRF。
+
+    历史 bug: 旧实现用 `"tmdb.org" in url` 子串匹配，可被绕过：
+      - https://evil.com/?x=image.tmdb.org       (子串命中，实际回源 evil.com)
+      - https://tmdb.org.evil.com/steal          (域名伪装，实际回源攻击者域名)
+      - https://image.tmdb.org@evil.com/x.jpg    (userinfo 混淆)
+    正确做法: 解析 URL 后只对 hostname 做后缀比对（且域名边界必须是 '.'），
+    并把域名解析到 IP，拒绝私网/环回/保留地址，避免 DNS 重绑定与直连内网。
+
+    返回 (ok, reason)。
+    """
+    import ipaddress
+    import socket
+    from urllib.parse import urlsplit
+
+    raw = (url or "").strip()
+    if not raw:
+        return False, "empty"
+    try:
+        parts = urlsplit(raw)
+    except ValueError:
+        return False, "unparsable"
+    if parts.scheme != "https":
+        return False, "scheme"
+    if parts.username or parts.password:
+        return False, "userinfo"
+    host = (parts.hostname or "").lower()
+    if not host:
+        return False, "no-host"
+    # 后缀比对，且必须落在域名边界上（evil-tmdb.org 通过，tmdb.org.evil.com 拒绝）
+    if not any(host == d or host.endswith("." + d) for d in _IMG_ALLOWED_HOSTS):
+        return False, "host"
+    # 域名解析后校验 IP：拒绝私网/环回/链路本地/保留地址
+    try:
+        infos = socket.getaddrinfo(host, parts.port or 443, proto=socket.IPPROTO_TCP)
+    except OSError:
+        return False, "dns"
+    if not infos:
+        return False, "dns"
+    for info in infos:
+        ip = info[4][0]
+        try:
+            addr = ipaddress.ip_address(ip)
+        except ValueError:
+            return False, "bad-ip"
+        if (addr.is_private or addr.is_loopback or addr.is_link_local
+                or addr.is_reserved or addr.is_multicast or addr.is_unspecified):
+            return False, "private-ip"
+    return True, ""
+
+
 @app.route("/api/img_proxy")
 def img_proxy():
     """代理 TMDB 图片。三级缓存: 进程内存 -> Redis(跨 worker 共享) -> 回源 TMDB。
@@ -209,8 +265,9 @@ def img_proxy():
     url = request.args.get("url", "")
     if not url:
         return "", 400
-    host_ok = ("tmdb.org" in url) or ("doubanio.com" in url)
-    if not host_ok or not url.startswith("https://"):
+    ok, reason = _img_proxy_url_ok(url)
+    if not ok:
+        app.logger.warning("img_proxy 拒绝非白名单 URL (reason=%s): %.200s", reason, url)
         return "", 400
     now = time.time()
 
@@ -248,11 +305,21 @@ def img_proxy():
         app.logger.warning("img_proxy Redis 读取失败: %s: %s", type(e).__name__, e)
 
     # L3: 回源 TMDB
+    # 禁止重定向：白名单域名仍可能 302 到内网/第三方，跟随等于绕过上面的 SSRF 校验
     try:
         import requests as _req
-        r = _req.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"})
+        r = _req.get(url, timeout=10, headers={"User-Agent": "Mozilla/5.0"},
+                     allow_redirects=False)
+        if r.status_code in (301, 302, 303, 307, 308):
+            app.logger.warning("img_proxy 回源重定向被拒 %s -> %.200s",
+                               url, r.headers.get("Location", ""))
+            return "", 400
         if r.status_code == 200:
             ct = r.headers.get("Content-Type", "image/jpeg")
+            if not ct.lower().startswith("image/"):
+                # 防止把 HTML/脚本等内容以图片名义代理回来
+                app.logger.warning("img_proxy 回源非图片内容 (%s): %.200s", ct, url)
+                return "", 400
             with _img_cache_lock:
                 _img_cache[url] = (r.content, ct, now + _IMG_TTL)
                 _img_cache_evict()
