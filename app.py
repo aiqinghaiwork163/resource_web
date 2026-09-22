@@ -4428,6 +4428,8 @@ def api_register():
 @app.route("/api/announcements")
 def api_announcements():
     """获取当前生效的公告（公开），国内访问自动过滤敏感 TG 提示文案"""
+    # 历史遗漏：announcements 表从未建过，导致首页每次加载必现 500（见审计）。
+    _ensure_announcements_table()
     client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
     is_foreign = _is_foreign_ip(client_ip)
 
@@ -4750,6 +4752,40 @@ def _ensure_watchlist_table():
         db.commit()
     except Exception as e:
         app.logger.warning("ensure watchlist table: %s", e)
+    finally:
+        db.close()
+
+
+def _ensure_announcements_table():
+    """公告表：历史上漏建 CREATE TABLE，导致首页 /api/announcements 必现 500。
+
+    列名以 app.py 内实际 SELECT/INSERT/UPDATE 用到的为准：
+      id, title, content, type, active, start_time, end_time, created_at, updated_at
+    幂等（IF NOT EXISTS）；失败只告警不抛，不影响请求。
+    """
+    db = get_db()
+    try:
+        cur = db.cursor()
+        cur.execute(
+            """
+            CREATE TABLE IF NOT EXISTS announcements (
+              id BIGINT NOT NULL AUTO_INCREMENT,
+              title VARCHAR(255) NOT NULL DEFAULT '',
+              content MEDIUMTEXT NULL,
+              type VARCHAR(32) NOT NULL DEFAULT 'text',
+              active TINYINT(1) NOT NULL DEFAULT 1,
+              start_time DATETIME NULL DEFAULT NULL,
+              end_time DATETIME NULL DEFAULT NULL,
+              created_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP,
+              updated_at TIMESTAMP NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+              PRIMARY KEY (id),
+              KEY idx_active_window (active, start_time, end_time)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            """
+        )
+        db.commit()
+    except Exception as e:
+        app.logger.warning("ensure announcements table: %s", e)
     finally:
         db.close()
 
