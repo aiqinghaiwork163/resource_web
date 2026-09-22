@@ -154,11 +154,13 @@ def _purge_celery_queues() -> None:
             password=os.environ.get("REDIS_PASSWORD") or None,
             decode_responses=True,
         )
+        # ⚠️ 绝不可删除 unacked*：task_acks_late=True 下，unacked 是「任务正在处理中」
+        # 的唯一在途记录。删掉它会让 worker 完成后的 ack 静默失败 —— 任务永久消失，
+        # 且不产生任何报错。历史上的「超时强制重置」因此每约 8.5 小时静默丢一批任务。
+        # 见 2026-09-21 三方审计 Celery 缺陷 C1。
         for q in ("deadlink.extract", "deadlink.check", "deadlink.write"):
             r.delete(q)
-        # Celery Redis 未确认消息等
-        for key in r.scan_iter(match="unacked*", count=200):
-            r.delete(key)
+        # Celery Redis 未确认消息等：保留，交由 visibility_timeout 正常重投。
         for key in r.scan_iter(match="_kombu*", count=200):
             pass  # 保留 exchange 声明
     except Exception as e:

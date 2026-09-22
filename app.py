@@ -811,6 +811,32 @@ def require_login_gate():
     return None
 
 
+def _is_guest():
+    """未登录访客判定（与 require_login_gate 同一口径）。"""
+    return not session.get("user_id")
+
+
+def _mask_secrets(items, key="password"):
+    """未登录访客不应拿到网盘提取码（password）。
+
+    已登录用户保持原样；返回新 list/dict，不改原对象。
+    REQUIRE_LOGIN=0 时全站读取面公开，提取码必须对访客屏蔽。
+    """
+    if items is None:
+        return items
+    single = isinstance(items, dict)
+    seq = [items] if single else list(items)
+    if not session.get("user_id"):
+        masked = []
+        for it in seq:
+            if isinstance(it, dict) and it.get(key):
+                it = dict(it)
+                it[key] = ""
+            masked.append(it)
+        seq = masked
+    return seq[0] if single else seq
+
+
 def login_required(f):
     """路由级登录校验（可选，全局 before_request 已覆盖大部分）。"""
     @wraps(f)
@@ -3033,7 +3059,8 @@ def api_resources():
                 LIMIT %s OFFSET %s""",
                 params + [per_page, offset],
             )
-        items = cur.fetchall()
+        # 访客（未登录）剥离网盘提取码；已登录用户不受影响。见审计 P0 REQUIRE_LOGIN=0
+        items = _mask_secrets(cur.fetchall())
 
         payload = {
             "items": items,
@@ -3394,7 +3421,8 @@ def api_online_results():
             ORDER BY created_at DESC LIMIT 50""",
             (keyword,)
         )
-        items = cur.fetchall()
+        # 访客剥离提取码；见审计 P0 REQUIRE_LOGIN=0
+        items = _mask_secrets(cur.fetchall())
         return jsonify({
             "items": items,
             "total": total,
@@ -5221,6 +5249,8 @@ def api_resource_detail(rid):
         item = cur.fetchone()
         if not item:
             return jsonify({"error": "资源不存在"}), 404
+        # 访客剥离提取码；见审计 P0 REQUIRE_LOGIN=0
+        item = _mask_secrets(item)
         return jsonify({"item": item})
     finally:
         db.close()
