@@ -24,7 +24,7 @@ from services.link_checker import check_single_link
 log = logging.getLogger("deadlink_tasks")
 _tls = threading.local()
 
-CHECK_CHUNK = int(os.environ.get("DEADLINK_CHECK_CHUNK", "1"))
+CHECK_CHUNK = int(os.environ.get("DEADLINK_CHECK_CHUNK", "50"))  # P1-7(2026-10-16): 攒批投递，N条=N条消息压爆broker
 EXTRACT_PAGE = int(os.environ.get("DEADLINK_FETCH_BATCH", "3000"))
 
 
@@ -192,10 +192,8 @@ def start_job(
 def stop_job() -> dict:
     request_stop()
     set_running(False)
-    try:
-        app.control.purge()
-    except Exception:
-        pass
+    # P1-9(2026-10-16): 只清死链三个队列。原来的 app.control.purge() 会清掉
+    # Celery 上所有队列的待处理消息，未来加其他任务类型会被误杀。
     _purge_celery_queues()
     return get_state()
 
@@ -261,7 +259,7 @@ def extract_job(
 
 @app.task(name="deadlink.check_batch", bind=True, max_retries=2)
 def check_batch(self, jobs: list) -> int:
-    """检测任务（建议 chunk=1；由 Celery threads 池横向并发）。"""
+    """检测任务（chunk 攒批，默认 50/批；由 Celery threads 池横向并发）。"""
     _strip_proxy()
     if should_stop() or not jobs:
         return 0

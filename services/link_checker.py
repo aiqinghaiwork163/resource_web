@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 import re
 import threading
+import time
 from typing import Callable
 from urllib.parse import urlparse, parse_qs
 
@@ -533,6 +535,42 @@ PANSOU_DISK_MAP = {
 }
 
 
+# ── P1-6(2026-10-16): 本地检测侧频率控制 ──────────────────────────────
+# 背景：Celery check worker 16 线程并发；PanSou 引擎自带防频控，但其故障/回退
+# 时本地检测会 16 路直打网盘 API，之前无任何限流 → 被限流 → timeout 堆积 →
+# 7 天后复检 → 恶性循环。此处做 per-source 并发上限 + 失败指数退避。
+_LOCAL_CHECK_LIMIT = int(os.environ.get("DEADLINK_LOCAL_CHECK_LIMIT", "4"))
+_local_check_sems: dict[str, threading.Semaphore] = {}
+_local_check_sems_lock = threading.Lock()
+_local_check_failures: dict[str, int] = {}
+
+
+def _local_check_sem(pan: str) -> threading.Semaphore:
+    with _local_check_sems_lock:
+        sem = _local_check_sems.get(pan)
+        if sem is None:
+            sem = threading.Semaphore(_LOCAL_CHECK_LIMIT)
+            _local_check_sems[pan] = sem
+        return sem
+
+
+def _local_check_backoff(pan: str) -> None:
+    """连续失败时占用槽位冷却：2 次起退避，指数增长，上限 30s + 抖动。"""
+    n = _local_check_failures.get(pan, 0)
+    if n >= 2:
+        delay = min(2 ** (n - 1), 30) + random.uniform(0, 1)
+        logger.warning("local check backoff pan=%s failures=%s sleep=%.1fs",
+                       pan, n, delay)
+        time.sleep(delay)
+
+
+def _local_check_record(pan: str, status: str) -> None:
+    if status in ("timeout", "error", "unknown"):
+        _local_check_failures[pan] = _local_check_failures.get(pan, 0) + 1
+    else:
+        _local_check_failures.pop(pan, None)
+
+
 def _check_pansou(url: str, pan: str) -> tuple[str, int, str] | None:
     """尝试使用 PanSou 批量检测引擎（自带 BoltDB 二级缓存与防频控）。
     返回 None 表示未启用、不支持或结果不确定，透明回退本地检测。
@@ -590,21 +628,27 @@ def check_single_link(url: str, source: str = "") -> tuple[str, int, str]:
     if pansou_res is not None:
         return pansou_res
 
-    # 2. 本地原生检测（兜底/非主流网盘）
-    try:
-        checker = _CHECKERS.get(pan)
-        if checker:
-            return checker(u)
-        return _check_html_generic(u, pan or "其它", spa_strict=True)
-    except requests.exceptions.Timeout:
-        return "timeout", 0, "请求超时"
-    except requests.exceptions.ConnectionError:
-        return "unknown", 0, "连接失败(网络)"
-    except UnicodeEncodeError:
-        return "unknown", 0, "URL含非ASCII导致请求头失败"
-    except Exception as e:
-        logger.exception("check_single_link error")
-        return "error", 0, str(e)[:50]
+    # 2. 本地原生检测（兜底/非主流网盘）：per-source 限流 + 失败退避（P1-6）
+    src_key = pan or "other"
+    with _local_check_sem(src_key):
+        _local_check_backoff(src_key)  # 占用槽位冷却，失败时自动降低有效并发
+        try:
+            checker = _CHECKERS.get(pan)
+            if checker:
+                res = checker(u)
+            else:
+                res = _check_html_generic(u, pan or "其它", spa_strict=True)
+        except requests.exceptions.Timeout:
+            res = ("timeout", 0, "请求超时")
+        except requests.exceptions.ConnectionError:
+            res = ("unknown", 0, "连接失败(网络)")
+        except UnicodeEncodeError:
+            res = ("unknown", 0, "URL含非ASCII导致请求头失败")
+        except Exception as e:
+            logger.exception("check_single_link error")
+            res = ("error", 0, str(e)[:50])
+        _local_check_record(src_key, res[0])
+        return res
 
 
 # 兼容旧名

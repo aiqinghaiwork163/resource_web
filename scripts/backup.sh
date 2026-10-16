@@ -54,9 +54,22 @@ DB_NAME="${DB_NAME:-pan_resource}"
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR"
 
+# ---- TG 告警（P1-8 2026-10-16）：失败时推送。需在 .env 配 TELEGRAM_ALERT_CHAT_ID，
+# 未配置则静默跳过（默认不对外发送）。
+tg_notify() {
+  local msg="$1"
+  if [ -z "${TELEGRAM_BOT_TOKEN:-}" ] || [ -z "${TELEGRAM_ALERT_CHAT_ID:-}" ]; then
+    return 0
+  fi
+  curl -sS --max-time 10 -o /dev/null \
+    "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+    --data-urlencode "chat_id=${TELEGRAM_ALERT_CHAT_ID}" \
+    --data-urlencode "text=${msg}" || true
+}
+
 # 失败时留下显眼标记，便于监控发现
 FAIL_MARK="$BACKUP_DIR/LAST_BACKUP_FAILED"
-trap 'log "ERROR: 备份失败（见上方输出）"; touch "$FAIL_MARK"' ERR
+trap 'log "ERROR: 备份失败（见上方输出）"; touch "$FAIL_MARK"; tg_notify "⚠️ VaultDrive 备份失败，请检查备份日志"' ERR
 
 log "===== 开始备份 ($DATE) ====="
 log "目标目录: $BACKUP_DIR (保留 ${KEEP_DAYS} 天)"

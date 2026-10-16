@@ -76,7 +76,7 @@ services:
       - all_proxy=
       - REDIS_HOST=resource_web_redis
       - DEADLINK_FETCH_BATCH=3000
-      - DEADLINK_CHECK_CHUNK=1
+      - DEADLINK_CHECK_CHUNK=50
     # ── 安全加固：非 root + 根文件系统只读（celery 不写 /app，仅需 /tmp）──
     user: "1000:1001"
     read_only: true
@@ -126,7 +126,7 @@ services:
       - ALL_PROXY=
       - all_proxy=
       - REDIS_HOST=resource_web_redis
-      - DEADLINK_CHECK_CHUNK=1
+      - DEADLINK_CHECK_CHUNK=50
     # ── 安全加固：非 root + 根文件系统只读（celery 不写 /app，仅需 /tmp）──
     user: "1000:1001"
     read_only: true
