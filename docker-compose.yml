@@ -8,7 +8,10 @@ services:
         max-size: "50m"
         max-file: "3"
     ports:
-      - "5000:5000"
+      # 仅回环地址：公网经 Cloudflare Tunnel（ingress 指到 localhost:5000，含 ::1）进入，
+      # 不再向局域网/公网直接暴露
+      - "127.0.0.1:5000:5000"
+      - "[::1]:5000:5000"
     restart: unless-stopped
     # ── 安全加固：非 root 运行 + 根文件系统只读 ──
     # 原来以 uid=0 运行且 ./ 以读写挂载到 /app，等于拿到应用即可改宿主代码。
