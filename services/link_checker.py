@@ -518,6 +518,61 @@ _CHECKERS: dict[str, Callable[[str], tuple[str, int, str]]] = {
 }
 
 
+PANSOU_CHECK_URL = os.environ.get("PANSOU_CHECK_URL", "http://pansou:8888/api/check/links")
+PANSOU_ENABLED = os.environ.get("PANSOU_CHECK_ENABLED", "1") not in ("0", "false", "False")
+PANSOU_DISK_MAP = {
+    "quark": "quark",
+    "uc": "uc",
+    "aliyun": "aliyun",
+    "baidu": "baidu",
+    "115": "115",
+    "123": "123",
+    "tianyi": "tianyi",
+    "xunlei": "xunlei",
+    "caiyun": "mobile",
+}
+
+
+def _check_pansou(url: str, pan: str) -> tuple[str, int, str] | None:
+    """尝试使用 PanSou 批量检测引擎（自带 BoltDB 二级缓存与防频控）。
+    返回 None 表示未启用、不支持或结果不确定，透明回退本地检测。
+    """
+    if not PANSOU_ENABLED or pan not in PANSOU_DISK_MAP:
+        return None
+    disk_type = PANSOU_DISK_MAP[pan]
+    pwd = _pwd_from_url(url)
+    item = {"disk_type": disk_type, "url": url}
+    if pwd:
+        item["password"] = pwd
+    try:
+        r = _session().post(
+            PANSOU_CHECK_URL,
+            json={"items": [item]},
+            timeout=TIMEOUT,
+        )
+        if r.status_code != 200:
+            return None
+        d = r.json() if r.text else {}
+        results = d.get("results")
+        if not results or not isinstance(results, list):
+            return None
+        res = results[0]
+        state = res.get("state")
+        summary = str(res.get("summary") or "")
+        hit = " (PanSou缓存)" if res.get("cache_hit") else " (PanSou)"
+        if state == "ok":
+            return "alive", 200, f"正常{hit}"
+        if state == "bad":
+            return "dead", 200, f"失效:{summary}{hit}"
+        if state == "locked":
+            return "alive", 200, f"需提取码(分享仍在){hit}"
+        # uncertain / unsupported -> 回退本地检测
+        return None
+    except Exception as e:
+        logger.debug("PanSou check fallback for %s: %s", pan, e)
+        return None
+
+
 def check_single_link(url: str, source: str = "") -> tuple[str, int, str]:
     if not url:
         return "invalid", 0, "空链接"
@@ -530,6 +585,12 @@ def check_single_link(url: str, source: str = "") -> tuple[str, int, str]:
     if pan in ("magnet", "ed2k"):
         return "skip", 0, "磁力/电驴链接免测"
 
+    # 1. 优先尝试 PanSou 高性能缓存检测引擎
+    pansou_res = _check_pansou(u, pan)
+    if pansou_res is not None:
+        return pansou_res
+
+    # 2. 本地原生检测（兜底/非主流网盘）
     try:
         checker = _CHECKERS.get(pan)
         if checker:

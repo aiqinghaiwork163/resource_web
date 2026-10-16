@@ -255,6 +255,7 @@ def extract_job(
     finally:
         set_fields(extracting="0", extract_done="1")
     log.info("celery extract done total=%s", total)
+    _maybe_finish()
     return total
 
 

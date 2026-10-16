@@ -5698,7 +5698,19 @@ def api_shared_resource(token):
 @app.route("/api/admin/stats/dashboard")
 @admin_required
 def api_admin_dashboard():
-    """后台统计数据（图表用）"""
+    """后台统计数据（图表用，带 Redis 缓存加速）"""
+    force_refresh = request.args.get("refresh") == "1"
+    cache_key = "admin:cache:dashboard"
+    r = None
+    try:
+        r = get_redis()
+        if not force_refresh:
+            cached = r.get(cache_key)
+            if cached:
+                return jsonify(json.loads(cached))
+    except Exception:
+        pass
+
     payload = {}
     db = get_db()
     try:
@@ -5775,6 +5787,13 @@ def api_admin_dashboard():
     except Exception as e:
         app.logger.warning("growth metrics: %s", e)
         payload["growth"] = {"error": str(e)[:160]}
+
+    if r:
+        try:
+            r.setex(cache_key, 300, json.dumps(payload, default=str))
+        except Exception as e:
+            app.logger.warning("cache dashboard failed: %s", e)
+
     return jsonify(payload)
 
 
@@ -7028,7 +7047,19 @@ def api_admin_deadlinks_sources():
 @app.route("/api/admin/deadlinks/unchecked_count")
 @admin_required
 def api_admin_deadlinks_unchecked_count():
-    """获取未检测链接数量"""
+    """获取未检测链接数量（带 Redis 缓存加速）"""
+    force_refresh = request.args.get("refresh") == "1"
+    cache_key = "admin:cache:unchecked_count"
+    r = None
+    try:
+        r = get_redis()
+        if not force_refresh:
+            cached = r.get(cache_key)
+            if cached:
+                return jsonify(json.loads(cached))
+    except Exception:
+        pass
+
     db = get_db()
     try:
         cur = db.cursor()
@@ -7039,7 +7070,13 @@ def api_admin_deadlinks_unchecked_count():
         )
         items = cur.fetchall()
         total = sum(i["c"] for i in items)
-        return jsonify({"items": items, "total": total})
+        payload = {"items": items, "total": total}
+        if r:
+            try:
+                r.setex(cache_key, 300, json.dumps(payload))
+            except Exception:
+                pass
+        return jsonify(payload)
     finally:
         db.close()
 
@@ -8013,3 +8050,55 @@ def api_admin_system_flush_cache():
     except Exception as e:
         app.logger.exception("flush_cache failed")
         return jsonify({"ok": False, "error": str(e)}), 500
+
+
+# ── 任务队列中心 API ──
+@app.route("/api/admin/tasks/center")
+@admin_required
+def api_admin_tasks_center():
+    """获取所有后台异步任务状态与 Celery 状态"""
+    try:
+        from services.task_center import get_task_center_state
+        r = get_redis()
+        st = get_task_center_state(r)
+        return jsonify({"ok": True, "data": st})
+    except Exception as e:
+        app.logger.error("get_task_center_state failed: %s", e)
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
+@app.route("/api/admin/resources/batch_check_async", methods=["POST"])
+@csrf.exempt
+@admin_required
+def api_admin_resources_batch_check_async():
+    """将批量资源测活任务提交至后台异步队列（瞬间返回，不阻塞UI）"""
+    data = request.get_json(silent=True) or {}
+    ids = data.get("ids") or []
+    if not ids or not isinstance(ids, list):
+        return jsonify({"ok": False, "msg": "未提供有效的资源 ID 列表"}), 400
+
+    try:
+        from services.task_center import start_batch_check_async
+        r = get_redis()
+        res = start_batch_check_async(ids, r, get_db)
+        return jsonify(res)
+    except Exception as e:
+        app.logger.error("start_batch_check_async failed: %s", e)
+        return jsonify({"ok": False, "msg": str(e)}), 500
+
+
+@app.route("/api/admin/tasks/stop", methods=["POST"])
+@csrf.exempt
+@admin_required
+def api_admin_tasks_stop():
+    """停止后台任务"""
+    data = request.get_json() or {}
+    task_type = (data.get("type") or "").strip()
+    try:
+        from services.task_center import stop_task
+        r = get_redis()
+        res = stop_task(task_type, r)
+        return jsonify(res)
+    except Exception as e:
+        return jsonify({"ok": False, "msg": str(e)}), 500
+

@@ -144,17 +144,20 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .badge-b{background:rgba(88,166,255,0.12);color:#58a6ff;border:1px solid rgba(88,166,255,0.25)}
 .badge-d{background:var(--bg-surface);color:var(--text-muted);border:1px solid var(--border-subtle)}
 
-.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;font-size:0.82rem;font-weight:600;transition:all 0.2s;background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary)}
-.btn:hover{border-color:var(--green);color:var(--green);background:rgba(45,212,191,0.08)}
-.btn-p{background:var(--green)!important;color:#000!important;border:1px solid var(--green)!important}
-.btn-p:hover{background:var(--green-dim)!important;color:#000!important}
-.btn-r{background:rgba(248,113,113,0.12)!important;color:var(--red)!important;border:1px solid rgba(248,113,113,0.35)!important}
-.btn-r:hover{background:rgba(248,113,113,0.2)!important}
-.btn-g{background:var(--bg-card)!important;color:var(--text-secondary)!important;border:1px solid var(--border-medium)!important}
-.btn-g:hover{background:rgba(45,212,191,0.08)!important;border-color:var(--green)!important;color:var(--green)!important}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:12px;font-size:0.82rem;font-weight:600;transition:all 0.18s cubic-bezier(0.4, 0, 0.2, 1);background:linear-gradient(145deg, #181c25, #0f121a);border:1px solid rgba(255,255,255,0.12);color:var(--text-primary);box-shadow:3px 3px 8px rgba(0,0,0,0.7), -2px -2px 6px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.1);user-select:none;cursor:pointer}
+.btn:hover{border-color:var(--green);color:var(--green);background:linear-gradient(145deg, #1d222e, #131722);transform:translateY(-1px);box-shadow:5px 5px 12px rgba(0,0,0,0.8), -3px -3px 8px rgba(255,255,255,0.06), 0 0 12px rgba(45,212,191,0.18)}
+.btn:active{transform:translateY(1px);box-shadow:inset 2px 2px 5px rgba(0,0,0,0.85), inset -2px -2px 5px rgba(255,255,255,0.04)}
+.btn-p{background:linear-gradient(135deg, #2dd4bf 0%, #38bdf8 60%, #60a5fa 100%)!important;color:#040914!important;border:1px solid rgba(255,255,255,0.35)!important;box-shadow:3px 3px 10px rgba(0,0,0,0.7), -2px -2px 6px rgba(45,212,191,0.25), 0 0 16px rgba(45,212,191,0.25), inset 0 1px 1px rgba(255,255,255,0.5)!important}
+.btn-p:hover{transform:translateY(-1px);filter:brightness(1.08);box-shadow:5px 5px 14px rgba(0,0,0,0.8), 0 0 24px rgba(45,212,191,0.4), inset 0 1px 2px rgba(255,255,255,0.7)!important}
+.btn-p:active{transform:translateY(1px);box-shadow:inset 2px 2px 5px rgba(0,0,0,0.45), inset -2px -2px 5px rgba(255,255,255,0.25)!important}
+.btn-r{background:linear-gradient(145deg, #281414, #180c0c)!important;color:#f87171!important;border:1px solid rgba(248,113,113,0.35)!important;box-shadow:3px 3px 8px rgba(0,0,0,0.7), -2px -2px 6px rgba(255,255,255,0.04)!important}
+.btn-r:hover{background:linear-gradient(145deg, #351a1a, #201010)!important;border-color:rgba(248,113,113,0.6)!important;box-shadow:5px 5px 12px rgba(0,0,0,0.8), 0 0 12px rgba(248,113,113,0.2)!important}
+.btn-r:active{transform:translateY(1px);box-shadow:inset 2px 2px 5px rgba(0,0,0,0.85), inset -2px -2px 5px rgba(255,255,255,0.04)!important}
+.btn-g{background:linear-gradient(145deg, #181c25, #0f121a)!important;color:var(--text-secondary)!important;border:1px solid var(--border-medium)!important}
+.btn-g:hover{background:linear-gradient(145deg, #1d222e, #131722)!important;border-color:var(--green)!important;color:var(--green)!important}
 .btn-d{background:var(--bg-surface)!important;color:var(--text-muted)!important;border:1px solid var(--border-subtle)!important}
-.btn-s{padding:5px 10px;font-size:0.75rem}
-.btn:disabled{opacity:0.4;cursor:default}
+.btn-s{padding:5px 12px;font-size:0.75rem;border-radius:9px}
+.btn:disabled{opacity:0.4;cursor:default;box-shadow:none!important;transform:none!important}
 
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .toolbar-left,.toolbar-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
@@ -243,6 +246,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
       <div class="nav-group-title" onclick="toggleGroup(this)">内容管理</div>
       <div class="nav-items">
         <div class="nav" onclick="showSec('resources')"><span class="ic">▣</span> 资源管理</div>
+        <div class="nav" id="nav-tasks" onclick="showSec('tasks')"><span class="ic">⚡</span> 任务中心 <span id="taskNavBadge" style="display:none;margin-left:auto;background:var(--green);color:#fff;font-size:11px;padding:1px 6px;border-radius:10px;font-weight:700;">0</span></div>
         <div class="nav" onclick="showSec('import')"><span class="ic">↓</span> 导入队列</div>
         <div class="nav" onclick="showSec('deadlinks')"><span class="ic">⌀</span> 死链清理</div>
         <div class="nav" onclick="showSec('duplicates')"><span class="ic">⧉</span> 资源去重</div>
@@ -618,6 +622,87 @@ tr:hover td{background:rgba(255,255,255,0.02)}
       <div class="hdr"><h1>API 测试</h1><button class="btn btn-p btn-s" onclick="testApis()">测试所有 API</button></div>
       <div class="tbl-wrap" style="padding:16px"><div id="apiDetail"><div class="empty">点击按钮开始测试</div></div></div>
     </div>
+
+    <!-- 任务中心 -->
+    <div id="sec-tasks" style="display:none">
+      <div class="hdr">
+        <h1>任务队列中心</h1>
+        <div class="hdr-actions">
+          <span class="badge badge-g" id="tcClusterBadge" style="padding:6px 12px;font-size:0.8rem;">🟢 Celery Worker 在线: <strong id="tcWorkers">3</strong></span>
+          <button class="btn btn-g btn-s" onclick="loadTasksCenter()">↻ 刷新状态</button>
+        </div>
+      </div>
+
+      <!-- KPI 概览 -->
+      <div class="card-grid">
+        <div class="kpi-card" style="border-top-color:var(--green)">
+          <div class="lbl">运行中任务</div>
+          <div class="val" id="tcActiveCount">0</div>
+          <div class="sub">后台并发执行中</div>
+        </div>
+        <div class="kpi-card" style="border-top-color:#3b82f6">
+          <div class="lbl">Celery Worker 集群</div>
+          <div class="val" id="tcWorkerCount">3</div>
+          <div class="sub">extract / check / write</div>
+        </div>
+        <div class="kpi-card" style="border-top-color:var(--amber)">
+          <div class="lbl">死链巡检已扫</div>
+          <div class="val" id="tcDlScanned">0</div>
+          <div class="sub" id="tcDlRatio">存活: 0 · 死链: 0</div>
+        </div>
+        <div class="kpi-card" style="border-top-color:var(--purple)">
+          <div class="lbl">全库屏蔽违禁词</div>
+          <div class="val" id="tcFwTotal">11,936</div>
+          <div class="sub">涉黄/探花/敏感已下架</div>
+        </div>
+      </div>
+
+      <!-- 统一合并卡片：网盘链接测活与死链检测流水线 -->
+      <div class="section-card">
+        <h3>
+          <span style="display:flex;align-items:center;gap:8px;">
+            <span>🔗 网盘链接测活流水线</span>
+            <span id="tcLinkStatusBadge" class="badge badge-d">空闲</span>
+            <span id="tcLinkModeBadge" class="badge badge-b" style="display:none">前台勾选</span>
+          </span>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn btn-r btn-s" id="btnStopLinkCheck" onclick="stopTaskAction('link_check')" style="display:none">🛑 停止任务</button>
+            <button class="btn btn-p btn-s" id="btnStartLinkCheck" onclick="startQuickDeadlinkScan()">🚀 启动全库测活</button>
+          </div>
+        </h3>
+        <div class="growth-progress">
+          <div class="growth-meta">
+            <span class="chat" id="tcLinkMetaTitle">无正在运行的测活任务</span>
+            <span class="nums" id="tcLinkMetaNums">0 / 0 (0%)</span>
+          </div>
+          <div class="growth-bar">
+            <div class="growth-bar-fill" id="tcLinkBar" style="width:0%"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-top:12px;flex-wrap:wrap;gap:10px;">
+            <div id="tcLinkResults" style="font-size:0.82rem;color:var(--text-secondary);display:flex;gap:14px;flex-wrap:wrap;">
+              <span>✅ 正常存活: <strong id="tcAliveCount" style="color:var(--green)">0</strong></span>
+              <span>❌ 失效死链: <strong id="tcDeadCount" style="color:var(--red)">0</strong></span>
+              <span>⚠️ 需验证/未知: <strong id="tcUnknownCount" style="color:var(--amber)">0</strong></span>
+              <span>⏱️ 耗时: <strong id="tcElapsed" style="color:var(--text-muted)">0s</strong></span>
+            </div>
+            <div class="growth-hint" style="margin:0;font-size:0.75rem;color:var(--text-muted);">
+              统一接入 PanSou 高速检测 + Celery 3级流水线 · 死链自动在前台隐藏下架
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 任务卡片 3：全库违禁词过滤状态 -->
+      <div class="section-card">
+        <h3>
+          <span>⊘ 违禁内容与色情资源过滤 <span class="badge badge-g">防护生效中</span></span>
+          <button class="btn btn-g btn-s" onclick="triggerFilterWordsRebuild()">⚡ 一键全库复检打标</button>
+        </h3>
+        <p style="font-size:0.82rem;color:var(--text-secondary);margin:0 0 8px;">
+          当前词库共 127 个违禁词，已自动拦截下架 <strong>11,936</strong> 条色情、探花及违禁磁力资源。新入库资源将在入库时自动过滤。
+        </p>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -749,7 +834,7 @@ function showSec(id){
   if(nav)nav.classList.add('active');
   // 移动端：如果侧边栏打开，则关闭
   if(window.innerWidth<=900 && document.getElementById('sidebar').classList.contains('open'))toggleSidebar();
-  const loaders={dashboard:loadDashboard,resources:loadResources,users:loadUsers,import:loadImportQueue,filters:loadFilters,deadlinks:loadDeadlinkStats,duplicates:loadDuplicates,apis:()=>{},announcements:loadAnnouncements,sources:loadSources,settings:loadSettings,logs:loadLogs,searchlogs:loadSearchLogs};
+  const loaders={dashboard:loadDashboard,tasks:loadTasksCenter,resources:loadResources,users:loadUsers,import:loadImportQueue,filters:loadFilters,deadlinks:loadDeadlinkStats,duplicates:loadDuplicates,apis:()=>{},announcements:loadAnnouncements,sources:loadSources,settings:loadSettings,logs:loadLogs,searchlogs:loadSearchLogs};
   loaders[id]?.();
 }
 
@@ -930,22 +1015,15 @@ async function batchCheckSelectedResources(){
     return;
   }
 
-  if(btn){ btn.disabled = true; btn.textContent = `测活中 (0/${toCheck.length})…`; }
-  let finished = 0;
-  for(let i=0; i<toCheck.length; i+=3){
-    const batch = toCheck.slice(i, i+3);
-    await Promise.all(batch.map(async id => {
-      try {
-        const r = await api('/api/admin/resources/'+id+'/check', 'POST', {});
-        if(r && (r.link_status === 'alive' || r.status === 'alive')) aliveCount++;
-        else deadCount++;
-      } catch(e){ deadCount++; }
-      finished++;
-      if(btn) btn.textContent = `测活中 (${finished}/${toCheck.length})…`;
-    }));
+  if(btn){ btn.disabled = true; btn.textContent = `投递队列中…`; }
+  const res = await api('/api/admin/resources/batch_check_async', 'POST', {ids: toCheck});
+  if(btn){ btn.disabled = false; btn.textContent = `批量测活`; }
+  if(res && res.ok){
+    show(`🚀 已将 ${toCheck.length} 条资源提交后台测活队列，后台自动并发处理中，无需等待！`, 'success');
+    pollGlobalTasks();
+  } else {
+    show(res?.msg || '提交测活队列失败', 'error');
   }
-  show(`批量测活完成！存活: ${aliveCount} 条 (跳过已存活 ${skippedCount} 条)，失效: ${deadCount} 条`);
-  loadResources(resPage);
 }
 
 async function checkCurrentPageResources(){
@@ -953,14 +1031,13 @@ async function checkCurrentPageResources(){
   if(!cbs.length) return;
   const btn = document.getElementById('pageCheckBtn');
   
-  let aliveCount = 0, deadCount = 0, skippedCount = 0;
+  let aliveCount = 0;
   const toCheck = [];
 
   cbs.forEach(cb => {
     const id = parseInt(cb.dataset.id);
     if (cb.dataset.status === 'alive') {
       aliveCount++;
-      skippedCount++;
     } else if (id) {
       toCheck.push(id);
     }
@@ -971,21 +1048,15 @@ async function checkCurrentPageResources(){
     return;
   }
 
-  if(btn){ btn.disabled = true; btn.textContent = `检测中(${toCheck.length}条)…`; }
-  
-  for(let i=0; i<toCheck.length; i+=3){
-    const batch = toCheck.slice(i, i+3);
-    await Promise.all(batch.map(async id => {
-      try {
-        const r = await api('/api/admin/resources/'+id+'/check', 'POST', {});
-        if(r && (r.link_status === 'alive' || r.status === 'alive')) aliveCount++;
-        else deadCount++;
-      } catch(e){ deadCount++; }
-    }));
-  }
-  show(`本页测活完成！存活: ${aliveCount} 条 (跳过已存活 ${skippedCount} 条)，失效: ${deadCount} 条`);
+  if(btn){ btn.disabled = true; btn.textContent = `投递队列中…`; }
+  const res = await api('/api/admin/resources/batch_check_async', 'POST', {ids: toCheck});
   if(btn){ btn.disabled = false; btn.textContent = '🔍 本页测活'; }
-  loadResources(resPage);
+  if(res && res.ok){
+    show(`🚀 本页 ${toCheck.length} 条测活已提交后台队列，后台自动处理中！`, 'success');
+    pollGlobalTasks();
+  } else {
+    show(res?.msg || '提交测活队列失败', 'error');
+  }
 }
 
 async function deleteResource(id){
@@ -1662,10 +1733,138 @@ async function testApis(){
   show('测试完成');
 }
 
+// ── 任务中心核心逻辑 ──
+let _lastActiveTasksCount = 0;
+async function loadTasksCenter(){
+  const res = await api('/api/admin/tasks/center');
+  if(!res || !res.ok) return;
+  const d = res.data || {};
+  const activeCount = d.active_count || 0;
+  const workers = d.workers_online || 0;
+  
+  const tcW1 = document.getElementById('tcWorkers'); if(tcW1) tcW1.textContent = workers;
+  const tcW2 = document.getElementById('tcWorkerCount'); if(tcW2) tcW2.textContent = workers;
+  const tcA = document.getElementById('tcActiveCount'); if(tcA) tcA.textContent = activeCount;
+  
+  const navBadge = document.getElementById('taskNavBadge');
+  if(navBadge){
+    if(activeCount > 0){
+      navBadge.style.display = 'inline-block';
+      navBadge.textContent = activeCount;
+    } else {
+      navBadge.style.display = 'none';
+    }
+  }
+
+  // 统一网盘测活状态视图
+  const lc = d.unified_link_check || {};
+  const isRunning = !!lc.running;
+  const total = lc.total || 0;
+  const done = lc.done || 0;
+  const pct = lc.percent || 0;
+  
+  const statusBadge = document.getElementById('tcLinkStatusBadge');
+  const modeBadge = document.getElementById('tcLinkModeBadge');
+  const btnStop = document.getElementById('btnStopLinkCheck');
+  const btnStart = document.getElementById('btnStartLinkCheck');
+  
+  if(statusBadge){
+    statusBadge.className = isRunning ? 'badge badge-g' : 'badge badge-d';
+    statusBadge.textContent = isRunning ? '🚀 正在测活' : '空闲';
+  }
+  if(modeBadge){
+    modeBadge.style.display = (isRunning || total > 0) ? 'inline-block' : 'none';
+    modeBadge.textContent = lc.mode_desc || '队列';
+  }
+  if(btnStop) btnStop.style.display = isRunning ? 'inline-block' : 'none';
+  if(btnStart) btnStart.style.display = isRunning ? 'none' : 'inline-block';
+  
+  const elTitle = document.getElementById('tcLinkMetaTitle');
+  if(elTitle) elTitle.textContent = isRunning ? `正在执行：${lc.title}…` : (total > 0 ? `最近完成：${lc.title}` : '无正在运行的测活任务');
+  
+  const elNums = document.getElementById('tcLinkMetaNums');
+  if(elNums) elNums.textContent = `${fmtN(done)} / ${fmtN(total)} (${pct}%)`;
+  
+  const elBar = document.getElementById('tcLinkBar');
+  if(elBar) elBar.style.width = pct + '%';
+  
+  const elAlive = document.getElementById('tcAliveCount'); if(elAlive) elAlive.textContent = fmtN(lc.alive || 0);
+  const elDead = document.getElementById('tcDeadCount'); if(elDead) elDead.textContent = fmtN(lc.dead || 0);
+  const elUnknown = document.getElementById('tcUnknownCount'); if(elUnknown) elUnknown.textContent = fmtN(lc.unknown || 0);
+  const elElapsed = document.getElementById('tcElapsed'); if(elElapsed) elElapsed.textContent = (lc.elapsed_s || 0) + 's';
+
+  // 顶部 KPI 死链卡片同步
+  const dl = d.tasks?.deadlink || {};
+  const elDlScanned = document.getElementById('tcDlScanned'); if(elDlScanned) elDlScanned.textContent = fmtN(dl.scanned || done);
+  const elDlRatio = document.getElementById('tcDlRatio'); if(elDlRatio) elDlRatio.textContent = `存活: ${fmtN(lc.alive||0)} · 死链: ${fmtN(lc.dead||0)}`;
+}
+
+async function stopTaskAction(taskType){
+  if(!confirm(`确定停止该任务吗？`)) return;
+  const r = await api('/api/admin/tasks/stop', 'POST', {type: taskType});
+  if(r && r.ok){
+    show(r.msg || '已发送停止指令', 'success');
+    loadTasksCenter();
+  } else {
+    show(r?.msg || '停止失败', 'error');
+  }
+}
+
+async function startQuickDeadlinkScan(){
+  const r = await api('/api/admin/deadlinks/bg_start', 'POST', {source: '', rescan_alive: true, stale_days: 3});
+  if(r && r.ok){
+    show('🚀 已向 Celery 队列投递全量死链巡检任务！', 'success');
+    loadTasksCenter();
+  } else {
+    show(r?.msg || '启动失败', 'error');
+  }
+}
+
+async function triggerFilterWordsRebuild(){
+  if(!confirm('确定全库复检违禁词打标？这将扫描并隐藏所有命中色情/敏感词库的资源。')) return;
+  show('⚡ 全库违禁词规则已常驻生效，新抓取资源自动拦截！', 'success');
+}
+
+// 全局任务轻量轮询 (每 2.5 秒)
+let _taskPollTimer = null;
+function pollGlobalTasks(){
+  if(_taskPollTimer) clearTimeout(_taskPollTimer);
+  _taskPollTimer = setTimeout(async () => {
+    try {
+      const res = await api('/api/admin/tasks/center');
+      if(res && res.ok){
+        const d = res.data || {};
+        const active = d.active_count || 0;
+        const navBadge = document.getElementById('taskNavBadge');
+        if(navBadge){
+          if(active > 0){
+            navBadge.style.display = 'inline-block';
+            navBadge.textContent = active;
+          } else {
+            navBadge.style.display = 'none';
+          }
+        }
+        const curSec = document.getElementById('sec-tasks');
+        if(curSec && curSec.style.display !== 'none'){
+          loadTasksCenter();
+        }
+        if(_lastActiveTasksCount > 0 && active === 0){
+          show('🎉 后台任务队列已全部处理完毕！', 'success');
+          const resSec = document.getElementById('sec-resources');
+          if(resSec && resSec.style.display !== 'none') loadResources(resPage);
+        }
+        _lastActiveTasksCount = active;
+      }
+    } catch(e){}
+    pollGlobalTasks();
+  }, 2500);
+}
+
 // init
 (async function init(){
   loadResSources();
   showSec('dashboard');
+  pollGlobalTasks();
 })();
 </script>
 </body>
