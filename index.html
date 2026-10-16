@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
+<script>try{var _t=localStorage.getItem("vd-theme");if(_t&&_t!=="blue")document.documentElement.dataset.theme=_t;}catch(e){}</script>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
@@ -103,6 +104,58 @@
   --header-h: 60px;
   --sidebar-w: 220px;
 }
+/* ── 多主题系统 v1.1：data-theme 覆盖强调色 ── */
+[data-theme="violet"] {
+  --accent: #a78bfa;
+  --accent-dim: #7c3aed;
+  --accent-glow: rgba(167, 139, 250, 0.25);
+  --gradient: linear-gradient(135deg, #a78bfa, #f472b6);
+}
+[data-theme="emerald"] {
+  --accent: #34d399;
+  --accent-dim: #059669;
+  --accent-glow: rgba(52, 211, 153, 0.25);
+  --gradient: linear-gradient(135deg, #34d399, #38bdf8);
+}
+[data-theme="amber"] {
+  --accent: #fbbf24;
+  --accent-dim: #d97706;
+  --accent-glow: rgba(251, 191, 36, 0.22);
+  --gradient: linear-gradient(135deg, #fbbf24, #fb7185);
+}
+[data-theme="rose"] {
+  --accent: #fb7185;
+  --accent-dim: #e11d48;
+  --accent-glow: rgba(251, 113, 133, 0.25);
+  --gradient: linear-gradient(135deg, #fb7185, #a78bfa);
+}
+/* ── 主题切换器 ── */
+.theme-switcher { position: relative; }
+.theme-menu {
+  position: absolute; right: 0; top: calc(100% + 8px);
+  min-width: 148px; padding: 6px; z-index: 200;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  display: flex; flex-direction: column; gap: 2px;
+}
+.theme-menu[hidden] { display: none; }
+.theme-menu button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 10px; border: 0; background: transparent;
+  color: var(--text-secondary); font-size: 13px; cursor: pointer;
+  border-radius: var(--radius-sm); text-align: left;
+}
+.theme-menu button:hover { background: var(--surface-hover); color: var(--text-primary); }
+.theme-menu button i {
+  width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+  background: var(--sw); box-shadow: 0 0 8px var(--sw);
+}
+.theme-menu button[aria-checked="true"] { color: var(--text-primary); background: var(--surface); }
+.theme-menu button[aria-checked="true"]::after { content: "\2713"; margin-left: auto; color: var(--accent); font-size: 12px; }
+
 
 html, body {
   font-family: var(--font-body) !important;
@@ -3531,8 +3584,8 @@ html, body {
   letter-spacing: -0.02em !important;
 }
 .logo-icon {
-  background: #38bdf8 !important;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.8) !important;
+  background: var(--accent) !important;
+  box-shadow: 0 0 16px var(--accent-glow) !important;
 }
 
 /* 3. 首页主英雄卡片：Raycast Frosted Showcase Panel */
@@ -3724,7 +3777,19 @@ html, body {
         <a href="/" onclick="event.preventDefault();navigateTo('home')">首页</a>
         <a href="/profile" onclick="return guardFavoritesNav(event)">收藏</a>
       </nav>
-      <div id="userArea"><a class="btn btn-ghost btn-sm" href="/login" id="headerLoginBtn">登录</a></div>
+      <div class="theme-switcher">
+  <button class="btn btn-ghost btn-sm" id="themeBtn" type="button" aria-label="切换主题" aria-haspopup="true" aria-expanded="false" title="切换主题">
+    <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>
+  </button>
+  <div class="theme-menu" id="themeMenu" hidden role="menu" aria-label="主题选择">
+    <button type="button" role="menuitemradio" data-theme-opt="blue"><i style="--sw:#38bdf8"></i>曜石蓝</button>
+    <button type="button" role="menuitemradio" data-theme-opt="violet"><i style="--sw:#a78bfa"></i>霓紫</button>
+    <button type="button" role="menuitemradio" data-theme-opt="emerald"><i style="--sw:#34d399"></i>翡翠</button>
+    <button type="button" role="menuitemradio" data-theme-opt="amber"><i style="--sw:#fbbf24"></i>琥珀</button>
+    <button type="button" role="menuitemradio" data-theme-opt="rose"><i style="--sw:#fb7185"></i>绯红</button>
+  </div>
+</div>
+<div id="userArea"><a class="btn btn-ghost btn-sm" href="/login" id="headerLoginBtn">登录</a></div>
     </div>
   </header>
 
@@ -6325,6 +6390,51 @@ function showSkeleton(containerId, count = 6) {
   // animateThrottled(0);
 })();
 
+
+/* ── 主题系统 v1.1 ── */
+(function(){
+  var THEMES = ['blue','violet','emerald','amber','rose'];
+  function currentTheme(){ try { return localStorage.getItem('vd-theme') || 'blue'; } catch(e){ return 'blue'; } }
+  function applyTheme(id, save){
+    if(THEMES.indexOf(id) < 0) id = 'blue';
+    if(id === 'blue') document.documentElement.removeAttribute('data-theme');
+    else document.documentElement.dataset.theme = id;
+    if(save !== false){ try{ localStorage.setItem('vd-theme', id); }catch(e){} }
+    document.querySelectorAll('#themeMenu [data-theme-opt]').forEach(function(b){
+      b.setAttribute('aria-checked', b.dataset.themeOpt === id ? 'true' : 'false');
+    });
+  }
+  function initThemeSwitcher(){
+    var btn = document.getElementById('themeBtn');
+    var menu = document.getElementById('themeMenu');
+    if(!btn || !menu) return;
+    applyTheme(currentTheme(), false);
+    btn.addEventListener('click', function(e){
+      e.stopPropagation();
+      var open = menu.hidden;
+      menu.hidden = !open;
+      btn.setAttribute('aria-expanded', String(open));
+    });
+    menu.addEventListener('click', function(e){
+      var b = e.target.closest('[data-theme-opt]');
+      if(!b) return;
+      applyTheme(b.dataset.themeOpt);
+      menu.hidden = true;
+      btn.setAttribute('aria-expanded', 'false');
+    });
+    document.addEventListener('click', function(e){
+      if(!menu.hidden && !e.target.closest('.theme-switcher')){
+        menu.hidden = true;
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && !menu.hidden){ menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); }
+    });
+  }
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initThemeSwitcher);
+  else initThemeSwitcher();
+})();
 </script>
 <script src="/static/home-enhance.js?v=20260821d" defer></script>
 
