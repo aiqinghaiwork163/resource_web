@@ -684,6 +684,19 @@ def admin_required(f):
     return decorated
 
 
+def get_client_ip():
+    """统一客户端 IP 获取（P0-2 2026-10-16）。
+
+    站点经 Cloudflare Tunnel 暴露公网时 request.remote_addr 恒为边缘节点 IP，
+    登录限流会对所有访客共享计数（误伤正常用户 / 可被利用触发全站登录锁定 DoS）。
+    CF-Connecting-IP 由 Cloudflare 写入、不可伪造；直连/内网场景回退 remote_addr。
+    """
+    cf_ip = (request.headers.get("CF-Connecting-IP") or "").strip()
+    if cf_ip:
+        return cf_ip
+    return request.remote_addr or "unknown"
+
+
 def _norm_role(role) -> str:
     r = str(role or "").strip().lower()
     if r in ("superadmin", "super", "root"):
@@ -855,7 +868,7 @@ def login_page():
         data = request.get_json() or request.form
         username = data.get("username", "").strip()
         password = data.get("password", "")
-        client_ip = request.remote_addr
+        client_ip = get_client_ip()
         # 检查登录限流
         allowed, remaining = check_login_limit(client_ip)
         if not allowed:
@@ -1760,7 +1773,7 @@ def api_telegram_login_config():
         gh_switch = "1"
     gh_enabled = bool(GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET and str(gh_switch).strip() in ("1", "true", "on"))
 
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    client_ip = get_client_ip()
     is_foreign = _is_foreign_ip(client_ip)
 
     chat = _telegram_required_chat()
@@ -4430,7 +4443,7 @@ def api_announcements():
     """获取当前生效的公告（公开），国内访问自动过滤敏感 TG 提示文案"""
     # 历史遗漏：announcements 表从未建过，导致首页每次加载必现 500（见审计）。
     _ensure_announcements_table()
-    client_ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+    client_ip = get_client_ip()
     is_foreign = _is_foreign_ip(client_ip)
 
     db = get_db()
@@ -5799,7 +5812,9 @@ def api_admin_dashboard():
 
 # ── ⑩ API 文档 ──
 @app.route("/api/docs")
+@admin_required
 def api_docs():
+    # P0-1(2026-10-16): 曾公开暴露 156 个接口清单，收敛为管理员可见
     """自动生成 API 文档"""
     docs = []
     for rule in app.url_map.iter_rules():

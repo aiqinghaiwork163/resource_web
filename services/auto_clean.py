@@ -35,6 +35,20 @@ def preview_auto_clean(cur, days: int = 7, limit: int = 50) -> dict[str, Any]:
     return {"total": total, "days": days, "samples": cur.fetchall() or []}
 
 
+def _ensure_archive_table(cur) -> None:
+    """确保归档表存在：结构同 resources，另加 archived_at（P0-3 2026-10-16）。
+
+    auto_clean 原来是物理 DELETE，误删不可回；现改为先归档后删除。
+    """
+    cur.execute("CREATE TABLE IF NOT EXISTS resources_archive LIKE resources")
+    cur.execute("SHOW COLUMNS FROM resources_archive LIKE 'archived_at'")
+    if not cur.fetchone():
+        cur.execute(
+            "ALTER TABLE resources_archive "
+            "ADD COLUMN archived_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+        )
+
+
 def run_auto_clean(cur, days: int = 7, limit: int = 5000) -> dict[str, Any]:
     where, params = _invalid_where(days)
     limit = min(max(1, int(limit or 5000)), 20000)
@@ -49,11 +63,26 @@ def run_auto_clean(cur, days: int = 7, limit: int = 5000) -> dict[str, Any]:
     )
     ids = [r["id"] for r in (cur.fetchall() or [])]
     if not ids:
-        return {"ok": True, "deleted": 0, "days": days}
+        return {"ok": True, "deleted": 0, "archived": 0, "days": days}
+    _ensure_archive_table(cur)
+    # 动态取列名，保证归档 INSERT 与主表列对齐
+    cur.execute("SHOW COLUMNS FROM resources")
+    cols = [r["Field"] for r in (cur.fetchall() or [])]
+    collist = ",".join(f"`{c}`" for c in cols)
     deleted = 0
     for i in range(0, len(ids), 200):
         batch = ids[i:i + 200]
         placeholders = ",".join(["%s"] * len(batch))
+        # 先归档后删除：INSERT IGNORE 防重跑主键冲突
+        cur.execute(
+            f"INSERT IGNORE INTO resources_archive ({collist}) "
+            f"SELECT {collist} FROM resources WHERE id IN ({placeholders})",
+            batch,
+        )
+        cur.execute(
+            f"UPDATE resources_archive SET archived_at=NOW() WHERE id IN ({placeholders})",
+            batch,
+        )
         cur.execute(f"DELETE FROM resources WHERE id IN ({placeholders})", batch)
         deleted += cur.rowcount
         # 同步清理 favorites/share_links 中的悬空引用
@@ -62,7 +91,7 @@ def run_auto_clean(cur, days: int = 7, limit: int = 5000) -> dict[str, Any]:
                 cur.execute(f"DELETE FROM {ref_table} WHERE resource_id IN ({placeholders})", batch)
             except Exception:
                 pass  # 表不存在等场景忽略,主删除不受影响
-    return {"ok": True, "deleted": deleted, "days": days, "ids_sample": ids[:20]}
+    return {"ok": True, "deleted": deleted, "archived": deleted, "days": days, "ids_sample": ids[:20]}
 
 
 def scan_invalid_stats(cur) -> dict[str, Any]:

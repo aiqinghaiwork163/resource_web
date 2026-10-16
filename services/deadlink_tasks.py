@@ -150,7 +150,7 @@ def _purge_celery_queues() -> None:
         r = redis.Redis(
             host=os.environ.get("REDIS_HOST", "127.0.0.1"),
             port=int(os.environ.get("REDIS_PORT", "6379")),
-            db=int(os.environ.get("CELERY_REDIS_DB", os.environ.get("REDIS_DB", "0"))),
+            db=int(os.environ.get("REDIS_DB", "0")),  # P0-5(2026-10-16): 统一为 REDIS_DB 单变量
             password=os.environ.get("REDIS_PASSWORD") or None,
             decode_responses=True,
         )
@@ -350,7 +350,7 @@ def _celery_queue_lens() -> tuple[int, int, int]:
         r = redis.Redis(
             host=os.environ.get("REDIS_HOST", "127.0.0.1"),
             port=int(os.environ.get("REDIS_PORT", "6379")),
-            db=int(os.environ.get("CELERY_REDIS_DB", os.environ.get("REDIS_DB", "0"))),
+            db=int(os.environ.get("REDIS_DB", "0")),  # P0-5(2026-10-16): 统一为 REDIS_DB 单变量
             password=os.environ.get("REDIS_PASSWORD") or None,
             decode_responses=True,
         )

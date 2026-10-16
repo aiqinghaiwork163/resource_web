@@ -17,7 +17,7 @@ from celery import Celery
 def _broker_url() -> str:
     host = os.environ.get("REDIS_HOST", "127.0.0.1")
     port = os.environ.get("REDIS_PORT", "6379")
-    db = os.environ.get("CELERY_REDIS_DB", os.environ.get("REDIS_DB", "0"))
+    db = os.environ.get("REDIS_DB", "0")  # P0-5(2026-10-16): 统一为 REDIS_DB 单变量
     password = os.environ.get("REDIS_PASSWORD") or ""
     auth = f":{password}@" if password else ""
     return f"redis://{auth}{host}:{port}/{db}"
