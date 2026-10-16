@@ -21,17 +21,47 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import threading
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 
 sys.path.insert(0, "/app")
 
+from services.deadlink_queue import set_fields, set_running  # noqa: E402
 from services.deadlink_tasks import _db, _where_sql  # noqa: E402
 from services.link_checker import check_single_link  # noqa: E402
 
 PAGE = 10000
 FLUSH_EVERY = 2000
+HEARTBEAT_EVERY = 300  # 续命 cron 的卡死判定（2h），快扫时定时刷新 start_time
+
+
+@contextmanager
+def _scan_lock():
+    """占用流水线 running 状态 + 定时心跳，防止 cron 半路又起 Celery 扫重。
+
+    cron 见 running=1 且 start_time 新鲜会跳过；finally 保证异常退出也释放。
+    """
+    set_running(True)
+    set_fields(start_time=time.time(), engine="fast_scan")
+    stop = threading.Event()
+
+    def _hb():
+        while not stop.wait(HEARTBEAT_EVERY):
+            try:
+                set_fields(start_time=time.time())
+            except Exception:
+                pass
+
+    t = threading.Thread(target=_hb, daemon=True)
+    t.start()
+    try:
+        yield
+    finally:
+        stop.set()
+        set_running(False)
 
 
 def load_jobs(source_filter: str, rescan_alive: bool, limit: int) -> list:
@@ -89,7 +119,7 @@ def main() -> int:
     counter: Counter = Counter()
     by_source: Counter = Counter()
     buf, done = [], 0
-    with ThreadPoolExecutor(max_workers=args.workers) as pool:
+    with _scan_lock(), ThreadPoolExecutor(max_workers=args.workers) as pool:
         futs = {pool.submit(check_one, j): j for j in jobs}
         for f in as_completed(futs):
             rid, status, source = f.result()
@@ -105,15 +135,15 @@ def main() -> int:
                 buf.clear()
             if done % 10000 == 0:
                 print(f"[fast_scan] …{done}/{len(jobs)}", flush=True)
-    if buf:
-        cur.executemany(
-            "UPDATE resources SET link_status=%s, last_checked=NOW() WHERE id=%s",
-            buf,
-        )
-    try:
-        db.commit()
-    except Exception:
-        pass
+        if buf:
+            cur.executemany(
+                "UPDATE resources SET link_status=%s, last_checked=NOW() WHERE id=%s",
+                buf,
+            )
+        try:
+            db.commit()
+        except Exception:
+            pass
     el = time.time() - t0
     print(f"[fast_scan] 完成：{done} 条，{el:.0f}s，{done / max(el, 1):.0f} 条/秒")
     print("状态分布:", dict(counter))
