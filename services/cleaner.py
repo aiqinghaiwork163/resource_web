@@ -218,21 +218,24 @@ def run_clean_batch(cur, batch_size: int = 1000) -> Dict[str, Any]:
     if not rows:
         return {"ok": True, "scanned": 0, "updated": 0, "has_more": False}
 
-    updated_count = 0
+    # 按更新字段形状分组（只有 type / quality 两种字段，最多 3 种组合），
+    # 每组一次 executemany 批量写：语义与逐行 UPDATE 完全一致，
+    # 只是把 N 次网络往返合并为几次。
+    groups: Dict[tuple, list] = {}
     for r in rows:
         updates = clean_single_row(r)
         if not updates:
             continue
-        set_clauses = []
-        params = []
-        for k, v in updates.items():
-            set_clauses.append(f"{k} = %s")
-            params.append(v)
-        params.append(r["id"])
-        
-        sql = "UPDATE resources SET " + ", ".join(set_clauses) + " WHERE id = %s"
-        cur.execute(sql, params)
-        updated_count += 1
+        key = tuple(sorted(updates.keys()))  # 字段名来自 clean_single_row 硬编码，安全
+        groups.setdefault(key, []).append((updates, r["id"]))
+
+    updated_count = 0
+    for key, items in groups.items():
+        set_clause = ", ".join(f"{k} = %s" for k in key)
+        sql = f"UPDATE resources SET {set_clause} WHERE id = %s"
+        params = [tuple(it[0][k] for k in key) + (it[1],) for it in items]
+        cur.executemany(sql, params)
+        updated_count += len(items)
 
     return {
         "ok": True,

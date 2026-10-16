@@ -18,6 +18,11 @@ SOURCE_RANK = {
     "pikpak": 60,
     "magnet": 80,
 }
+# 聚合表名（模块常量，非用户输入；f-string 拼接表名安全）
+_AGG_TABLE = "resource_aggregate"
+_AGG_TMP = "resource_aggregate_new"
+_AGG_BAK = "resource_aggregate_bak"
+
 
 
 def _norm(s: str) -> str:
@@ -54,7 +59,13 @@ def _pick_best(rows: list[dict]) -> dict:
 
 
 def rebuild_aggregate(cur, only_multi: bool = True, max_groups: int = 500) -> dict:
-    """按 keyword 聚合（有索引，快）。默认只写重复组。"""
+    """按 keyword 聚合（有索引，快）。默认只写重复组。
+
+    无闪断实现：先在 ``resource_aggregate_new`` 临时表里全量构建，
+    再用原子 ``RENAME TABLE`` 一次切换，读端永远看不到空表/半成品。
+    （旧实现是 DELETE 全表后逐条 INSERT，重建期间读端看到空表，
+    中途失败还会长期留空。）
+    """
     max_groups = max(20, min(int(max_groups or 500), 2000))
     having = "HAVING cnt > 1" if only_multi else ""
     cur.execute(
@@ -70,63 +81,80 @@ def rebuild_aggregate(cur, only_multi: bool = True, max_groups: int = 500) -> di
         (max_groups,),
     )
     groups = cur.fetchall() or []
-    cur.execute("DELETE FROM resource_aggregate")
+    # 无闪断：先在临时表里全量构建（清理上次失败可能残留的临时表）
+    cur.execute(f"DROP TABLE IF EXISTS {_AGG_TMP}")
+    cur.execute(f"CREATE TABLE {_AGG_TMP} LIKE {_AGG_TABLE}")
     written = multi = scanned_members = 0
 
-    for g in groups:
-        kw = g["k"]
+    try:
+        for g in groups:
+            kw = g["k"]
+            cur.execute(
+                """
+                SELECT id, title, keyword, source, url, quality, type, year, rating,
+                       link_status, is_valid
+                FROM resources
+                WHERE keyword=%s
+                ORDER BY id DESC
+                LIMIT 60
+                """,
+                (kw,),
+            )
+            members = cur.fetchall() or []
+            if not members:
+                continue
+            scanned_members += len(members)
+            if len(members) > 1:
+                multi += 1
+            best = _pick_best(members)
+            sources = [
+                {
+                    "id": m.get("id"),
+                    "source": m.get("source"),
+                    "url": m.get("url"),
+                    "quality": m.get("quality"),
+                    "link_status": m.get("link_status"),
+                    "is_valid": m.get("is_valid"),
+                }
+                for m in members
+            ]
+            title = (best.get("title") or kw)[:500]
+            h = compute_hash(kw, best.get("year"), best.get("type") or "")
+            cur.execute(
+                f"""
+                INSERT INTO {_AGG_TMP}
+                  (resource_hash, title, sources, best_source, best_url, best_quality,
+                   type, year, rating, tags, view_count)
+                VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0)
+                """,
+                (
+                    h,
+                    title,
+                    json.dumps(sources, ensure_ascii=False),
+                    (best.get("source") or "")[:50],
+                    best.get("url") or "",
+                    (best.get("quality") or "")[:50],
+                    (best.get("type") or "")[:50],
+                    best.get("year"),
+                    best.get("rating"),
+                    json.dumps({"keyword": kw, "count": int(g.get("cnt") or len(members))}, ensure_ascii=False),
+                ),
+            )
+            written += 1
+
+        # 原子切换：读端无感知；RENAME 会隐式提交此前 INSERT
         cur.execute(
-            """
-            SELECT id, title, keyword, source, url, quality, type, year, rating,
-                   link_status, is_valid
-            FROM resources
-            WHERE keyword=%s
-            ORDER BY id DESC
-            LIMIT 60
-            """,
-            (kw,),
+            f"RENAME TABLE {_AGG_TABLE} TO {_AGG_BAK}, {_AGG_TMP} TO {_AGG_TABLE}"
         )
-        members = cur.fetchall() or []
-        if not members:
-            continue
-        scanned_members += len(members)
-        if len(members) > 1:
-            multi += 1
-        best = _pick_best(members)
-        sources = [
-            {
-                "id": m.get("id"),
-                "source": m.get("source"),
-                "url": m.get("url"),
-                "quality": m.get("quality"),
-                "link_status": m.get("link_status"),
-                "is_valid": m.get("is_valid"),
-            }
-            for m in members
-        ]
-        title = (best.get("title") or kw)[:500]
-        h = compute_hash(kw, best.get("year"), best.get("type") or "")
-        cur.execute(
-            """
-            INSERT INTO resource_aggregate
-              (resource_hash, title, sources, best_source, best_url, best_quality,
-               type, year, rating, tags, view_count)
-            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,0)
-            """,
-            (
-                h,
-                title,
-                json.dumps(sources, ensure_ascii=False),
-                (best.get("source") or "")[:50],
-                best.get("url") or "",
-                (best.get("quality") or "")[:50],
-                (best.get("type") or "")[:50],
-                best.get("year"),
-                best.get("rating"),
-                json.dumps({"keyword": kw, "count": int(g.get("cnt") or len(members))}, ensure_ascii=False),
-            ),
-        )
-        written += 1
+        cur.execute(f"DROP TABLE IF EXISTS {_AGG_BAK}")
+    except Exception:
+        # 构建失败：正式表不受影响，清掉半成品临时表后抛给调用方
+        try:
+            cur.execute(f"DROP TABLE IF EXISTS {_AGG_TMP}")
+        except Exception:
+            pass
+        raise
+
 
     return {
         "ok": True,
