@@ -2719,6 +2719,7 @@ tbody tr:last-child td {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+.loading-arc { display: inline-block; animation: spin 0.9s linear infinite; }
 @keyframes pulse {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 0.8; }
@@ -5229,16 +5230,7 @@ function _doSearch(q) {
   container.innerHTML = `
     <div id="searchLoadingAnim" class="search-loading" role="status" aria-live="polite">
       <div class="search-loading-head">
-        <svg class="radar-spinner-svg" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true" style="vertical-align:-4px;flex-shrink:0;">
-          <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.18"/>
-          <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" stroke-width="1" opacity="0.25"/>
-          <circle class="radar-pulse-ring" cx="16" cy="16" r="3" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
-          <g class="radar-sweep-group">
-            <path d="M 16 16 L 30 16 A 14 14 0 0 0 25.9 6.1 Z" fill="url(#radarSweepGrad)"/>
-            <line x1="16" y1="16" x2="30" y2="16" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/>
-          </g>
-          <circle cx="16" cy="16" r="2" fill="var(--accent)"/>
-        </svg>
+        <svg class="loading-arc" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="vertical-align:-4px;flex-shrink:0;"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" opacity="0.15"/><path d="M21 12A9 9 0 0 0 12 3" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
         <span class="search-loading-label">正在检索 <em>${q.replace(/[<>&"']/g, '')}</em></span>
       </div>
       <div class="search-card-grid">${skelRows}</div>
@@ -5465,7 +5457,7 @@ function _updateOnlineStatusBanner(q, total, initialTotal, status, imported) {
   if (status === 'local') {
     statusText = '<span style="color:var(--accent)">✓ 库内结果</span>';
   } else if (status === 'running' || (status === 'pending' && initialTotal === 0)) {
-    statusText = '<svg class="radar-spinner-svg" viewBox="0 0 32 32" width="14" height="14" aria-hidden="true" style="vertical-align:-2px;margin-right:4px;flex-shrink:0;display:inline-block;"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.18"/><circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" stroke-width="1" opacity="0.25"/><circle class="radar-pulse-ring" cx="16" cy="16" r="3" fill="none" stroke="var(--accent)" stroke-width="1.5"/><g class="radar-sweep-group"><path d="M 16 16 L 30 16 A 14 14 0 0 0 25.9 6.1 Z" fill="url(#radarSweepGrad)"/><line x1="16" y1="16" x2="30" y2="16" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/></g><circle cx="16" cy="16" r="2" fill="var(--accent)"/></svg> 在线补充中…';
+    statusText = '<svg class="loading-arc" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" style="vertical-align:-2px;margin-right:4px;flex-shrink:0;display:inline-block;"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" opacity="0.15"/><path d="M21 12A9 9 0 0 0 12 3" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg> 在线补充中…';
   } else if (status === 'pending') {
     statusText = '<span style="color:var(--text-secondary)">库内检索</span>';
   } else if (status === 'done') {
@@ -5505,7 +5497,7 @@ function _insertOnlineSkeleton(afterIndex) {
   skeleton.innerHTML = `
     <div class="online-loading-divider">
       <span class="online-loading-label">
-        <svg class="radar-spinner-svg" viewBox="0 0 32 32" width="16" height="16" aria-hidden="true" style="vertical-align:-3px;margin-right:4px;flex-shrink:0;display:inline-block;"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.18"/><circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" stroke-width="1" opacity="0.25"/><circle class="radar-pulse-ring" cx="16" cy="16" r="3" fill="none" stroke="var(--accent)" stroke-width="1.5"/><g class="radar-sweep-group"><path d="M 16 16 L 30 16 A 14 14 0 0 0 25.9 6.1 Z" fill="url(#radarSweepGrad)"/><line x1="16" y1="16" x2="30" y2="16" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/></g><circle cx="16" cy="16" r="2" fill="var(--accent)"/></svg>
+        <svg class="loading-arc" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="vertical-align:-3px;margin-right:4px;flex-shrink:0;display:inline-block;"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2" opacity="0.15"/><path d="M21 12A9 9 0 0 0 12 3" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round"/></svg>
         在线补充中…
       </span>
     </div>
