@@ -173,6 +173,17 @@ tr:hover td{background:rgba(255,255,255,0.02)}
 .pagination .info{font-size:0.75rem;color:var(--text-muted);margin-left:8px}
 
 .empty{padding:40px;text-align:center;color:var(--text-muted);font-size:0.85rem}
+/* 图表骨架屏 */
+@keyframes skelShimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.skel{position:relative;overflow:hidden;background:rgba(255,255,255,0.045);border-radius:6px}
+.skel::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.07),transparent);background-size:400px 100%;animation:skelShimmer 1.4s infinite}
+.skel-bars{display:flex;align-items:flex-end;gap:8px;height:150px;padding:10px 4px 0}
+.skel-bars .skel{flex:1;min-width:0}
+.skel-rows{display:flex;flex-direction:column;gap:12px;padding:6px 2px}
+.skel-row{display:flex;align-items:center;gap:10px}
+.skel-row .skel-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.skel-row .skel-line{height:12px;flex:1}
+.skel-row .skel-num{width:46px;height:12px;flex-shrink:0}
 
 .form-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-bottom:14px}
 .form-group{display:flex;flex-direction:column;gap:6px}
@@ -311,10 +322,10 @@ tr:hover td{background:rgba(255,255,255,0.02)}
       </div>
 
       <div class="chart-grid">
-        <div class="chart-box"><h4>最近30天入库 / 搜索趋势</h4><div class="chart-canvas" id="trendChart"><div class="empty">加载中…</div></div></div>
-        <div class="chart-box"><h4>来源分布 Top 10</h4><div class="pie-list" id="sourceChart"><div class="empty">加载中…</div></div></div>
-        <div class="chart-box"><h4>类型分布</h4><div class="pie-list" id="typeChart"><div class="empty">加载中…</div></div></div>
-        <div class="chart-box"><h4>热门搜索 Top 10</h4><div class="pie-list" id="searchChart"><div class="empty">加载中…</div></div></div>
+        <div class="chart-box"><h4>最近30天入库 / 搜索趋势</h4><div class="chart-canvas" id="trendChart"><div class="skel-bars" aria-hidden="true"><div class="skel" style="height:42%"></div><div class="skel" style="height:68%"></div><div class="skel" style="height:55%"></div><div class="skel" style="height:80%"></div><div class="skel" style="height:48%"></div><div class="skel" style="height:72%"></div><div class="skel" style="height:60%"></div><div class="skel" style="height:88%"></div><div class="skel" style="height:52%"></div><div class="skel" style="height:66%"></div><div class="skel" style="height:74%"></div><div class="skel" style="height:58%"></div><div class="skel" style="height:82%"></div><div class="skel" style="height:46%"></div></div></div></div>
+        <div class="chart-box"><h4>来源分布 Top 10</h4><div class="pie-list" id="sourceChart"><div class="skel-rows" aria-hidden="true"><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div></div></div></div>
+        <div class="chart-box"><h4>类型分布</h4><div class="pie-list" id="typeChart"><div class="skel-rows" aria-hidden="true"><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div></div></div></div>
+        <div class="chart-box"><h4>热门搜索 Top 10</h4><div class="pie-list" id="searchChart"><div class="skel-rows" aria-hidden="true"><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div></div></div></div>
       </div>
 
       <div class="section-card">
@@ -377,7 +388,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
         <div class="kpi-card"><div class="lbl">正常存活</div><div class="val" id="dlAlive" style="color:var(--green, #10b981);">-</div></div>
       </div>
       <div class="chart-grid">
-        <div class="chart-box"><h4>按来源分布</h4><div class="pie-list" id="deadlinkSourceList"><div class="empty">加载中…</div></div></div>
+        <div class="chart-box"><h4>按来源分布</h4><div class="pie-list" id="deadlinkSourceList"><div class="skel-rows" aria-hidden="true"><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div></div></div></div>
         <div class="chart-box"><h4>🚀 后台全量并发巡检与一键清空</h4>
           <div class="form-row" style="margin:0">
             <div class="form-group"><label>来源过滤 (自动跳过磁力)</label><select id="dlSourceFilter" onchange="loadDeadlinkStats()"><option value="">全部网盘来源</option></select></div>
@@ -611,7 +622,7 @@ tr:hover td{background:rgba(255,255,255,0.02)}
           <button class="btn btn-r btn-s" onclick="cleanupSearchLogs()">清理过期</button>
         </div>
       </div>
-      <div class="chart-box" style="margin-bottom:16px"><h4>热门搜索 Top 10</h4><div class="pie-list" id="hotSearchList"><div class="empty">加载中…</div></div></div>
+      <div class="chart-box" style="margin-bottom:16px"><h4>热门搜索 Top 10</h4><div class="pie-list" id="hotSearchList"><div class="skel-rows" aria-hidden="true"><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div></div></div></div>
       <div class="tbl-wrap">
         <table><thead><tr><th>ID</th><th>关键词</th><th>用户</th><th>IP</th><th>时间</th><th>操作</th></tr></thead><tbody id="searchlogTbl"><tr><td colspan="6" class="empty">加载中…</td></tr></tbody></table>
       </div>
@@ -903,6 +914,18 @@ function renderGrowth(g){
   }
 }
 
+function fmtAxisDate(s){
+  if(!s) return '';
+  s = String(s).trim();
+  // YYYY-MM-DD / YYYY/MM/DD -> MM-dd
+  var m = s.match(/(\d{4})[\-\/](\d{1,2})[\-\/](\d{1,2})/);
+  if(m) return m[2].padStart(2,'0') + '-' + m[3].padStart(2,'0');
+  // 英文日期 "Oct 16, 2026" / "Thu, 16 Oct 2026" 等 -> MM-dd
+  var d = new Date(s);
+  if(!isNaN(d.getTime())) return String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+  // 兜底：原 slice 逻辑
+  return s.length > 5 ? s.slice(-5) : s;
+}
 function renderTrendChart(res,searches){
   const el=document.getElementById('trendChart'); if(!res.length&&!searches.length){el.innerHTML='<div class="empty">暂无数据</div>';return}
   const dates=new Set(); res.forEach(r=>dates.add(r.date)); searches.forEach(s=>dates.add(s.date));
@@ -910,10 +933,12 @@ function renderTrendChart(res,searches){
   const rdata=labels.map(d=>(res.find(x=>x.date===d)||{}).count||0);
   const sdata=labels.map(d=>(searches.find(x=>x.date===d)||{}).count||0);
   const max=Math.max(...rdata,...sdata,1);
+  const showEvery = labels.length > 10 ? 2 : 1;
   el.innerHTML='<div style="display:flex;justify-content:space-between;font-size:0.7rem;color:var(--text-muted);margin-bottom:4px"><span>入库</span><span>搜索</span></div>'+
     '<div class="mini-bar" style="height:140px">'+rdata.map((v,i)=>{
       const h1=Math.round(v/max*100); const h2=Math.round(sdata[i]/max*100);
-      return '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px"><div style="width:6px;background:var(--green);border-radius:2px 2px 0 0;height:'+h1+'%"></div><div style="width:6px;background:var(--amber);border-radius:2px 2px 0 0;height:'+h2+'%"></div><div style="font-size:0.55rem;color:var(--text-muted);transform:rotate(-45deg);margin-top:8px;white-space:nowrap">'+labels[i].slice(5)+'</div></div>';
+      const lbl = (i % showEvery === 0) ? fmtAxisDate(labels[i]) : '';
+      return '<div style="flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:2px"><div style="width:6px;background:var(--green);border-radius:2px 2px 0 0;height:'+h1+'%"></div><div style="width:6px;background:var(--amber);border-radius:2px 2px 0 0;height:'+h2+'%"></div><div style="font-size:0.55rem;color:var(--text-muted);transform:rotate(-45deg);margin-top:8px;white-space:nowrap">'+lbl+'</div></div>';
     }).join('')+'</div>';
 }
 

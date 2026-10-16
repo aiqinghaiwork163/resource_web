@@ -3621,48 +3621,43 @@ html, body {
   filter: blur(65px);
   transform: translateZ(0); /* 开启硬件加速 */
   mix-blend-mode: screen;
-  animation: orbDrift 20s ease-in-out infinite alternate, orbHueCycle 14s linear infinite;
+  animation: orbDrift 20s ease-in-out infinite alternate;
 }
 .glass-orb-indigo {
   width: 650px; height: 650px;
   background: radial-gradient(circle, rgba(99, 102, 241, 0.95) 0%, rgba(99, 102, 241, 0.6) 45%, transparent 75%);
   top: -100px; left: 8%;
-  opacity: 0.9;
+  opacity: 0.4;
 }
 .glass-orb-cyan {
   width: 580px; height: 580px;
   background: radial-gradient(circle, rgba(6, 182, 212, 0.9) 0%, rgba(6, 182, 212, 0.5) 45%, transparent 75%);
   top: 60px; right: 8%;
-  opacity: 0.9;
-  animation-duration: 22s, 14s;
-  animation-delay: -5s, -3.5s;
+  opacity: 0.4;
+  animation-duration: 22s;
+  animation-delay: -5s;
 }
 .glass-orb-rose {
   width: 540px; height: 540px;
   background: radial-gradient(circle, rgba(244, 63, 94, 0.9) 0%, rgba(244, 63, 94, 0.55) 45%, transparent 75%);
   top: 240px; left: 32%;
-  opacity: 0.85;
-  animation-duration: 26s, 14s;
-  animation-delay: -10s, -7s;
+  opacity: 0.4;
+  animation-duration: 26s;
+  animation-delay: -10s;
 }
 .glass-orb-amber {
   width: 480px; height: 480px;
   background: radial-gradient(circle, rgba(168, 85, 247, 0.85) 0%, rgba(168, 85, 247, 0.5) 45%, transparent 75%);
   top: 480px; right: 25%;
-  opacity: 0.8;
-  animation-duration: 24s, 14s;
-  animation-delay: -15s, -10.5s;
+  opacity: 0.4;
+  animation-duration: 24s;
+  animation-delay: -15s;
 }
 
 @keyframes orbDrift {
   0%   { transform: translate3d(0, 0, 0) scale(1); }
   50%  { transform: translate3d(40px, 30px, 0) scale(1.08); }
   100% { transform: translate3d(-30px, -25px, 0) scale(0.94); }
-}
-
-@keyframes orbHueCycle {
-  0%   { filter: blur(65px) hue-rotate(0deg); }
-  100% { filter: blur(65px) hue-rotate(360deg); }
 }
 
 /* 隐藏旧版暗黑遮罩，使背景流动光晕彻底透出 */
@@ -3853,9 +3848,9 @@ html, body {
 /* 8. 移动端 GPU 优化降级 */
 @media (max-width: 768px) {
   .glass-orb {
-    animation: orbHueCycle 32s linear infinite !important;
+    animation: orbDrift 20s ease-in-out infinite alternate !important;
     filter: blur(50px) !important;
-    opacity: 0.6 !important;
+    opacity: 0.4 !important;
   }
   .archive-hero, .home-search-box, .header, .resource-card {
     backdrop-filter: blur(16px) saturate(150%) !important;
@@ -3957,6 +3952,9 @@ html, body {
         </div>
       </div>
 
+      <div class="section-header poster-wall-head">
+        <h2 class="section-title">本周热门影视</h2>
+      </div>
       <div id="posterWallGrid" class="poster-wall-masonry"></div>
       <div class="card-grid" id="resourceGrid" style="display:none"></div>
     </div>
@@ -4000,30 +3998,30 @@ html, body {
         <div>
           <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:14px;">发现</div>
           <div style="display:flex;flex-direction:column;gap:10px;">
-            <a href="javascript:void(0)" onclick="setHomeChip(null,'movie')" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">热门电影</a>
-            <a href="javascript:void(0)" onclick="setHomeChip(null,'tv')" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">热播剧集</a>
-            <a href="javascript:void(0)" onclick="setHomeChip(null,'anime')" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">动漫番剧</a>
-            <a href="javascript:void(0)" onclick="setHomeChip(null,'top_rated')" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">高分经典</a>
+            <a href="javascript:void(0)" onclick="setHomeChip(null,'movie')" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">热门电影</a>
+            <a href="javascript:void(0)" onclick="setHomeChip(null,'tv')" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">热播剧集</a>
+            <a href="javascript:void(0)" onclick="setHomeChip(null,'anime')" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">动漫番剧</a>
+            <a href="javascript:void(0)" onclick="setHomeChip(null,'top_rated')" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">高分经典</a>
           </div>
         </div>
         <div>
           <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:14px;">服务与支持</div>
           <div style="display:flex;flex-direction:column;gap:10px;">
             <div id="footerTgLinks" style="display:none;flex-direction:column;gap:10px;">
-              <a href="https://t.me/tg38haokuangchang_bot" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">TG 搜片机器人</a>
-              <a href="https://t.me/heikuangchang" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">官方频道 @heikuangchang</a>
-              <a href="https://t.me/heikuangchangshare" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">交流大群 @heikuangchangshare</a>
+              <a href="https://t.me/tg38haokuangchang_bot" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">TG 搜片机器人</a>
+              <a href="https://t.me/heikuangchang" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">官方频道 @heikuangchang</a>
+              <a href="https://t.me/heikuangchangshare" target="_blank" rel="noopener" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">交流大群 @heikuangchangshare</a>
             </div>
-            <a href="/profile" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">个人中心 · 每日签到</a>
-            <a href="/profile" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">关键词监控订阅</a>
+            <a href="/profile" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">个人中心 · 每日签到</a>
+            <a href="/profile" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">关键词监控订阅</a>
           </div>
         </div>
         <div>
           <div style="font-size:14px;font-weight:600;color:#fff;margin-bottom:14px;">规则与协议</div>
           <div style="display:flex;flex-direction:column;gap:10px;">
-            <a href="/terms" target="_blank" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">使用条款 & 免责声明</a>
-            <a href="/profile" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">积分流水明细</a>
-            <a href="/terms" target="_blank" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='#fbbf24'" onmouseout="this.style.color='inherit'">公益支持说明</a>
+            <a href="/terms" target="_blank" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">使用条款 & 免责声明</a>
+            <a href="/profile" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">积分流水明细</a>
+            <a href="/terms" target="_blank" style="color:inherit;text-decoration:none;transition:color 0.2s;" onmouseover="this.style.color='var(--accent)'" onmouseout="this.style.color='inherit'">公益支持说明</a>
           </div>
         </div>
       </div>
@@ -4580,7 +4578,7 @@ function renderHeroCarousel(items) {
 
   // 生成dots HTML
   const dotsHtml = items.map((_, i) => `
-    <div class="hero-dot ${i === 0 ? 'active' : ''}" onclick="goToSlide(${i})"></div>
+    <div class="hero-dot ${i === 0 ? 'active' : ''}" role="button" tabindex="0" title="切换到第${i + 1}张" aria-label="轮播图${i + 1}，共${items.length}张" onclick="goToSlide(${i})" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();goToSlide(${i})}"></div>
   `).join('');
 
   // 更新carousel内容
@@ -5184,7 +5182,7 @@ function renderSearchResults(results, total, hasMore) {
               if (q.includes('4K') || q.includes('2160')) has4k = true;
               else if (q.includes('1080')) has1080 = true;
             });
-            const topQuality = has4k ? '4K UHD' : (has1080 ? '1080P' : (g.items[0]?.quality || ''));
+            const topQuality = has4k ? '4K' : (has1080 ? '1080P' : (g.items[0]?.quality || ''));
             const srcPills = Object.keys(srcCounts).slice(0, 4).map(s => {
               const col = getSourceColor(s);
               return `<span class="group-pill" style="color:${col};background:${col}18;border:1px solid ${col}44;">${esc(getSourceName(s))} (${srcCounts[s]})</span>`;
