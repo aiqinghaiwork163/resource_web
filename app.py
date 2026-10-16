@@ -90,6 +90,9 @@ def add_gzip(response):
         ct = response.content_type or ""
         if not any(t in ct for t in ["json", "html", "javascript", "css", "text"]):
             return response
+        # send_from_directory / 流式响应处于 direct passthrough 模式，get_data() 会抛 RuntimeError
+        if response.direct_passthrough or response.is_streamed:
+            return response
         data = response.get_data()
         if len(data) < 500:
             return response
@@ -134,7 +137,12 @@ def cache_static(response):
     if request.path.startswith("/login"):
         return response
     if response.status_code == 200 and not response.headers.get("Cache-Control"):
-        response.headers["Cache-Control"] = "public, max-age=300"
+        ct = response.content_type or ""
+        if "html" in ct:
+            # HTML 入口文件用协商缓存：部署新版后用户即时生效，避免 300 秒旧界面
+            response.headers["Cache-Control"] = "no-cache"
+        else:
+            response.headers["Cache-Control"] = "public, max-age=300"
     return response
 
 

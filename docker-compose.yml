@@ -63,6 +63,11 @@ services:
   deadlink-celery-extract:
     build: .
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
     env_file:
       - .env
     environment:
@@ -112,6 +117,11 @@ services:
   deadlink-celery-check:
     build: .
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
     deploy:
       replicas: 1
     env_file:
@@ -164,6 +174,11 @@ services:
   deadlink-celery-write:
     build: .
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
     env_file:
       - .env
     environment:
@@ -212,6 +227,11 @@ services:
     image: redis:7-alpine
     container_name: resource_web_redis
     restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
     # Celery broker 任务无过期时间，使用 volatile-lru 仅淘汰带过期的图片/API缓存，防止 OOM
     command: >
       redis-server
