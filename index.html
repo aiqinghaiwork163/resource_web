@@ -14,7 +14,7 @@
 <link rel="alternate icon" href="/favicon.ico">
 <link rel="apple-touch-icon" href="/favicon.svg">
 <link rel="manifest" href="/manifest.webmanifest">
-<link rel="stylesheet" href="/static/home-enhance.css?v=20260818f">
+<link rel="stylesheet" href="/static/home-enhance.css?v=20261012_glass_v3">
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -48,62 +48,57 @@
 }
 
 :root {
-  --bg: #000000;
-  --bg-deep: #000000;
-  --bg-surface: #0a0a0a;
-  --bg-card: #121212;
-  --bg-card-hover: #1a1a1a;
-  --surface: rgba(255, 255, 255, 0.04);
-  --surface-hover: rgba(255, 255, 255, 0.08);
-  --bg-glass: rgba(0, 0, 0, 0.82);
+  --bg: #090d16;
+  --bg-deep: #070a12;
+  --bg-surface: #0e1422;
+  --bg-card: rgba(255, 255, 255, 0.03);
+  --bg-card-hover: rgba(255, 255, 255, 0.06);
+  --surface: rgba(255, 255, 255, 0.03);
+  --surface-hover: rgba(255, 255, 255, 0.06);
+  --bg-glass: rgba(9, 13, 22, 0.82);
 
-  --green: #fbbf24;
-  --green-dim: #d97706;
-  --green-glow: rgba(251, 191, 36, 0.28);
-  --amber: #e5e7eb;
-  --amber-dim: #9ca3af;
-  --amber-glow: rgba(229, 231, 235, 0.12);
-  --red: #f87171;
-  --red-dim: #ef4444;
+  --accent: #38bdf8;
+  --accent-dim: #0284c7;
+  --accent-glow: rgba(56, 189, 248, 0.25);
+  --success: #34d399;
+  --success-dim: #059669;
+  --warning: #fbbf24;
+  --warning-dim: #d97706;
+  --warning-glow: rgba(251, 191, 36, 0.18);
+  --danger: #f87171;
+  --danger-dim: #ef4444;
 
-  --blue: var(--green);
-  --purple: #94a3b8;
-  --pink: #94a3b8;
-  --blue-glow: var(--green-glow);
-  --purple-glow: var(--amber-glow);
-  --gradient: linear-gradient(135deg, #fbbf24, #64748b);
+  --purple: #818cf8;
+  --pink: #f472b6;
+  --purple-glow: rgba(129, 140, 248, 0.2);
+  --gradient: linear-gradient(135deg, #38bdf8, #818cf8);
 
-  --accent-primary: var(--green);
-  --accent-secondary: var(--amber);
-  --accent-green: var(--green);
-  --accent-red: var(--red);
-  --accent-purple: var(--purple);
-  --accent-gold: #fbbf24;
+  --accent-secondary: #818cf8;
 
-  --text-primary: #f5f5f5;
-  --text-secondary: #a3a3a3;
-  --text-muted: #737373;
-  --text: #f5f5f5;
-  --text-dim: #a3a3a3;
-  --text-dimmer: #737373;
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text: #f8fafc;
+  --text-dim: #94a3b8;
+  --text-dimmer: #64748b;
 
-  --border: rgba(255, 255, 255, 0.10);
-  --border-subtle: rgba(255, 255, 255, 0.09);
-  --border-medium: rgba(255, 255, 255, 0.16);
+  --border: rgba(255, 255, 255, 0.08);
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-medium: rgba(255, 255, 255, 0.12);
 
-  --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
   --radius-xl: 20px;
 
-  --font-display: 'Space Grotesk', 'Noto Sans SC', sans-serif;
-  --font-mono: 'Sora', 'Noto Sans SC', sans-serif;
-  --font-body: 'Sora', 'Noto Sans SC', sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "PingFang SC", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, monospace;
+  --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", "PingFang SC", sans-serif;
 
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(251, 191, 36, 0.06);
-  --shadow-hover: 0 2px 0 rgba(255, 255, 255, 0.05), 0 0 0 1px rgba(251, 191, 36, 0.22), 0 16px 40px rgba(251, 191, 36, 0.14), 0 24px 56px rgba(0, 0, 0, 0.65);
-  --shadow-glow: 0 0 0 3px rgba(251, 191, 36, 0.22);
-  --shadow-glow-purple: 0 0 0 3px rgba(148, 163, 184, 0.16);
+  --shadow-card: 0 0 0 1px rgba(0, 0, 0, 0.2), 0 8px 24px -4px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  --shadow-hover: 0 0 0 1px rgba(99, 102, 241, 0.25), 0 16px 32px -8px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  --shadow-glow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+  --shadow-glow-purple: 0 0 0 3px rgba(129, 140, 248, 0.2);
 
   --header-h: 60px;
   --sidebar-w: 220px;
@@ -154,8 +149,8 @@ html, body {
   width: 9px !important;
   height: 9px !important;
   border-radius: 2px;
-  background: var(--green);
-  box-shadow: 0 0 10px var(--green-glow);
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent-glow);
   margin-right: 8px;
   transform: rotate(45deg);
   flex-shrink: 0;
@@ -186,7 +181,7 @@ html, body {
 }
 .sidebar .nav-item.active, .sidebar .nav-item:hover, .sidebar a:hover, .sidebar a.active {
   background: rgba(251, 191, 36, 0.10) !important;
-  color: var(--green) !important;
+  color: var(--accent) !important;
   border-left: none !important;
   box-shadow: none !important;
 }
@@ -195,19 +190,27 @@ html, body {
 }
 
 .search-global, .home-search-box {
-  background: rgba(18, 18, 18, 0.92) !important;
-  border: 1px solid var(--border-medium) !important;
-  box-shadow: var(--shadow-card) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 
+    0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 12px 32px -4px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  border-radius: var(--radius-lg) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
   font-family: var(--font-body) !important;
-  border-radius: 999px !important;
+  padding: 8px 8px 8px 18px !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 .search-global input, .home-search-box input {
   background: transparent !important;
   color: var(--text-primary) !important;
-  caret-color: var(--green);
+  caret-color: var(--accent);
   font-family: var(--font-body) !important;
   font-weight: 400 !important;
   text-shadow: none !important;
+  font-size: 14px !important;
 }
 .search-global input::placeholder, .home-search-box input::placeholder {
   color: var(--text-muted) !important;
@@ -217,31 +220,122 @@ html, body {
   box-shadow: none !important;
 }
 .home-search-box:focus-within,
-.search-global:focus-within {
-  border-color: var(--green) !important;
-  box-shadow: var(--shadow-glow), var(--shadow-card) !important;
-  transform: scale(1.01);
-  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s ease, border-color 0.25s ease;
+.search-global:focus-within,
+.home-search-box:hover,
+.search-global:hover {
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  box-shadow: 
+    0 0 0 1px rgba(99, 102, 241, 0.2),
+    0 16px 40px -8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-1px) !important;
 }
 .search-global::before, .home-search-box .home-search-icon {
-  color: var(--green) !important;
+  color: var(--text-muted) !important;
   text-shadow: none !important;
 }
-.search-btn, .home-search-btn {
-  background: var(--green) !important;
-  color: #fff !important;
-  border: none !important;
+
+/* Linear 顶级主操作按钮 */
+.home-search-btn {
+  background: #f8fafc !important;
+  color: #090d16 !important;
   font-family: var(--font-body) !important;
   font-weight: 600 !important;
-  text-transform: none;
-  letter-spacing: 0.02em;
-  box-shadow: none !important;
-  border-radius: 999px !important;
+  font-size: 13px !important;
+  letter-spacing: -0.01em !important;
+  border-radius: var(--radius-md) !important;
+  padding: 9px 22px !important;
+  border: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  user-select: none;
 }
-.search-btn:hover, .home-search-btn:hover {
-  background: var(--green-dim) !important;
+.home-search-btn:hover {
+  background: #ffffff !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 
+    0 2px 4px rgba(0, 0, 0, 0.2),
+    0 8px 20px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 1) !important;
+}
+.home-search-btn:active {
+  transform: scale(0.98) !important;
+}
+
+/* Header Login / Nav Buttons - Linear Ghost Button */
+#headerLoginBtn, .btn-ghost, a.btn, .btn {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: var(--text-secondary) !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  border-radius: var(--radius-sm) !important;
+  padding: 6px 14px !important;
+  box-shadow: 
+    0 1px 2px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(12px) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+#headerLoginBtn:hover, .btn-ghost:hover, a.btn:hover, .btn:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.16) !important;
+  color: var(--text-primary) !important;
+  transform: translateY(-1px) !important;
+  box-shadow: 
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+}
+#headerLoginBtn:active, .btn-ghost:active, a.btn:active, .btn:active {
+  transform: scale(0.98) !important;
+}
+
+/* Global Header Search Btn */
+.search-btn {
+  background: transparent !important;
+  border: none !important;
+  color: var(--text-muted) !important;
   box-shadow: none !important;
-  filter: none;
+  border-radius: var(--radius-sm) !important;
+  transition: all 0.2s ease !important;
+}
+.search-btn:hover {
+  color: var(--text-primary) !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+.search-btn:active {
+  transform: scale(0.95) !important;
+}
+
+/* Dynamic Tag Pills Below Search Box */
+.home-search-suggestions .home-hot-chip,
+.home-search-suggestions .home-pill,
+.home-search-suggestions .suggestion-tag,
+.home-search-suggestions a,
+.home-search-suggestions span {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.07) !important;
+  color: var(--text-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  border-radius: 999px !important;
+  padding: 5px 12px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  cursor: pointer !important;
+}
+.home-search-suggestions .home-hot-chip:hover,
+.home-search-suggestions .home-pill:hover,
+.home-search-suggestions .suggestion-tag:hover,
+.home-search-suggestions a:hover {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(99, 102, 241, 0.35) !important;
+  color: var(--text-primary) !important;
+  transform: translateY(-1px) !important;
 }
 
 main, .main, #main, .content {
@@ -267,7 +361,7 @@ main, .main, #main, .content {
   content: none !important;
 }
 .section-header .action, .section-header .btn {
-  color: var(--green) !important;
+  color: var(--accent) !important;
   border: 1px solid var(--border-medium) !important;
   background: var(--bg-card) !important;
   font-family: var(--font-body) !important;
@@ -279,7 +373,7 @@ main, .main, #main, .content {
 }
 .section-header .action:hover, .section-header .btn:hover {
   background: rgba(251, 191, 36, 0.08) !important;
-  border-color: var(--green) !important;
+  border-color: var(--accent) !important;
   box-shadow: none !important;
 }
 
@@ -324,11 +418,11 @@ main, .main, #main, .content {
   letter-spacing: 0;
 }
 .card-rating {
-  color: var(--green) !important;
+  color: var(--accent) !important;
   border: 1px solid rgba(251, 191, 36, 0.25);
   background: rgba(251, 191, 36, 0.06) !important;
   text-shadow: none !important;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .card-quality {
   color: var(--text-secondary) !important;
@@ -354,7 +448,7 @@ main, .main, #main, .content {
 .stat-card {
   background: var(--bg-card) !important;
   border: 1px solid var(--border-subtle) !important;
-  border-top: 2px solid var(--green) !important;
+  border-top: 2px solid var(--accent) !important;
   font-family: var(--font-body) !important;
   border-radius: var(--radius-lg) !important;
 }
@@ -420,12 +514,12 @@ button, .btn {
 .toast::before { content: none !important; }
 
 a {
-  color: var(--green) !important;
+  color: var(--accent) !important;
   text-decoration: none !important;
   text-shadow: none !important;
 }
 a:hover {
-  color: var(--green-dim) !important;
+  color: var(--accent-dim) !important;
   text-shadow: none !important;
 }
 
@@ -484,7 +578,7 @@ a:hover {
 .archive-hero-tile {
   position: relative;
   z-index: 1;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   min-height: 0;
   aspect-ratio: 2 / 3;
@@ -524,7 +618,7 @@ a:hover {
   font-size: 0.72rem;
   letter-spacing: 0.22em;
   text-transform: uppercase;
-  color: var(--green);
+  color: var(--accent);
   font-weight: 600;
   margin-bottom: 14px;
 }
@@ -595,7 +689,7 @@ a:hover {
   overflow: hidden;
 }
 .hero-feature:hover .hero-feature-title {
-  color: var(--green);
+  color: var(--accent);
 }
 
 /* MoviePilot 风格精选：类型 · 标题 · 简介 */
@@ -638,7 +732,7 @@ a:hover {
   overflow: hidden;
 }
 .featured-spotlight:hover .featured-title {
-  color: var(--green);
+  color: var(--accent);
 }
 
 .archive-hero .home-search-box {
@@ -663,8 +757,8 @@ a:hover {
   border-radius: 999px !important;
 }
 .home-search-suggestions .chip:hover, .suggestion-chip:hover, .suggestion-tag:hover {
-  border-color: var(--green) !important;
-  color: var(--green) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
   box-shadow: none !important;
   background: rgba(251, 191, 36, 0.12) !important;
 }
@@ -684,8 +778,8 @@ a:hover {
 }
 .filter-chip.active, .filter-chip:hover {
   background: rgba(251, 191, 36, 0.12) !important;
-  border-color: var(--green) !important;
-  color: var(--green) !important;
+  border-color: var(--accent) !important;
+  color: var(--accent) !important;
   box-shadow: none !important;
 }
 
@@ -880,8 +974,8 @@ input, select {
 /* v20260807_165500: NovaMind logo */
 .logo-icon {
   width: 32px; height: 32px;
-  background: linear-gradient(135deg, var(--blue), var(--purple));
-  border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--purple));
+  border-radius: var(--radius-sm);
   display: grid;
   place-items: center;
   font-size: 16px;
@@ -928,8 +1022,8 @@ input, select {
   right: 4px; top: 50%;
   transform: translateY(-50%);
   width: 34px; height: 34px;
-  border-radius: 10px;
-  background: linear-gradient(135deg, var(--blue), var(--purple));
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--accent), var(--purple));
   color: #06060e;
   display: grid;
   place-items: center;
@@ -975,7 +1069,7 @@ input, select {
 }
 .user-chip .btn-switch {
   border-color: rgba(251, 191, 36, 0.28);
-  color: var(--green);
+  color: var(--accent);
   background: rgba(251, 191, 36, 0.06);
 }
 .user-chip .btn-switch:hover {
@@ -997,7 +1091,7 @@ input, select {
 .header-stat .dot {
   width: 6px; height: 6px;
   border-radius: 50%;
-  background: var(--accent-green);
+  background: var(--success);
   box-shadow: 0 0 6px rgba(63, 185, 80, 0.5);
 }
 
@@ -1020,7 +1114,7 @@ input, select {
   margin: 0 auto;
   padding: 11px 14px 11px 16px;
   border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   background: rgba(12, 12, 12, 0.78);
 }
 .ann-kicker {
@@ -1028,7 +1122,7 @@ input, select {
   font-size: 0.66rem;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--green);
+  color: var(--accent);
   font-weight: 650;
   white-space: nowrap;
 }
@@ -1040,17 +1134,17 @@ input, select {
   font-weight: 400;
 }
 .ann-copy a {
-  color: var(--green);
+  color: var(--accent);
   text-decoration: none;
   border-bottom: 1px solid rgba(251, 191, 36, 0.35);
 }
-.ann-copy a:hover { color: var(--green-dim) !important; }
+.ann-copy a:hover { color: var(--accent-dim) !important; }
 .ann-close {
   width: 28px;
   height: 28px;
   margin: -2px -4px 0 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   cursor: pointer;
@@ -1071,7 +1165,7 @@ input, select {
 .avatar-btn {
   width: 34px; height: 34px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--blue), var(--purple));
+  background: linear-gradient(135deg, var(--accent), var(--purple));
   font-size: 0.8rem;
   font-weight: 700;
   display: grid;
@@ -1134,8 +1228,8 @@ input, select {
 /* v20260807_165500: NovaMind 侧栏激活项 */
 .nav-item.active {
   background: rgba(251, 191, 36, 0.08);
-  color: var(--blue);
-  border-left: 2px solid var(--blue);
+  color: var(--accent);
+  border-left: 2px solid var(--accent);
 }
 
 /* 左侧蓝色描边由 .nav-item.active 的 border-left 提供 */
@@ -1152,9 +1246,9 @@ input, select {
   margin-left: auto;
   font-size: 0.7rem;
   padding: 2px 7px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: rgba(251, 191, 36, 0.12);
-  color: var(--blue);
+  color: var(--accent);
   font-family: var(--font-mono);
   font-weight: 600;
 }
@@ -1285,7 +1379,7 @@ input, select {
 }
 
 .home-search-box:focus-within .home-search-icon {
-  color: var(--blue);
+  color: var(--accent);
   filter: drop-shadow(0 0 6px rgba(251, 191, 36, 0.55));
 }
 
@@ -1310,7 +1404,7 @@ input, select {
 .home-search-btn {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--blue), var(--purple));
+  background: linear-gradient(135deg, var(--accent), var(--purple));
   color: #06060e;
   border: none;
   padding: 11px 28px;
@@ -1378,7 +1472,7 @@ input, select {
 .suggestion-tag:hover {
   background: rgba(251, 191, 36, 0.08);
   border-color: rgba(251, 191, 36, 0.4);
-  color: var(--blue);
+  color: var(--accent);
   box-shadow: 0 0 16px rgba(251, 191, 36, 0.15);
 }
 
@@ -1474,7 +1568,7 @@ input, select {
   font-size: 0.7rem;
   text-transform: uppercase;
   letter-spacing: 0.15em;
-  color: var(--blue);
+  color: var(--accent);
   font-weight: 700;
   margin-bottom: 12px;
   font-family: var(--font-mono);
@@ -1509,7 +1603,7 @@ input, select {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--blue);
+  color: var(--accent);
   font-weight: 700;
   font-family: var(--font-mono);
   text-shadow: 0 0 8px rgba(251, 191, 36, 0.3);
@@ -1551,10 +1645,10 @@ input, select {
 }
 
 .hero-dot.active {
-  background: var(--blue);
+  background: var(--accent);
   width: 28px;
   border-radius: 2px;
-  box-shadow: 0 0 12px var(--blue-glow);
+  box-shadow: 0 0 12px var(--accent-glow);
 }
 
 /* ============================================
@@ -1573,7 +1667,7 @@ input, select {
 }
 
 .btn-primary {
-  background: var(--blue);
+  background: var(--accent);
   color: var(--bg-deep);
   font-weight: 600;
 }
@@ -1592,8 +1686,8 @@ input, select {
 
 .btn-ghost:hover {
   background: rgba(251, 191, 36, 0.08);
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 a.btn {
@@ -1643,7 +1737,7 @@ a.btn {
 
 .filter-chip {
   padding: 7px 16px;
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
   font-size: 0.8rem;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
@@ -1660,7 +1754,7 @@ a.btn {
 .filter-chip.active {
   background: rgba(228, 168, 83, 0.12);
   border-color: rgba(228, 168, 83, 0.3);
-  color: var(--blue);
+  color: var(--accent);
   font-weight: 500;
 }
 
@@ -1688,8 +1782,8 @@ a.btn {
   background-size: 200% 100%;
   animation: shimmer 1.5s linear infinite;
   border: 1px solid rgba(10,107,92,0.2);
-  border-radius: 10px;
-  color: var(--blue, #00d4ff);
+  border-radius: var(--radius-md);
+  color: var(--accent, #00d4ff);
   font-size: 0.85rem;
   font-weight: 500;
 }
@@ -1716,7 +1810,7 @@ a.btn {
 .skeleton-line {
   height: 12px;
   background: rgba(255,255,255,0.06);
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
 }
 .skeleton-line.w-70 { width: 70%; }
 .skeleton-line.w-40 { width: 40%; }
@@ -1741,7 +1835,7 @@ a.btn {
   width: 14px;
   height: 14px;
   border: 2px solid rgba(10,107,92,0.25);
-  border-top-color: var(--blue);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 }
@@ -1785,7 +1879,7 @@ a.btn {
   justify-content: center;
   font-size: 2rem;
   font-weight: 700;
-  color: var(--blue);
+  color: var(--accent);
   background:
     radial-gradient(circle at center,
       rgba(251, 191, 36, 0.05) 0%,
@@ -1817,7 +1911,7 @@ a.btn {
   display: flex;
   align-items: center;
   gap: 4px;
-  color: var(--blue);
+  color: var(--accent);
   font-family: var(--font-mono);
   border: 1px solid rgba(251, 191, 36, 0.25);
 }
@@ -1825,10 +1919,10 @@ a.btn {
 .card-poster .card-quality {
   position: absolute;
   bottom: 10px; right: 10px;
-  background: linear-gradient(135deg, var(--blue), var(--purple));
+  background: linear-gradient(135deg, var(--accent), var(--purple));
   color: #06060e;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1863,7 +1957,7 @@ a.btn {
   cursor: pointer;
   border: none;
   background: transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 /* v20260807_165200: NovaMind 海报墙卡片 */
@@ -1879,7 +1973,7 @@ a.btn {
   width: 100%;
   aspect-ratio: 2 / 3;
   overflow: hidden;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: var(--bg-card);
 }
 
@@ -1901,10 +1995,10 @@ a.btn {
   right: 8px;
   padding: 3px 8px;
   background: rgba(6, 6, 14, 0.8);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.7rem;
   font-weight: 700;
-  color: var(--blue);
+  color: var(--accent);
   font-family: var(--font-mono);
   backdrop-filter: blur(4px);
   border: 1px solid rgba(251, 191, 36, 0.2);
@@ -1978,7 +2072,7 @@ a.btn {
   font-weight: 600;
   color: #04110e;
   padding: 4px 10px;
-  background: var(--green);
+  background: var(--accent);
   border-radius: 999px;
   font-family: var(--font-body);
   letter-spacing: 0.02em;
@@ -2017,7 +2111,7 @@ a.btn {
 /* 海报墙骨架 */
 .poster-skel {
   aspect-ratio: 2 / 3;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   background: linear-gradient(90deg, var(--bg-card) 25%, rgba(255,255,255,0.06) 50%, var(--bg-card) 75%);
   background-size: 200% 100%;
   animation: skeleton-pulse 1.4s ease-in-out infinite;
@@ -2144,15 +2238,15 @@ a.btn {
 .tag {
   font-size: 0.68rem;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   background: rgba(255,255,255,0.04);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
 }
 
 .tag.blue { color: var(--accent-secondary); border-color: rgba(88,166,255,0.2); background: rgba(88,166,255,0.06); }
-.tag.green { color: var(--accent-green); border-color: rgba(63,185,80,0.2); background: rgba(63,185,80,0.06); }
-.tag.highlight { color: var(--blue); border-color: rgba(10,107,92,0.2); background: rgba(10,107,92,0.06); }
+.tag.green { color: var(--success); border-color: rgba(63,185,80,0.2); background: rgba(63,185,80,0.06); }
+.tag.highlight { color: var(--accent); border-color: rgba(10,107,92,0.2); background: rgba(10,107,92,0.06); }
 
 .result-actions {
   display: flex;
@@ -2188,10 +2282,10 @@ a.btn {
   height: 3px;
 }
 
-.stat-card:nth-child(1)::before { background: var(--blue); }
+.stat-card:nth-child(1)::before { background: var(--accent); }
 .stat-card:nth-child(2)::before { background: var(--accent-secondary); }
-.stat-card:nth-child(3)::before { background: var(--accent-green); }
-.stat-card:nth-child(4)::before { background: var(--accent-purple); }
+.stat-card:nth-child(3)::before { background: var(--success); }
+.stat-card:nth-child(4)::before { background: var(--accent-secondary); }
 
 .stat-label {
   font-size: 0.75rem;
@@ -2216,8 +2310,8 @@ a.btn {
   gap: 4px;
 }
 
-.stat-change.up { color: var(--accent-green); }
-.stat-change.down { color: var(--accent-red); }
+.stat-change.up { color: var(--success); }
+.stat-change.down { color: var(--danger); }
 
 /* Table */
 .data-table-wrapper {
@@ -2280,14 +2374,14 @@ tbody tr:last-child td {
   align-items: center;
   gap: 5px;
   padding: 4px 10px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   font-size: 0.72rem;
   font-weight: 500;
 }
 
-.status-badge.success { background: rgba(63,185,80,0.1); color: var(--accent-green); }
-.status-badge.pending { background: rgba(10,107,92,0.1); color: var(--blue); }
-.status-badge.error { background: rgba(248,81,73,0.1); color: var(--accent-red); }
+.status-badge.success { background: rgba(63,185,80,0.1); color: var(--success); }
+.status-badge.pending { background: rgba(10,107,92,0.1); color: var(--accent); }
+.status-badge.error { background: rgba(248,81,73,0.1); color: var(--danger); }
 .status-badge.info { background: rgba(88,166,255,0.1); color: var(--accent-secondary); }
 
 /* ============================================
@@ -2319,8 +2413,8 @@ tbody tr:last-child td {
 }
 
 .queue-icon.downloading { background: rgba(88,166,255,0.1); color: var(--accent-secondary); }
-.queue-icon.queued { background: rgba(10,107,92,0.1); color: var(--blue); }
-.queue-icon.done { background: rgba(63,185,80,0.1); color: var(--accent-green); }
+.queue-icon.queued { background: rgba(10,107,92,0.1); color: var(--accent); }
+.queue-icon.done { background: rgba(63,185,80,0.1); color: var(--success); }
 
 .queue-info { flex: 1; min-width: 0; }
 
@@ -2354,7 +2448,7 @@ tbody tr:last-child td {
   transition: width 0.5s ease;
 }
 
-.progress-fill.done { background: var(--accent-green); }
+.progress-fill.done { background: var(--success); }
 
 /* ============================================
    ADMIN LOG VIEWER
@@ -2379,8 +2473,8 @@ tbody tr:last-child td {
 .log-time { color: var(--text-muted); flex-shrink: 0; }
 .log-level { flex-shrink: 0; font-weight: 500; }
 .log-level.info { color: var(--accent-secondary); }
-.log-level.warn { color: var(--blue); }
-.log-level.error { color: var(--accent-red); }
+.log-level.warn { color: var(--accent); }
+.log-level.error { color: var(--danger); }
 .log-msg { color: var(--text-secondary); word-break: break-all; }
 
 /* ============================================
@@ -2529,8 +2623,8 @@ tbody tr:last-child td {
   min-width: 280px;
 }
 
-.toast.success { border-left: 3px solid var(--accent-green); }
-.toast.error   { border-left: 3px solid var(--accent-red); }
+.toast.success { border-left: 3px solid var(--success); }
+.toast.error   { border-left: 3px solid var(--danger); }
 .toast.info    { border-left: 3px solid var(--accent-secondary); }
 
 @keyframes toastIn {
@@ -2564,7 +2658,7 @@ tbody tr:last-child td {
   }
   .hero-carousel { 
     height: 220px; 
-    border-radius: 12px;
+    border-radius: var(--radius-md);
     overflow: hidden;
   }
   .hero-info { max-width: 95%; padding: 16px; }
@@ -2589,7 +2683,7 @@ tbody tr:last-child td {
   .card-rating { font-size: 0.72rem; padding: 3px 7px; }
   .card-placeholder { font-size: 0.8rem; }
   .filter-bar { gap: 6px; flex-wrap: nowrap; overflow-x: auto; padding: 2px 0; }
-  .filter-chip { padding: 6px 14px; font-size: 0.78rem; white-space: nowrap; border-radius: 20px; }
+  .filter-chip { padding: 6px 14px; font-size: 0.78rem; white-space: nowrap; border-radius: var(--radius-xl); }
   .section-header { margin-bottom: 12px; }
   .hero-dots { bottom: 12px; right: 12px; gap: 6px; }
   .hero-dot { width: 8px; height: 8px; }
@@ -2663,7 +2757,7 @@ tbody tr:last-child td {
   width: 18px;
   height: 18px;
   border: 2px solid rgba(251, 191, 36, 0.15);
-  border-top-color: var(--green);
+  border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -2675,7 +2769,7 @@ tbody tr:last-child td {
 }
 .search-loading-label em {
   font-style: normal;
-  color: var(--green);
+  color: var(--accent);
   font-weight: 600;
 }
 .search-skel-row {
@@ -2687,7 +2781,7 @@ tbody tr:last-child td {
   min-height: 148px;
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   box-shadow: none;
 }
 .search-skel-thumb {
@@ -2708,7 +2802,7 @@ tbody tr:last-child td {
 }
 .search-skel-line {
   height: 11px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: linear-gradient(110deg, #161616 25%, #222 40%, #161616 55%);
   background-size: 200% 100%;
   animation: searchSkelShimmer 1.35s ease-in-out infinite;
@@ -2761,7 +2855,7 @@ tbody tr:last-child td {
 
 /* v20260817: Pure Black polish */
 .avatar-btn {
-  background: var(--green) !important;
+  background: var(--accent) !important;
   color: #000 !important;
   border: none !important;
   box-shadow: none !important;
@@ -2778,7 +2872,7 @@ tbody tr:last-child td {
   border-radius: 50%;
   display: grid; place-items: center;
   background: rgba(45,212,191,0.10);
-  color: var(--green);
+  color: var(--accent);
   font-size: 1.4rem !important;
   opacity: 1 !important;
 }
@@ -2831,7 +2925,7 @@ tbody tr:last-child td {
   color: var(--text-primary);
 }
 .search-toolbar-count em {
-  color: var(--green);
+  color: var(--accent);
   font-style: normal;
   font-family: var(--font-display);
 }
@@ -2847,7 +2941,7 @@ tbody tr:last-child td {
   border: 1px solid var(--border-medium);
   color: var(--text-primary);
   padding: 4px 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   cursor: pointer;
 }
@@ -2878,7 +2972,7 @@ tbody tr:last-child td {
   display: inline-flex;
   background: var(--bg-tertiary, rgba(255,255,255,0.05));
   border: 1px solid var(--border-subtle, rgba(255,255,255,0.1));
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 2px;
   gap: 2px;
 }
@@ -2887,7 +2981,7 @@ tbody tr:last-child td {
   border: none;
   color: var(--text-secondary, #888);
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   font-size: 0.75rem;
   font-weight: 500;
   cursor: pointer;
@@ -2937,7 +3031,7 @@ tbody tr:last-child td {
 .group-pill {
   font-size: 0.7rem;
   padding: 2px 7px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-weight: 500;
 }
 .group-pill-count {
@@ -2963,7 +3057,7 @@ tbody tr:last-child td {
   justify-content: space-between;
   padding: 8px 10px;
   background: var(--bg-tertiary, rgba(255,255,255,0.03));
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   gap: 10px;
   font-size: 0.82rem;
 }
@@ -2976,7 +3070,7 @@ tbody tr:last-child td {
 }
 .version-src {
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   font-size: 0.72rem;
   font-weight: 600;
   white-space: nowrap;
@@ -3065,17 +3159,17 @@ tbody tr:last-child td {
   background: var(--bg-card);
   border: 1px solid var(--border-subtle);
   color: var(--text-secondary);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
   font-size: 0.8rem;
 }
 .search-pager button:hover:not(:disabled) {
-  border-color: var(--green);
-  color: var(--green);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 .search-pager button.is-current {
-  background: var(--green);
-  border-color: var(--green);
+  background: var(--accent);
+  border-color: var(--accent);
   color: #04110e;
   font-weight: 600;
 }
@@ -3105,12 +3199,12 @@ tbody tr:last-child td {
 }
 
 :focus-visible {
-  outline: 2px solid var(--green);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 .resource-card:focus-visible {
-  outline: 2px solid var(--green);
+  outline: 2px solid var(--accent);
   outline-offset: 3px;
   box-shadow: 0 0 0 4px rgba(251, 191, 36, 0.22);
 }
@@ -3121,7 +3215,7 @@ tbody tr:last-child td {
 /* ── 复制按钮成功反馈与对勾描边 ── */
 .btn-copy-success {
   background: rgba(251, 191, 36, 0.22) !important;
-  border-color: var(--green) !important;
+  border-color: var(--accent) !important;
   color: #fff !important;
   transform: scale(0.96);
   transition: transform 0.15s cubic-bezier(0.175, 0.885, 0.32, 1.275), background 0.2s ease, border-color 0.2s ease;
@@ -3213,30 +3307,40 @@ tbody tr:last-child td {
 .home-search-box:focus-within .icon-search,
 .search-global:focus-within .icon-search {
   transform: scale(1.15) rotate(-6deg);
-  color: var(--green) !important;
+  color: var(--accent) !important;
   transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
-  filter: drop-shadow(0 0 6px var(--green-glow));
+  filter: drop-shadow(0 0 6px var(--accent-glow));
 }
 .icon-search {
   transition: transform 0.2s ease, color 0.2s ease;
 }
 .search-btn:hover .icon-search {
   transform: scale(1.12);
-  color: var(--green);
+  color: var(--accent);
 }
 
 /* ── 首页大搜索框雷达流光交互 ── */
 .archive-hero .home-search-box {
   position: relative !important;
-  background: rgba(15, 15, 15, 0.88) !important;
-  border: 1px solid rgba(251, 191, 36, 0.28) !important;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7), 0 0 18px rgba(251, 191, 36, 0.12) !important;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 
+    0 0 0 1px rgba(0, 0, 0, 0.25),
+    0 12px 32px -4px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  border-radius: var(--radius-lg) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
 }
 .archive-hero .home-search-box:hover,
 .archive-hero .home-search-box:focus-within {
-  border-color: var(--green) !important;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.85), 0 0 28px rgba(251, 191, 36, 0.26) !important;
+  border-color: rgba(99, 102, 241, 0.4) !important;
+  box-shadow: 
+    0 0 0 1px rgba(99, 102, 241, 0.2),
+    0 16px 40px -8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2) !important;
+  transform: translateY(-1px) !important;
 }
 .home-radar-beacon {
   display: inline-flex;
@@ -3263,7 +3367,7 @@ tbody tr:last-child td {
   font-size: 0.7rem;
   font-weight: 700;
   padding: 2px 7px;
-  border-radius: 99px;
+  border-radius: 999px;
   white-space: nowrap;
   pointer-events: none;
   box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
@@ -3282,7 +3386,7 @@ tbody tr:last-child td {
 }
 .version-row:hover {
   background: rgba(255, 255, 255, 0.04) !important;
-  border-left-color: var(--green) !important;
+  border-left-color: var(--accent) !important;
   transform: translateX(4px) !important;
 }
 .search-card {
@@ -3298,12 +3402,301 @@ tbody tr:last-child td {
 </head>
 
 <body>
+<!-- Apple macOS / Raycast Hub 磨砂拟态全局环境光球 (Ambient Gradient Mesh) -->
+<div id="glassAmbientCanvas" class="glass-ambient-canvas" aria-hidden="true">
+  <div class="glass-orb glass-orb-indigo"></div>
+  <div class="glass-orb glass-orb-cyan"></div>
+  <div class="glass-orb glass-orb-rose"></div>
+  <div class="glass-orb glass-orb-amber"></div>
+</div>
+
+<style>
+/* ============================================================
+   Apple macOS & Raycast Hub — High Polish Glassmorphism
+   ============================================================ */
+:root {
+  --font-apple: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Inter", "PingFang SC", "Hiragino Sans GB", sans-serif;
+}
+
+html, body {
+  background-color: #06080e !important;
+  color: #f1f5f9 !important;
+  font-family: var(--font-apple) !important;
+  -webkit-font-smoothing: antialiased !important;
+  overflow-x: hidden;
+}
+
+#app {
+  background: transparent !important;
+  background-color: transparent !important;
+  position: relative !important;
+  z-index: 2 !important;
+}
+
+/* 1. 环境光球 Canvas */
+.glass-ambient-canvas {
+  position: fixed !important;
+  top: 0; left: 0; right: 0; bottom: 0;
+  width: 100vw; height: 100vh;
+  pointer-events: none !important;
+  z-index: 1 !important;
+  overflow: hidden !important;
+  background-color: #05070c;
+}
+.glass-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(65px);
+  transform: translateZ(0); /* 开启硬件加速 */
+  mix-blend-mode: screen;
+  animation: orbDrift 20s ease-in-out infinite alternate, orbHueCycle 14s linear infinite;
+}
+.glass-orb-indigo {
+  width: 650px; height: 650px;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.95) 0%, rgba(99, 102, 241, 0.6) 45%, transparent 75%);
+  top: -100px; left: 8%;
+  opacity: 0.9;
+}
+.glass-orb-cyan {
+  width: 580px; height: 580px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.9) 0%, rgba(6, 182, 212, 0.5) 45%, transparent 75%);
+  top: 60px; right: 8%;
+  opacity: 0.9;
+  animation-duration: 22s, 14s;
+  animation-delay: -5s, -3.5s;
+}
+.glass-orb-rose {
+  width: 540px; height: 540px;
+  background: radial-gradient(circle, rgba(244, 63, 94, 0.9) 0%, rgba(244, 63, 94, 0.55) 45%, transparent 75%);
+  top: 240px; left: 32%;
+  opacity: 0.85;
+  animation-duration: 26s, 14s;
+  animation-delay: -10s, -7s;
+}
+.glass-orb-amber {
+  width: 480px; height: 480px;
+  background: radial-gradient(circle, rgba(168, 85, 247, 0.85) 0%, rgba(168, 85, 247, 0.5) 45%, transparent 75%);
+  top: 480px; right: 25%;
+  opacity: 0.8;
+  animation-duration: 24s, 14s;
+  animation-delay: -15s, -10.5s;
+}
+
+@keyframes orbDrift {
+  0%   { transform: translate3d(0, 0, 0) scale(1); }
+  50%  { transform: translate3d(40px, 30px, 0) scale(1.08); }
+  100% { transform: translate3d(-30px, -25px, 0) scale(0.94); }
+}
+
+@keyframes orbHueCycle {
+  0%   { filter: blur(65px) hue-rotate(0deg); }
+  100% { filter: blur(65px) hue-rotate(360deg); }
+}
+
+/* 隐藏旧版暗黑遮罩，使背景流动光晕彻底透出 */
+.archive-hero-bg, .archive-hero-veil {
+  display: none !important;
+}
+
+/* 2. 头部导航：macOS 冰霜毛玻璃浮岛 */
+.header {
+  position: sticky !important;
+  top: 14px !important;
+  max-width: 1180px !important;
+  margin: 14px auto 0 !important;
+  border-radius: var(--radius-xl) !important;
+  background: rgba(18, 18, 24, 0.50) !important;
+  backdrop-filter: blur(28px) saturate(200%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(200%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  box-shadow: 
+    0 20px 40px -15px rgba(0, 0, 0, 0.55),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.35) !important;
+  z-index: 100 !important;
+}
+.header-nav a {
+  color: #cbd5e1 !important;
+  font-weight: 500 !important;
+  font-size: 13.5px !important;
+  transition: all 0.2s ease !important;
+}
+.header-nav a:hover {
+  color: #ffffff !important;
+  text-shadow: 0 0 12px rgba(255, 255, 255, 0.6);
+}
+.logo {
+  color: #ffffff !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.02em !important;
+}
+.logo-icon {
+  background: #38bdf8 !important;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.8) !important;
+}
+
+/* 3. 首页主英雄卡片：Raycast Frosted Showcase Panel */
+.archive-hero {
+  background: rgba(18, 18, 24, 0.42) !important;
+  backdrop-filter: blur(32px) saturate(210%) !important;
+  -webkit-backdrop-filter: blur(32px) saturate(210%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: var(--radius-xl) !important;
+  box-shadow: 
+    0 30px 70px -20px rgba(0, 0, 0, 0.65),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.38) !important;
+  padding: 44px 32px 36px !important;
+  margin: 28px auto !important;
+  max-width: 1180px !important;
+}
+.archive-hero-content .home-search-title {
+  background: linear-gradient(180deg, #ffffff 0%, #cbd5e1 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.03em !important;
+}
+.archive-kicker {
+  color: #94a3b8 !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.12em !important;
+  text-transform: uppercase !important;
+}
+
+/* 4. 搜索框：二次折射磨砂镜面舱 */
+.home-search-box, .archive-hero .home-search-box {
+  background: rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(36px) saturate(220%) !important;
+  -webkit-backdrop-filter: blur(36px) saturate(220%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  border-radius: 999px !important;
+  padding: 8px 10px 8px 22px !important;
+  box-shadow: 
+    0 24px 50px -12px rgba(0, 0, 0, 0.55),
+    0 12px 24px -10px rgba(99, 102, 241, 0.25),
+    inset 0 1.5px 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.3) !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.home-search-box:hover, .home-search-box:focus-within,
+.archive-hero .home-search-box:hover, .archive-hero .home-search-box:focus-within {
+  background: rgba(255, 255, 255, 0.09) !important;
+  border-color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: 
+    0 32px 64px -12px rgba(0, 0, 0, 0.65),
+    0 0 30px rgba(99, 102, 241, 0.35),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.6) !important;
+  transform: translateY(-2px) scale(1.006) !important;
+}
+.home-search-box input {
+  color: #ffffff !important;
+  font-size: 14.5px !important;
+}
+.home-search-box input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* 5. 检索按钮：Apple 液态高光晶体按键 */
+.home-search-btn {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(226, 232, 240, 0.88) 100%) !important;
+  color: #0b1120 !important;
+  font-weight: 700 !important;
+  font-size: 13.5px !important;
+  letter-spacing: -0.01em !important;
+  border-radius: 999px !important;
+  padding: 10px 26px !important;
+  border: 1px solid rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 
+    0 8px 24px -4px rgba(0, 0, 0, 0.45),
+    inset 0 1.5px 0 #ffffff,
+    inset 0 -1.5px 2px rgba(0, 0, 0, 0.15) !important;
+  cursor: pointer !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.home-search-btn:hover {
+  transform: translateY(-1px) scale(1.02) !important;
+  box-shadow: 
+    0 12px 30px -4px rgba(0, 0, 0, 0.55),
+    0 0 24px rgba(255, 255, 255, 0.45),
+    inset 0 1.5px 0 #ffffff !important;
+}
+.home-search-btn:active {
+  transform: scale(0.97) !important;
+}
+
+/* 6. 标签胶囊：透光磨砂气泡 */
+.home-search-suggestions .home-hot-chip,
+.home-search-suggestions .home-pill,
+.home-search-suggestions .suggestion-tag,
+.home-search-suggestions a,
+.home-search-suggestions span {
+  background: rgba(255, 255, 255, 0.07) !important;
+  backdrop-filter: blur(24px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  color: #f1f5f9 !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  border-radius: 999px !important;
+  padding: 6px 14px !important;
+  box-shadow: 
+    0 6px 16px -4px rgba(0, 0, 0, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.home-search-suggestions .home-hot-chip:hover,
+.home-search-suggestions a:hover {
+  background: rgba(255, 255, 255, 0.14) !important;
+  border-color: rgba(255, 255, 255, 0.4) !important;
+  color: #ffffff !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 
+    0 12px 24px -4px rgba(0, 0, 0, 0.4),
+    0 0 20px rgba(99, 102, 241, 0.35),
+    inset 0 1px 0 #ffffff !important;
+}
+
+/* 7. 卡片：Raycast Frosted Card */
+.resource-card, .search-card, .home-personal, .stat-card {
+  background: rgba(15, 23, 42, 0.45) !important;
+  backdrop-filter: blur(28px) saturate(190%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(190%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: var(--radius-xl) !important;
+  box-shadow: 
+    0 24px 50px -15px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+.resource-card:hover, .search-card:hover {
+  transform: translateY(-4px) !important;
+  background: rgba(20, 30, 52, 0.58) !important;
+  border-color: rgba(255, 255, 255, 0.3) !important;
+  box-shadow: 
+    0 32px 64px -15px rgba(0, 0, 0, 0.65),
+    0 0 30px rgba(99, 102, 241, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4) !important;
+}
+
+/* 8. 移动端 GPU 优化降级 */
+@media (max-width: 768px) {
+  .glass-orb {
+    animation: orbHueCycle 32s linear infinite !important;
+    filter: blur(50px) !important;
+    opacity: 0.6 !important;
+  }
+  .archive-hero, .home-search-box, .header, .resource-card {
+    backdrop-filter: blur(16px) saturate(150%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(150%) !important;
+  }
+}
+</style>
 <!-- 全局 SVG 渐变与特效定义 -->
 <svg style="position:absolute;width:0;height:0;overflow:hidden;pointer-events:none;" aria-hidden="true">
   <defs>
     <linearGradient id="radarSweepGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="var(--green)" stop-opacity="0"/>
-      <stop offset="100%" stop-color="var(--green)" stop-opacity="0.85"/>
+      <stop offset="0%" stop-color="var(--accent)" stop-opacity="0"/>
+      <stop offset="100%" stop-color="var(--accent)" stop-opacity="0.85"/>
     </linearGradient>
   </defs>
 </svg>
@@ -3350,14 +3743,14 @@ tbody tr:last-child td {
           <div class="home-search-box">
             <span class="home-search-icon home-radar-beacon" aria-hidden="true" title="全网雷达探针">
               <svg viewBox="0 0 24 24" width="22" height="22" fill="none" style="vertical-align:middle;">
-                <circle cx="12" cy="12" r="10" stroke="var(--green)" stroke-width="1.2" opacity="0.25"/>
-                <circle cx="12" cy="12" r="6" stroke="var(--green)" stroke-width="1.2" opacity="0.4"/>
-                <circle class="beacon-pulse" cx="12" cy="12" r="3" stroke="var(--green)" stroke-width="1.4"/>
+                <circle cx="12" cy="12" r="10" stroke="var(--accent)" stroke-width="1.2" opacity="0.25"/>
+                <circle cx="12" cy="12" r="6" stroke="var(--accent)" stroke-width="1.2" opacity="0.4"/>
+                <circle class="beacon-pulse" cx="12" cy="12" r="3" stroke="var(--accent)" stroke-width="1.4"/>
                 <g class="beacon-scan">
                   <path d="M 12 12 L 22 12 A 10 10 0 0 0 19.1 4.9 Z" fill="url(#radarSweepGrad)"/>
-                  <line x1="12" y1="12" x2="22" y2="12" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round"/>
+                  <line x1="12" y1="12" x2="22" y2="12" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/>
                 </g>
-                <circle cx="12" cy="12" r="2" fill="var(--green)"/>
+                <circle cx="12" cy="12" r="2" fill="var(--accent)"/>
               </svg>
             </span>
             <input
@@ -3383,17 +3776,17 @@ tbody tr:last-child td {
         <div class="empty-state">
           <div class="empty-radar-wrap" aria-hidden="true">
             <svg class="empty-radar-svg" viewBox="0 0 88 88" width="76" height="76" fill="none">
-              <circle class="radar-wave wave-3" cx="44" cy="44" r="38" stroke="var(--green)" stroke-width="1.2" stroke-dasharray="3 3"/>
-              <circle class="radar-wave wave-2" cx="44" cy="44" r="27" stroke="var(--green)" stroke-width="1.4"/>
-              <circle class="radar-wave wave-1" cx="44" cy="44" r="16" stroke="var(--green)" stroke-width="1.6"/>
+              <circle class="radar-wave wave-3" cx="44" cy="44" r="38" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="3 3"/>
+              <circle class="radar-wave wave-2" cx="44" cy="44" r="27" stroke="var(--accent)" stroke-width="1.4"/>
+              <circle class="radar-wave wave-1" cx="44" cy="44" r="16" stroke="var(--accent)" stroke-width="1.6"/>
               <g class="finder-float">
-                <circle cx="41" cy="41" r="13" stroke="var(--green)" stroke-width="2.5" fill="rgba(251, 191, 36, 0.08)"/>
-                <line x1="51" y1="51" x2="63" y2="63" stroke="var(--green)" stroke-width="3" stroke-linecap="round"/>
+                <circle cx="41" cy="41" r="13" stroke="var(--accent)" stroke-width="2.5" fill="rgba(251, 191, 36, 0.08)"/>
+                <line x1="51" y1="51" x2="63" y2="63" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
                 <circle cx="37" cy="37" r="2.2" fill="#ffffff" opacity="0.85"/>
               </g>
-              <circle class="sparkle sp-1" cx="24" cy="28" r="1.5" fill="var(--green)"/>
-              <circle class="sparkle sp-2" cx="64" cy="26" r="2" fill="var(--green)"/>
-              <circle class="sparkle sp-3" cx="30" cy="62" r="1.8" fill="var(--green)"/>
+              <circle class="sparkle sp-1" cx="24" cy="28" r="1.5" fill="var(--accent)"/>
+              <circle class="sparkle sp-2" cx="64" cy="26" r="2" fill="var(--accent)"/>
+              <circle class="sparkle sp-3" cx="30" cy="62" r="1.8" fill="var(--accent)"/>
             </svg>
           </div>
           <div class="empty-title">开始检索</div>
@@ -4053,8 +4446,8 @@ function showAdminLoginModal() {
       <div class="modal-content" style="max-width:360px">
         <h3 style="margin-bottom:16px">管理员登录</h3>
         <form onsubmit="doAdminLogin(event)">
-          <input type="text" id="adminUser" placeholder="用户名" class="form-input" style="width:100%;margin-bottom:12px;padding:10px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary)">
-          <input type="password" id="adminPass" placeholder="密码" class="form-input" style="width:100%;margin-bottom:16px;padding:10px;border-radius:8px;background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary)">
+          <input type="text" id="adminUser" placeholder="用户名" class="form-input" style="width:100%;margin-bottom:12px;padding:10px;border-radius:var(--radius-sm);background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary)">
+          <input type="password" id="adminPass" placeholder="密码" class="form-input" style="width:100%;margin-bottom:16px;padding:10px;border-radius:var(--radius-sm);background:var(--bg-card);border:1px solid var(--border-subtle);color:var(--text-primary)">
           <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center">
             <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('adminLoginModal').classList.remove('show')">取消</button>
             <button type="submit" class="btn btn-primary btn-sm">登录</button>
@@ -4559,7 +4952,7 @@ function renderSearchResults(results, total, hasMore) {
     const isAggregate = APP.viewMode === 'aggregate';
 
     const chipHtml = (src, label, count, active) => {
-      const color = src === 'all' ? 'var(--green)' : getSourceColor(src);
+      const color = src === 'all' ? 'var(--accent)' : getSourceColor(src);
       const cls = active ? 'filter-chip active' : 'filter-chip';
       const extra = active && src !== 'all' ? ` style="background:${color}22;border-color:${color};color:${color}"` : '';
       return `<button type="button" class="${cls}" onclick="filterBySource('${String(src).replace(/'/g, "\'")}')"${extra}>${esc(label)} <strong>${count}</strong></button>`;
@@ -4725,17 +5118,17 @@ function renderSearchResults(results, total, hasMore) {
       <div class="empty-state">
         <div class="empty-radar-wrap" aria-hidden="true">
           <svg class="empty-radar-svg" viewBox="0 0 88 88" width="76" height="76" fill="none">
-            <circle class="radar-wave wave-3" cx="44" cy="44" r="38" stroke="var(--green)" stroke-width="1.2" stroke-dasharray="3 3"/>
-            <circle class="radar-wave wave-2" cx="44" cy="44" r="27" stroke="var(--green)" stroke-width="1.4"/>
-            <circle class="radar-wave wave-1" cx="44" cy="44" r="16" stroke="var(--green)" stroke-width="1.6"/>
+            <circle class="radar-wave wave-3" cx="44" cy="44" r="38" stroke="var(--accent)" stroke-width="1.2" stroke-dasharray="3 3"/>
+            <circle class="radar-wave wave-2" cx="44" cy="44" r="27" stroke="var(--accent)" stroke-width="1.4"/>
+            <circle class="radar-wave wave-1" cx="44" cy="44" r="16" stroke="var(--accent)" stroke-width="1.6"/>
             <g class="finder-float">
-              <circle cx="41" cy="41" r="13" stroke="var(--green)" stroke-width="2.5" fill="rgba(251, 191, 36, 0.08)"/>
-              <line x1="51" y1="51" x2="63" y2="63" stroke="var(--green)" stroke-width="3" stroke-linecap="round"/>
+              <circle cx="41" cy="41" r="13" stroke="var(--accent)" stroke-width="2.5" fill="rgba(251, 191, 36, 0.08)"/>
+              <line x1="51" y1="51" x2="63" y2="63" stroke="var(--accent)" stroke-width="3" stroke-linecap="round"/>
               <circle cx="37" cy="37" r="2.2" fill="#ffffff" opacity="0.85"/>
             </g>
-            <circle class="sparkle sp-1" cx="24" cy="28" r="1.5" fill="var(--green)"/>
-            <circle class="sparkle sp-2" cx="64" cy="26" r="2" fill="var(--green)"/>
-            <circle class="sparkle sp-3" cx="30" cy="62" r="1.8" fill="var(--green)"/>
+            <circle class="sparkle sp-1" cx="24" cy="28" r="1.5" fill="var(--accent)"/>
+            <circle class="sparkle sp-2" cx="64" cy="26" r="2" fill="var(--accent)"/>
+            <circle class="sparkle sp-3" cx="30" cy="62" r="1.8" fill="var(--accent)"/>
           </svg>
         </div>
         <div class="empty-title">没有找到相关资源</div>
@@ -4839,12 +5232,12 @@ function _doSearch(q) {
         <svg class="radar-spinner-svg" viewBox="0 0 32 32" width="22" height="22" aria-hidden="true" style="vertical-align:-4px;flex-shrink:0;">
           <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.18"/>
           <circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" stroke-width="1" opacity="0.25"/>
-          <circle class="radar-pulse-ring" cx="16" cy="16" r="3" fill="none" stroke="var(--green)" stroke-width="1.5"/>
+          <circle class="radar-pulse-ring" cx="16" cy="16" r="3" fill="none" stroke="var(--accent)" stroke-width="1.5"/>
           <g class="radar-sweep-group">
             <path d="M 16 16 L 30 16 A 14 14 0 0 0 25.9 6.1 Z" fill="url(#radarSweepGrad)"/>
-            <line x1="16" y1="16" x2="30" y2="16" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round"/>
+            <line x1="16" y1="16" x2="30" y2="16" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/>
           </g>
-          <circle cx="16" cy="16" r="2" fill="var(--green)"/>
+          <circle cx="16" cy="16" r="2" fill="var(--accent)"/>
         </svg>
         <span class="search-loading-label">正在检索 <em>${q.replace(/[<>&"']/g, '')}</em></span>
       </div>
@@ -4945,8 +5338,8 @@ function _appendSearchResultCards(newItems, total) {
     const srcColor = sourceColors[r.source] || 'var(--text-muted)';
     const srcName = sourceNames[r.source] || r.source || '其他';
     return `
-      <div class="resource-card" style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;animation:fadeInUp 0.3s ease">
-        <div style="width:36px;height:36px;border-radius:8px;background:${srcColor}15;color:${srcColor};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0">${r.source === 'quark' ? '夸' : r.source === 'aliyun' ? '阿' : r.source === 'baidu' ? '百' : r.source === 'uc' ? 'UC' : r.source === 'guangya' ? '光' : r.source === 'magnet' ? '⛓' : r.source === 'thunder' ? '⚡' : r.source === '123' ? '123' : r.source === 'xunlei' ? '迅' : r.source === 'tianyi' ? '天' : r.source === '115' ? '15' : r.source === 'yidong' ? '移' : '盘'}</div>
+      <div class="resource-card" style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px;display:flex;align-items:center;gap:10px;animation:fadeInUp 0.3s ease">
+        <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:${srcColor}15;color:${srcColor};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0">${r.source === 'quark' ? '夸' : r.source === 'aliyun' ? '阿' : r.source === 'baidu' ? '百' : r.source === 'uc' ? 'UC' : r.source === 'guangya' ? '光' : r.source === 'magnet' ? '⛓' : r.source === 'thunder' ? '⚡' : r.source === '123' ? '123' : r.source === 'xunlei' ? '迅' : r.source === 'tianyi' ? '天' : r.source === '115' ? '15' : r.source === 'yidong' ? '移' : '盘'}</div>
         <div style="flex:1;min-width:0">
           <div style="font-size:.85rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${clean}</div>
           <div style="font-size:.72rem;color:${srcColor};margin-top:2px">${srcName}</div>
@@ -4966,7 +5359,7 @@ function _appendSearchResultCards(newItems, total) {
 function _updateResultCount(total) {
   const container = document.getElementById('searchResults');
   if (!container) return;
-  const countSpan = container.querySelector('span[style*="color:var(--blue)"]');
+  const countSpan = container.querySelector('span[style*="color:var(--accent)"]');
   if (countSpan) countSpan.textContent = total;
 }
 
@@ -5061,7 +5454,7 @@ function _updateOnlineStatusBanner(q, total, initialTotal, status, imported) {
   if (!banner) {
     banner = document.createElement('div');
     banner.id = 'onlineStatusBanner';
-    banner.style.cssText = 'margin:8px 16px;padding:8px 14px;border-radius:8px;background:rgba(10,107,92,0.08);border:1px solid rgba(10,107,92,0.2);font-size:.85rem;color:var(--text-primary);display:flex;align-items:center;justify-content:space-between;gap:12px';
+    banner.style.cssText = 'margin:8px 16px;padding:8px 14px;border-radius:var(--radius-sm);background:rgba(10,107,92,0.08);border:1px solid rgba(10,107,92,0.2);font-size:.85rem;color:var(--text-primary);display:flex;align-items:center;justify-content:space-between;gap:12px';
     const container = document.getElementById('searchResults');
     if (container && container.parentNode) {
       container.parentNode.insertBefore(banner, container);
@@ -5070,15 +5463,15 @@ function _updateOnlineStatusBanner(q, total, initialTotal, status, imported) {
   const onlineCount = Math.max(0, total - initialTotal);
   let statusText = '';
   if (status === 'local') {
-    statusText = '<span style="color:var(--green)">✓ 库内结果</span>';
+    statusText = '<span style="color:var(--accent)">✓ 库内结果</span>';
   } else if (status === 'running' || (status === 'pending' && initialTotal === 0)) {
-    statusText = '<svg class="radar-spinner-svg" viewBox="0 0 32 32" width="14" height="14" aria-hidden="true" style="vertical-align:-2px;margin-right:4px;flex-shrink:0;display:inline-block;"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.18"/><circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" stroke-width="1" opacity="0.25"/><circle class="radar-pulse-ring" cx="16" cy="16" r="3" fill="none" stroke="var(--green)" stroke-width="1.5"/><g class="radar-sweep-group"><path d="M 16 16 L 30 16 A 14 14 0 0 0 25.9 6.1 Z" fill="url(#radarSweepGrad)"/><line x1="16" y1="16" x2="30" y2="16" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round"/></g><circle cx="16" cy="16" r="2" fill="var(--green)"/></svg> 在线补充中…';
+    statusText = '<svg class="radar-spinner-svg" viewBox="0 0 32 32" width="14" height="14" aria-hidden="true" style="vertical-align:-2px;margin-right:4px;flex-shrink:0;display:inline-block;"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.18"/><circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" stroke-width="1" opacity="0.25"/><circle class="radar-pulse-ring" cx="16" cy="16" r="3" fill="none" stroke="var(--accent)" stroke-width="1.5"/><g class="radar-sweep-group"><path d="M 16 16 L 30 16 A 14 14 0 0 0 25.9 6.1 Z" fill="url(#radarSweepGrad)"/><line x1="16" y1="16" x2="30" y2="16" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/></g><circle cx="16" cy="16" r="2" fill="var(--accent)"/></svg> 在线补充中…';
   } else if (status === 'pending') {
     statusText = '<span style="color:var(--text-secondary)">库内检索</span>';
   } else if (status === 'done') {
     statusText = onlineCount > 0
       ? '<span style="color:#3fb950">✓ 在线搜索完成</span>'
-      : '<span style="color:var(--green)">✓ 库内结果</span>';
+      : '<span style="color:var(--accent)">✓ 库内结果</span>';
   } else if (status === 'error') {
     statusText = '<span style="color:#f85149">⚠ 在线搜索出错</span>';
   }
@@ -5087,7 +5480,7 @@ function _updateOnlineStatusBanner(q, total, initialTotal, status, imported) {
   if (status === 'local' || (status === 'done' && onlineCount === 0)) {
     countHtml = `库内 <strong style="color:var(--text-primary)">${total}</strong> 条`;
   } else if (onlineCount > 0) {
-    countHtml = `库内 <strong style="color:var(--text-primary)">${initialTotal}</strong> 条 · 本次新增 <strong style="color:var(--blue)">${onlineCount}</strong> 条 · 合计 <strong style="color:var(--text-primary)">${total}</strong> 条`;
+    countHtml = `库内 <strong style="color:var(--text-primary)">${initialTotal}</strong> 条 · 本次新增 <strong style="color:var(--accent)">${onlineCount}</strong> 条 · 合计 <strong style="color:var(--text-primary)">${total}</strong> 条`;
   } else {
     countHtml = `库内 <strong style="color:var(--text-primary)">${initialTotal}</strong> 条`;
   }
@@ -5112,13 +5505,13 @@ function _insertOnlineSkeleton(afterIndex) {
   skeleton.innerHTML = `
     <div class="online-loading-divider">
       <span class="online-loading-label">
-        <svg class="radar-spinner-svg" viewBox="0 0 32 32" width="16" height="16" aria-hidden="true" style="vertical-align:-3px;margin-right:4px;flex-shrink:0;display:inline-block;"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.18"/><circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" stroke-width="1" opacity="0.25"/><circle class="radar-pulse-ring" cx="16" cy="16" r="3" fill="none" stroke="var(--green)" stroke-width="1.5"/><g class="radar-sweep-group"><path d="M 16 16 L 30 16 A 14 14 0 0 0 25.9 6.1 Z" fill="url(#radarSweepGrad)"/><line x1="16" y1="16" x2="30" y2="16" stroke="var(--green)" stroke-width="1.6" stroke-linecap="round"/></g><circle cx="16" cy="16" r="2" fill="var(--green)"/></svg>
+        <svg class="radar-spinner-svg" viewBox="0 0 32 32" width="16" height="16" aria-hidden="true" style="vertical-align:-3px;margin-right:4px;flex-shrink:0;display:inline-block;"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="1.2" opacity="0.18"/><circle cx="16" cy="16" r="8" fill="none" stroke="currentColor" stroke-width="1" opacity="0.25"/><circle class="radar-pulse-ring" cx="16" cy="16" r="3" fill="none" stroke="var(--accent)" stroke-width="1.5"/><g class="radar-sweep-group"><path d="M 16 16 L 30 16 A 14 14 0 0 0 25.9 6.1 Z" fill="url(#radarSweepGrad)"/><line x1="16" y1="16" x2="30" y2="16" stroke="var(--accent)" stroke-width="1.6" stroke-linecap="round"/></g><circle cx="16" cy="16" r="2" fill="var(--accent)"/></svg>
         在线补充中…
       </span>
     </div>
     ${[1, 2, 3].map(() => `
       <div class="search-skel-row" aria-hidden="true" style="margin-bottom:8px;opacity:.85">
-        <div class="search-skel-thumb" style="width:36px;height:36px;border-radius:8px"></div>
+        <div class="search-skel-thumb" style="width:36px;height:36px;border-radius:var(--radius-sm)"></div>
         <div class="search-skel-body">
           <div class="search-skel-line w-65"></div>
           <div class="search-skel-line w-28"></div>
@@ -5158,9 +5551,9 @@ function _appendCardsToDOM(items) {
     const isMagnet = src === 'magnet' || (r.url && r.url.startsWith('magnet:'));
     const card = document.createElement('div');
     card.className = 'resource-card';
-    card.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px';
+    card.style.cssText = 'background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:10px 12px;display:flex;align-items:center;gap:10px';
     card.innerHTML = `
-      <div style="width:36px;height:36px;border-radius:8px;background:${srcColor}15;color:${srcColor};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0">${src==='quark'?'夸':src==='aliyun'?'阿':src==='baidu'?'百':src==='uc'?'UC':src==='guangya'?'光':src==='magnet'?'⛓':src==='thunder'?'⚡':src==='123'?'123':src==='xunlei'?'迅':src==='tianyi'?'天':src==='115'?'15':src==='yidong'?'移':'盘'}</div>
+      <div style="width:36px;height:36px;border-radius:var(--radius-sm);background:${srcColor}15;color:${srcColor};display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;flex-shrink:0">${src==='quark'?'夸':src==='aliyun'?'阿':src==='baidu'?'百':src==='uc'?'UC':src==='guangya'?'光':src==='magnet'?'⛓':src==='thunder'?'⚡':src==='123'?'123':src==='xunlei'?'迅':src==='tianyi'?'天':src==='115'?'15':src==='yidong'?'移':'盘'}</div>
       <div style="flex:1;min-width:0">
         <div style="font-size:.85rem;color:var(--text-primary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${clean}</div>
         <div style="font-size:.72rem;color:${srcColor};margin-top:2px">${srcName}</div>
@@ -5755,7 +6148,7 @@ async function loadHdhiveRankings() {
 
     let html = `
       <!-- TOP 1 大卡片 -->
-      <div class="hdhive-spotlight-card" onclick="searchResource('${esc(top1.title)}')" style="background:var(--bg-card,#121212);border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;margin-bottom:24px;cursor:pointer;display:grid;grid-template-columns:minmax(280px, 1.4fr) minmax(280px, 1fr);gap:24px;transition:transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='rgba(251,191,36,0.4)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.transform='none'">
+      <div class="hdhive-spotlight-card" onclick="searchResource('${esc(top1.title)}')" style="background:var(--bg-card,#121212);border:1px solid rgba(255,255,255,0.08);border-radius:var(--radius-lg);overflow:hidden;margin-bottom:24px;cursor:pointer;display:grid;grid-template-columns:minmax(280px, 1.4fr) minmax(280px, 1fr);gap:24px;transition:transform 0.2s, border-color 0.2s;" onmouseover="this.style.borderColor='rgba(251,191,36,0.4)';this.style.transform='translateY(-2px)'" onmouseout="this.style.borderColor='rgba(255,255,255,0.08)';this.style.transform='none'">
         <div style="position:relative;height:240px;overflow:hidden;background:#000;">
           <img src="${top1Img}" alt="${top1Title}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.src='/favicon.svg'">
           <div style="position:absolute;inset:0;background:linear-gradient(to top, rgba(0,0,0,0.8) 0%, transparent 60%), linear-gradient(to right, transparent 60%, var(--bg-card,#121212) 100%);"></div>
@@ -5771,7 +6164,7 @@ async function loadHdhiveRankings() {
             ${top1Overview}
           </p>
           <div>
-            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(251,191,36,0.12);color:#fbbf24;padding:6px 14px;border-radius:9999px;font-size:12.5px;font-weight:600;">🔍 点击立即找片</span>
+            <span style="display:inline-flex;align-items:center;gap:6px;background:rgba(251,191,36,0.12);color:#fbbf24;padding:6px 14px;border-radius:999px;font-size:12.5px;font-weight:600;">🔍 点击立即找片</span>
           </div>
         </div>
       </div>
@@ -5786,10 +6179,10 @@ async function loadHdhiveRankings() {
           const itPoster = it.poster || it.backdrop || '/favicon.svg';
           return `
             <div class="hdhive-rank-card" onclick="searchResource('${itTitle}')" style="cursor:pointer;transition:transform 0.2s;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='none'">
-              <div style="position:relative;border-radius:12px;overflow:hidden;aspect-ratio:2/3;background:#181818;margin-bottom:8px;border:1px solid rgba(255,255,255,0.06);">
+              <div style="position:relative;border-radius:var(--radius-md);overflow:hidden;aspect-ratio:2/3;background:#181818;margin-bottom:8px;border:1px solid rgba(255,255,255,0.06);">
                 <img src="${itPoster}" alt="${itTitle}" style="width:100%;height:100%;object-fit:cover;" loading="lazy" onerror="this.src='/favicon.svg'">
                 <!-- 左上角评分徽标 -->
-                <span style="position:absolute;top:6px;left:6px;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);color:#fbbf24;font-size:11px;font-weight:600;padding:2px 6px;border-radius:4px;">${itRating}</span>
+                <span style="position:absolute;top:6px;left:6px;background:rgba(0,0,0,0.75);backdrop-filter:blur(4px);color:#fbbf24;font-size:11px;font-weight:600;padding:2px 6px;border-radius:var(--radius-sm);">${itRating}</span>
                 <!-- 左下角醒目数字 -->
                 <span style="position:absolute;bottom:0;left:6px;font-family:var(--font-mono,'Sora');font-size:2rem;font-weight:900;color:#fbbf24;line-height:1;text-shadow:0 2px 8px rgba(0,0,0,0.9);">${rankNum}</span>
               </div>
