@@ -229,6 +229,30 @@ services:
       retries: 5
       start_period: 5s
 
+  # ── PanSou：网盘链接有效性检测 API ──
+  # 上游 fish2018/pansou 自带 POST /api/check/links（items: [{disk_type,url,password}]），
+  # 返回 results[].state = ok/bad/locked/unsupported/uncertain；link_checker 经 PANSOU_CHECK_URL 调用，
+  # 默认 http://pansou:8888/api/check/links（.env 可覆盖）。digest 锁定避免 latest 漂移。
+  pansou:
+    image: ghcr.io/fish2018/pansou:latest@sha256:d371fe5caa87794414dd54cda063fcfc456d5013e18b65dbf1f6ca17f6299492
+    container_name: resource_web_pansou
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    environment:
+      - TZ=Asia/Shanghai
+    networks:
+      - resource_web_resource-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8888/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
 networks:
   resource_web_resource-net:
     external: true
