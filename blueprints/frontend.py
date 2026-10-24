@@ -1579,7 +1579,7 @@ def api_autocomplete():
             "WHERE keyword LIKE %s ORDER BY hit_count DESC LIMIT 8",
             (f"%{q}%",)
         )
-        items = cur.fetchall()
+        items = list(cur.fetchall())
         seen = {it["keyword"] for it in items}
         # 补充资源库高频关键词
         if len(items) < 8:

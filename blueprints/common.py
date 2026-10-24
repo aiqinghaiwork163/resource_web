@@ -2204,6 +2204,15 @@ def _tg_search_rate_ok(tg_id) -> bool:
         return True
 
 
+def _sanitize_ft_query(q: str):
+    q = re.sub(r"[+\\-<>()~*\"'@]", " ", (q or "").strip())[:80]
+    parts = [p for p in re.split(r"\s+", q) if p][:5]
+    if not parts:
+        return "", ""
+    display = " ".join(parts)
+    return display, " ".join(f"+{p}*" for p in parts)
+
+
 def _bot_search_resources(query, limit=8):
     """站内 FULLTEXT 搜索，供 TG Bot 使用。"""
     display, ft = _sanitize_ft_query(query)
@@ -2278,6 +2287,7 @@ def _tg_log_search(query, tg_id):
         pass
 
 
+_VISIT_DAILY_PREFIX = "res_web:visits:daily:"
 _VISIT_REDIS_KEY = "res_web:visits:total"
 
 
@@ -2350,6 +2360,29 @@ def _background_import(keyword, items, return_counts=False):
         print(f"[auto-import] error for '{keyword}': {e}")
         if return_counts:
             return 0, 0
+
+
+def _parse_online_items(keyword, api_data):
+    """解析 pansou API 返回数据为标准 items 列表"""
+    merged = api_data.get("data", {}).get("merged_by_type", {})
+    items = []
+    for src, lst in merged.items():
+        for it in lst:
+            items.append({
+                "id": None,
+                "keyword": keyword,
+                "source": src,
+                "url": it.get("url", ""),
+                "title": it.get("note", "") or it.get("title", ""),
+                "note": it.get("note", ""),
+                "password": it.get("password", ""),
+                "quality": it.get("quality", ""),
+                "type": it.get("type", ""),
+                "year": it.get("year", 0),
+                "rating": None,
+                "datetime": it.get("datetime", ""),
+            })
+    return items
 
 
 def _search_online_sync(keyword, limit=20, timeout=15):
