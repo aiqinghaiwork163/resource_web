@@ -1137,6 +1137,17 @@ def _telegram_webhook_base():
     base = (os.environ.get("TELEGRAM_WEBHOOK_BASE") or "").strip().rstrip("/")
     if base:
         return base
+    env_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env")
+    if os.path.exists(env_path):
+        try:
+            with open(env_path, "r", encoding="utf-8") as _ef:
+                for _line in _ef:
+                    if _line.startswith("TELEGRAM_WEBHOOK_BASE="):
+                        b = _line.split("=", 1)[1].strip().strip("\"'").rstrip("/")
+                        if b:
+                            return b
+        except Exception:
+            pass
     redir = (os.environ.get("GITHUB_REDIRECT_URI") or "").strip()
     if redir:
         from urllib.parse import urlparse
