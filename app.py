@@ -90,8 +90,15 @@ def add_gzip(response):
         ct = response.content_type or ""
         if not any(t in ct for t in ["json", "html", "javascript", "css", "text"]):
             return response
-        # send_from_directory / 流式响应处于 direct passthrough 模式，get_data() 会抛 RuntimeError
-        if response.direct_passthrough or response.is_streamed:
+        # send_from_directory 文件响应 direct_passthrough=True 且 is_streamed=True（FileWrapper 无 len），
+        # 必须先判 passthrough：可压缩类型且体积可控（<=2MB）时关闭 passthrough 后缓冲压缩；
+        # 其余真流式响应（生成器等）跳过。
+        if response.direct_passthrough:
+            _clen = response.content_length
+            if _clen is None or _clen > 2 * 1024 * 1024:
+                return response
+            response.direct_passthrough = False
+        elif response.is_streamed:
             return response
         data = response.get_data()
         if len(data) < 500:
@@ -103,6 +110,11 @@ def add_gzip(response):
         response.headers["Content-Encoding"] = "gzip"
         response.headers["Content-Length"] = len(response.get_data())
         response.headers["Vary"] = "Accept-Encoding"
+        # 压缩后原 ETag / Accept-Ranges 描述的是未压缩实体，移除以免缓存/断点续传错乱
+        if "ETag" in response.headers:
+            del response.headers["ETag"]
+        if "Accept-Ranges" in response.headers:
+            del response.headers["Accept-Ranges"]
     except (RuntimeError, TypeError):
         app.logger.exception("add_gzip failed")
         pass  # send_from_directory 直接流式响应，跳过压缩
@@ -130,6 +142,12 @@ def cache_static(response):
     """静态文件长缓存；API 响应禁止缓存（防止登录态/动态数据被浏览器/CDN 缓存）"""
     if request.path.startswith("/api/img_proxy"):
         return response  # 图片代理自带 ETag + immutable 缓存头，不覆盖
+    if request.path.startswith("/static/") and response.status_code == 200:
+        # 字体/CSS/JS 等静态资源长缓存（30 天）；/static 下的 HTML 不在此列（send_file 自带 no-cache）
+        _ext = request.path.rsplit(".", 1)[-1].lower()
+        if _ext in ("css", "js", "woff", "woff2", "ttf", "otf", "svg", "png", "jpg", "jpeg", "gif", "webp", "ico"):
+            response.headers["Cache-Control"] = "public, max-age=2592000"
+        return response
     if request.path.startswith("/api/"):
         response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
         response.headers["Pragma"] = "no-cache"

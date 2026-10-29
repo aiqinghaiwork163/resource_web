@@ -480,6 +480,20 @@ tr:hover td{background:rgba(255,255,255,0.03)}
   .search-box{max-width:none}
   .td-title,.td-url{max-width:120px}
 }
+
+/* ===== 通用确认弹窗 uiConfirm (P0) ===== */
+.uic-overlay{position:fixed;inset:0;background:rgba(4,6,10,.66);backdrop-filter:blur(3px);display:none;align-items:center;justify-content:center;z-index:9999}
+.uic-overlay.show{display:flex}
+.uic-dialog{background:var(--bg-card);border:1px solid var(--border-medium);border-radius:var(--radius-lg);box-shadow:var(--neu-hover);max-width:420px;width:calc(100% - 48px);padding:22px 22px 18px}
+.uic-msg{color:var(--text-primary);font-size:14.5px;line-height:1.65;white-space:pre-wrap;word-break:break-word;margin-bottom:18px}
+.uic-actions{display:flex;justify-content:flex-end;gap:10px}
+.uic-btn{border:1px solid var(--border-medium);background:var(--surface);color:var(--text-primary);border-radius:var(--radius-sm);padding:8px 18px;font-size:13.5px;cursor:pointer;font-family:var(--font-body)}
+.uic-btn:hover{background:var(--surface-hover)}
+.uic-btn-ok{background:var(--green-dim);border-color:transparent;color:#052e2a;font-weight:600}
+.uic-btn-ok:hover{background:var(--green)}
+.uic-btn-ok.danger{background:var(--red-dim);color:#fff}
+.uic-btn-ok.danger:hover{background:var(--red)}
+
 </style>
 </head>
 <body>
@@ -1047,6 +1061,43 @@ tr:hover td{background:rgba(255,255,255,0.03)}
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
+
+// ===== 通用确认弹窗 uiConfirm (替代原生 confirm, Promise 式) =====
+let _uicResolve = null;
+function _uiConfirmDone(val) {
+  const ov = document.getElementById('uiConfirmOverlay');
+  if (ov) ov.classList.remove('show');
+  if (_uicResolve) { const r = _uicResolve; _uicResolve = null; r(!!val); }
+}
+function uiConfirm(message, opts) {
+  opts = opts || {};
+  return new Promise(function (resolve) {
+    _uicResolve = resolve;
+    let ov = document.getElementById('uiConfirmOverlay');
+    if (!ov) {
+      ov = document.createElement('div');
+      ov.id = 'uiConfirmOverlay';
+      ov.className = 'uic-overlay';
+      ov.innerHTML = '<div class="uic-dialog" role="alertdialog" aria-modal="true">'
+        + '<div class="uic-msg" id="uiConfirmMsg"></div>'
+        + '<div class="uic-actions">'
+        + '<button type="button" class="uic-btn" id="uiConfirmCancel">取消</button>'
+        + '<button type="button" class="uic-btn uic-btn-ok" id="uiConfirmOk">确定</button>'
+        + '</div></div>';
+      document.body.appendChild(ov);
+      document.getElementById('uiConfirmCancel').addEventListener('click', function () { _uiConfirmDone(false); });
+      document.getElementById('uiConfirmOk').addEventListener('click', function () { _uiConfirmDone(true); });
+      ov.addEventListener('click', function (e) { if (e.target === ov) _uiConfirmDone(false); });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && ov.classList.contains('show')) _uiConfirmDone(false);
+      });
+    }
+    document.getElementById('uiConfirmMsg').textContent = message == null ? '' : String(message);
+    document.getElementById('uiConfirmOk').className = 'uic-btn uic-btn-ok' + (opts.danger ? ' danger' : '');
+    ov.classList.add('show');
+  });
+}
+
 const esc = s => { if(!s)return ''; const div=document.createElement('div'); div.textContent=String(s); return div.innerHTML; };
 const fmtN = n => Number(n||0).toLocaleString();
 
@@ -1328,12 +1379,12 @@ async function checkCurrentPageResources(){
 }
 
 async function deleteResource(id){
-  if(!confirm('确定删除该资源？'))return;
+  if(!(await uiConfirm('确定删除该资源？',{danger:true})))return;
   const d=await api('/api/admin/resources/batch','POST',{action:'delete',ids:[id]});
   if(d.ok){show('已删除');loadResources(resPage)}else show(d.error||'删除失败','error');
 }
 async function batchDeleteResources(){
-  if(!resSelected.size||!confirm('确定删除选中的 '+resSelected.size+' 条资源？'))return;
+  if(!resSelected.size||!(await uiConfirm('确定删除选中的 '+resSelected.size+' 条资源？',{danger:true})))return;
   const d=await api('/api/admin/resources/batch','POST',{action:'delete',ids:[...resSelected]});
   if(d.ok){show('已删除 '+d.affected+' 条');loadResources(1)}else show(d.error||'删除失败','error');
 }
@@ -1514,7 +1565,7 @@ async function pollBgScanStatus(){
 }
 
 async function flushSystemCache(){
-  if(!confirm('确定清空全站 Redis 与搜索缓存？')) return;
+  if(!(await uiConfirm('确定清空全站 Redis 与搜索缓存？',{danger:true}))) return;
   const r = await api('/api/admin/system/flush_cache', 'POST');
   if(r && r.ok) show('全站缓存已成功清空！');
   else show('清空缓存失败', 'error');
@@ -1586,7 +1637,7 @@ async function deleteDeadlinks(){
   const deadCount=parseInt(document.getElementById('dlDead').textContent.replace(/[^0-9]/g,''))||0;
   if(deadCount===0){show('没有死链可删除');return}
   const scope=source?`来源 "${source}" 的`:'全部';
-  if(!confirm(`确定删除${scope} ${deadCount} 条死链？\n\n此操作不可恢复，请确认。`))return;
+  if(!(await uiConfirm(`确定删除${scope} ${deadCount} 条死链？\n\n此操作不可恢复，请确认。`,{danger:true})))return;
   const r=await api('/api/admin/deadlinks/delete','POST',{all:true,source:source||undefined});
   if(r.ok){show('已删除 '+r.deleted+' 条死链');loadDeadlinkStats()}else show(r.error||'删除失败','error');
 }
@@ -1722,7 +1773,7 @@ async function saveUserEdit(){
 async function deleteUserFromEdit(){
   const uid=parseInt(document.getElementById('editUserId').value,10);
   if(!uid)return;
-  if(!confirm('确定删除该用户？'))return;
+  if(!(await uiConfirm('确定删除该用户？',{danger:true})))return;
   const d=await api('/api/users/'+uid,'DELETE');
   if(d.ok||d.success){show('已删除');hideModal('editUserModal');loadUsers()}else show(d.error||'删除失败','error');
 }
@@ -1740,11 +1791,11 @@ async function resetUserPass(uid){
   if(d.ok||d.success){show('密码已更新')}else show(d.error||'失败','error');
 }
 async function setUserRole(uid,role){
-  if(!confirm('确认修改该账号角色？'))return;
+  if(!(await uiConfirm('确认修改该账号角色？')))return;
   const d=await api('/api/users/'+uid,'POST',{role});
   if(d.ok||d.success){show('角色已更新');loadUsers()}else show(d.error||'失败','error');
 }
-async function deleteUser(uid){if(!confirm('确定删除该用户？'))return; const d=await api('/api/users/'+uid,'DELETE');if(d.ok||d.success){show('已删除');loadUsers()}else show(d.error||'删除失败','error');}
+async function deleteUser(uid){if(!(await uiConfirm('确定删除该用户？',{danger:true})))return; const d=await api('/api/users/'+uid,'DELETE');if(d.ok||d.success){show('已删除');loadUsers()}else show(d.error||'删除失败','error');}
 
 // 过滤词
 async function loadFilters(){
@@ -1774,7 +1825,7 @@ async function saveAnnouncement(){
   const d=await api(url,'POST',payload);
   if(d.ok||d.success){show(editId?'已更新':'已创建');resetAnnounceModal();hideModal('announceModal');loadAnnouncements()}else show(d.error||'失败','error');
 }
-async function deleteAnnouncement(id){if(!confirm('确定删除？'))return; const d=await api('/api/admin/announcements/'+id,'DELETE');if(d.ok||d.success){show('已删除');loadAnnouncements()}else show(d.error||'删除失败','error');}
+async function deleteAnnouncement(id){if(!(await uiConfirm('确定删除？',{danger:true})))return; const d=await api('/api/admin/announcements/'+id,'DELETE');if(d.ok||d.success){show('已删除');loadAnnouncements()}else show(d.error||'删除失败','error');}
 async function editAnnouncement(id){
   const d=await api('/api/admin/announcements'); if(!d)return;
   const item=(d.items||[]).find(x=>x.id===id); if(!item)return;
@@ -1798,7 +1849,7 @@ async function saveSource(){
   const d=await api(url,'POST',payload);
   if(d.ok||d.success){show(editId?'已更新':'已创建');resetSourceModal();hideModal('sourceModal');loadSources();loadResSources()}else show(d.error||'失败','error');
 }
-async function deleteSource(id){if(!confirm('确定删除？'))return; const d=await api('/api/admin/sources/'+id,'DELETE');if(d.ok||d.success){show('已删除');loadSources();loadResSources()}else show(d.error||'删除失败','error');}
+async function deleteSource(id){if(!(await uiConfirm('确定删除？',{danger:true})))return; const d=await api('/api/admin/sources/'+id,'DELETE');if(d.ok||d.success){show('已删除');loadSources();loadResSources()}else show(d.error||'删除失败','error');}
 async function editSource(id){
   const d=await api('/api/admin/sources'); if(!d)return; const item=(d.items||[]).find(x=>x.id===id); if(!item)return;
   document.getElementById('sourceModal').dataset.editId=id; document.getElementById('srcName').value=item.name||''; document.getElementById('srcLabel').value=item.label||''; document.getElementById('srcColor').value=item.color||'#58a6ff'; document.getElementById('srcActive').checked=item.active==='1'||item.active===1; document.getElementById('sourceModalTitle').textContent='编辑来源';
@@ -1818,10 +1869,10 @@ async function loadSettings(){
   document.getElementById('setTgBotToken').value=''; document.getElementById('setTgBotUsername').value=map.telegram_bot_username?.value||''; document.getElementById('setTgSuperAdmins').value=map.telegram_superadmin_ids?.value||'1562902842'; document.getElementById('setTgRequiredChat').value=map.telegram_required_chat?.value||'@heikuangchangshare';
   const st=document.getElementById('tgLoginStatus'); if(d.telegram_login){const t=d.telegram_login; st.innerHTML=t.enabled?`<span style="color:var(--green)">✓ Telegram 登录已启用</span> · Bot @${t.bot_username||'-'} · 超管 ${(t.superadmin_ids||[]).join(', ')}`:'<span style="color:var(--red)">未启用</span> · 请填写 Bot Token 与用户名并保存';}
 }
-function confirmSaveSettings(){
+async function confirmSaveSettings(){
   const pass=document.getElementById('setAdminPass').value;
   if(!pass){show('修改设置需要输入管理员密码','error'); return}
-  if(!confirm('确定保存系统设置？'))return;
+  if(!(await uiConfirm('确定保存系统设置？')))return;
   saveSettings();
 }
 async function saveSettings(){
@@ -1859,7 +1910,7 @@ async function loadLogs(){
   const labels={filter_add:'添加过滤词',filter_delete:'删除过滤词',user_add:'添加用户',user_status:'更新用户状态',user_update:'更新用户',settings_save:'保存设置',queue_process:'处理队列',queue_clear:'清空队列',deadlink_scan:'死链扫描',deadlink_delete:'删除死链',tmdb_crawl:'TMDB爬虫',logs_clear:'清空日志',import:'导入资源',search_blocked:'搜索拦截',announcement_create:'创建公告',announcement_update:'更新公告',announcement_delete:'删除公告'};
   document.getElementById('logViewer').innerHTML=filtered.length?filtered.map(l=>`<div class="log-line"><span class="time">${(l.created_at||'').substring(0,19)}</span><span class="user">${esc(l.username||'系统')}</span><span class="action">${esc(labels[l.action]||l.action)}</span><span class="detail">${esc(l.detail||'')}</span></div>`).join(''):'<div class="empty">暂无日志</div>';
 }
-async function clearLogs(){if(!confirm('确定清空操作日志？'))return; const d=await api('/api/admin/logs/clear','POST');if(d.ok){show('已清空');loadLogs()}else show(d.error||'清空失败','error');}
+async function clearLogs(){if(!(await uiConfirm('确定清空操作日志？',{danger:true})))return; const d=await api('/api/admin/logs/clear','POST');if(d.ok){show('已清空');loadLogs()}else show(d.error||'清空失败','error');}
 function exportLogs(){
   const filter=document.getElementById('logFilter').value.trim().toLowerCase();
   const selectedAction=document.getElementById('logAction').value;
@@ -1884,7 +1935,7 @@ async function loadSearchLogs(){
   renderPieList('hotSearchList',(hot?.top_searches||[]).map(x=>({source:x.keyword,count:x.count})),false);
 }
 async function deleteSearchLog(id){const d=await api('/api/admin/search_logs/'+id,'DELETE');if(d.ok){show('已删除');loadSearchLogs()}else show(d.error||'删除失败','error');}
-async function cleanupSearchLogs(){if(!confirm('确定清理过期搜索日志？'))return; const d=await api('/api/admin/search_logs/cleanup','POST');if(d.ok){show('已清理');loadSearchLogs()}else show(d.error||'清理失败','error');}
+async function cleanupSearchLogs(){if(!(await uiConfirm('确定清理过期搜索日志？')))return; const d=await api('/api/admin/search_logs/cleanup','POST');if(d.ok){show('已清理');loadSearchLogs()}else show(d.error||'清理失败','error');}
 
 // 资源去重
 async function loadDuplicates(){
@@ -1905,7 +1956,7 @@ async function loadDuplicates(){
 }
 
 async function cleanSingleGroupDuplicate(by, keyVal){
-  if(!confirm(`确定清除组「${keyVal.slice(0, 30)}」内的重复项？\n系统将自动保留最新 ID，彻底删除多余记录。`)) return;
+  if(!(await uiConfirm(`确定清除组「${keyVal.slice(0, 30)}」内的重复项？\n系统将自动保留最新 ID，彻底删除多余记录。`,{danger:true}))) return;
   const d = await api('/api/admin/duplicates/clean', 'POST', { by: by, keep: 'newest', key: keyVal });
   if(d && d.ok){
     show(`清理成功！已从数据库物理删除 ${d.deleted_count} 条重复资源`);
@@ -1918,7 +1969,7 @@ async function cleanSingleGroupDuplicate(by, keyVal){
 async function cleanAllDuplicatesAuto(){
   const by = document.getElementById('dupBy').value;
   const byText = by === 'url' ? '相同 URL' : '相同标题与来源';
-  if(!confirm(`⚠️ 高能操作确认：\n确定自动对全库按【${byText}】执行物理去重吗？\n\n系统将只保留最新的 1 条记录，彻底清理删除所有的多余重复记录！`)) return;
+  if(!(await uiConfirm(`⚠️ 高能操作确认：\n确定自动对全库按【${byText}】执行物理去重吗？\n\n系统将只保留最新的 1 条记录，彻底清理删除所有的多余重复记录！`,{danger:true}))) return;
   const el = document.getElementById('dupExtraResult');
   if(el) el.textContent = '正在执行全库物理去重清理，请稍候…';
   const d = await api('/api/admin/duplicates/clean', 'POST', { by: by, keep: 'newest' });
@@ -1951,7 +2002,7 @@ async function previewDataClean(){
 }
 async function runDataClean(){
   const el=document.getElementById("dupExtraResult");
-  if(!confirm("确认分批执行类型/画质数据清洗？")) return;
+  if(!(await uiConfirm("确认分批执行类型/画质数据清洗？",{danger:true}))) return;
   if(el) el.textContent="正在执行批量清洗…";
   const d=await api("/api/admin/cleaner/run","POST",{batch_size:1000});
   if(!d){if(el)el.textContent="清洗失败";return;}
@@ -1985,7 +2036,7 @@ async function previewAutoClean(){
 }
 async function runAutoClean(){
   const days=parseInt(document.getElementById('acDays').value||'7',10);
-  if(!confirm('确认删除失效超过 '+days+' 天的链接？'))return;
+  if(!(await uiConfirm('确认删除失效超过 '+days+' 天的链接？',{danger:true})))return;
   const d=await api('/api/admin/deadlinks/auto_clean','POST',{days,limit:5000});
   const el=document.getElementById('acResult');
   if(d&&d.ok){show('已删除 '+d.deleted+' 条'); if(el)el.textContent='已删除 '+d.deleted+' 条'; loadDeadlinkStats();}
@@ -2068,7 +2119,7 @@ async function loadTasksCenter(){
 }
 
 async function stopTaskAction(taskType){
-  if(!confirm(`确定停止该任务吗？`)) return;
+  if(!(await uiConfirm(`确定停止该任务吗？`))) return;
   const r = await api('/api/admin/tasks/stop', 'POST', {type: taskType});
   if(r && r.ok){
     show(r.msg || '已发送停止指令', 'success');
@@ -2089,7 +2140,7 @@ async function startQuickDeadlinkScan(){
 }
 
 async function triggerFilterWordsRebuild(){
-  if(!confirm('确定全库复检违禁词打标？这将扫描并隐藏所有命中色情/敏感词库的资源。')) return;
+  if(!(await uiConfirm('确定全库复检违禁词打标？这将扫描并隐藏所有命中色情/敏感词库的资源。',{danger:true}))) return;
   show('⚡ 全库违禁词规则已常驻生效，新抓取资源自动拦截！', 'success');
 }
 
