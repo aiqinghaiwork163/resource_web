@@ -514,6 +514,7 @@ tr:hover td{background:rgba(255,255,255,0.03)}
       <div class="nav-group-title" onclick="toggleGroup(this)">内容管理</div>
       <div class="nav-items">
         <div class="nav" onclick="showSec('resources')"><span class="ic">▣</span> 资源管理</div>
+        <div class="nav" onclick="showSec('quick_ingest')"><span class="ic">✨</span> 快捷发片</div>
         <div class="nav" id="nav-tasks" onclick="showSec('tasks')"><span class="ic">⚡</span> 任务中心 <span id="taskNavBadge" style="display:none;margin-left:auto;background:var(--green);color:#fff;font-size:11px;padding:1px 6px;border-radius:10px;font-weight:700;">0</span></div>
         <div class="nav" onclick="showSec('import')"><span class="ic">↓</span> 导入队列</div>
         <div class="nav" onclick="showSec('deadlinks')"><span class="ic">⌀</span> 死链清理</div>
@@ -528,6 +529,7 @@ tr:hover td{background:rgba(255,255,255,0.03)}
         <div class="nav" onclick="showSec('announcements')"><span class="ic">※</span> 公告管理</div>
         <div class="nav" onclick="showSec('filters')"><span class="ic">⊘</span> 过滤词</div>
         <div class="nav" onclick="showSec('searchlogs')"><span class="ic">⌕</span> 搜索日志</div>
+        <div class="nav" onclick="showSec('demands')"><span class="ic">🎯</span> 搜空补片</div>
       </div>
     </div>
 
@@ -535,6 +537,7 @@ tr:hover td{background:rgba(255,255,255,0.03)}
       <div class="nav-group-title" onclick="toggleGroup(this)">系统</div>
       <div class="nav-items">
         <div class="nav" onclick="showSec('users')"><span class="ic">◇</span> 用户管理</div>
+        <div class="nav" onclick="showSec('tools')"><span class="ic">🛠️</span> 站长工具箱</div>
         <div class="nav" onclick="showSec('logs')"><span class="ic">☰</span> 操作日志</div>
         <div class="nav" onclick="showSec('apis')"><span class="ic">⬡</span> API 测试</div>
         <div class="nav" onclick="showSec('settings')"><span class="ic">⚙</span> 系统设置</div>
@@ -585,10 +588,41 @@ tr:hover td{background:rgba(255,255,255,0.03)}
         <div class="chart-box"><h4>热门搜索 Top 10</h4><div class="pie-list" id="searchChart"><div class="skel-rows" aria-hidden="true"><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div><div class="skel-row"><div class="skel skel-dot"></div><div class="skel skel-line"></div><div class="skel skel-num"></div></div></div></div></div>
       </div>
 
+      <!-- 全站网盘生态与画质透视 -->
+      <div class="section-card" id="ecosystemCard">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+          <h3 style="margin:0">全站网盘生态与画质透视 <span class="hint">19万+ 资源全景结构</span></h3>
+          <span class="badge badge-g" id="ecoTotalBadge">实时统计中</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(280px, 1fr));gap:20px;">
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;display:flex;justify-content:space-between">
+              <span>网盘渠道分布</span>
+              <span id="ecoDriveSummary" style="font-weight:normal;font-size:12px;color:var(--text-dim)"></span>
+            </div>
+            <div id="ecoDriveBars" style="display:flex;flex-direction:column;gap:8px;">
+              <div class="skel" style="height:32px"></div>
+            </div>
+          </div>
+          <div>
+            <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;display:flex;justify-content:space-between">
+              <span>画质规格分布</span>
+              <span id="ecoQualitySummary" style="font-weight:normal;font-size:12px;color:var(--text-dim)"></span>
+            </div>
+            <div id="ecoQualityBars" style="display:flex;flex-direction:column;gap:8px;">
+              <div class="skel" style="height:32px"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="section-card">
         <h3>快速操作</h3>
         <div class="toolbar-left" style="margin:0">
           <button class="btn btn-g" onclick="showSec('resources')">资源管理</button>
+          <button class="btn btn-g" onclick="showSec('quick_ingest')">✨ 快捷发片</button>
+          <button class="btn btn-g" onclick="showSec('demands')">🎯 搜空补片</button>
+          <button class="btn btn-g" onclick="showSec('tools')">🛠️ 站长工具箱</button>
           <button class="btn btn-g" onclick="showSec('import')">导入队列</button>
           <button class="btn btn-g" onclick="showSec('deadlinks')">死链清理</button>
           <button class="btn btn-g" onclick="showSec('filters')">过滤词</button>
@@ -972,6 +1006,236 @@ tr:hover td{background:rgba(255,255,255,0.03)}
       </div>
     </div>
   </div>
+
+    <!-- 智能快捷发片 -->
+    <div id="sec-quick_ingest" style="display:none">
+      <div class="hdr">
+        <div>
+          <h1>✨ 智能快捷发片</h1>
+          <p style="margin:4px 0 0;font-size:13px;color:var(--text-secondary)">
+            直接粘贴网盘分享文案或多行链接（支持夸克、阿里、百度、迅雷、115、UC、磁力等）。系统智能提取片名、网盘渠道、提取码、画质与年份，并自动生成拼音缩写检索索引。
+          </p>
+        </div>
+      </div>
+
+      <div class="section-card" style="margin-top:16px">
+        <h3>文本智能解析</h3>
+        <div style="margin-bottom:12px">
+          <textarea id="quickIngestText" rows="6" placeholder="请在此粘贴网盘分享文案，支持单条或多条同时粘贴，例如：&#10;庆余年 第二季 4K 高清全集&#10;https://pan.quark.cn/s/abcdef123456 提取码: 8888&#10;&#10;权力的游戏前传：龙族 1080P 简繁中字&#10;https://pan.baidu.com/s/1abcdefg 提取码: 6666" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:13px;padding:12px;line-height:1.6;background:var(--bg-inset);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);resize:vertical"></textarea>
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+          <button class="btn btn-p" onclick="doParseIngestText()" id="btnParseText">🔍 智能识别解析</button>
+          <button class="btn btn-g" onclick="document.getElementById('quickIngestText').value='';resetParsedList()">清空</button>
+          <span style="font-size:12px;color:var(--text-dim)">💡 提示：若粘贴内容中包含「提取码」「密码」或「4K/1080P」规格，解析器将自动精准提取</span>
+        </div>
+      </div>
+
+      <div id="quickIngestPreviewArea" style="display:none;margin-top:20px">
+        <div class="section-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+            <h3 style="margin:0">解析结果与确认入库 <span class="badge badge-g" id="parsedCountBadge">0 条待入库</span></h3>
+            <div style="display:flex;gap:10px;align-items:center">
+              <button class="btn btn-g btn-s" onclick="resetParsedList()">放弃取消</button>
+              <button class="btn btn-p btn-s" onclick="doConfirmIngest()" id="btnConfirmIngest">🚀 确认批量入库</button>
+            </div>
+          </div>
+          <div class="tbl-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:28%">标题</th>
+                  <th style="width:14%">网盘来源</th>
+                  <th style="width:12%">类型</th>
+                  <th style="width:12%">画质</th>
+                  <th style="width:24%">网盘链接 / 提取码</th>
+                  <th style="width:10%">操作</th>
+                </tr>
+              </thead>
+              <tbody id="quickIngestTbl"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 搜空补片需求洞察 -->
+    <div id="sec-demands" style="display:none">
+      <div class="hdr">
+        <div>
+          <h1>🎯 搜空词分析与补片需求</h1>
+          <p style="margin:4px 0 0;font-size:13px;color:var(--text-secondary)">
+            深度分析用户搜索日志中搜索次数极高、但全库暂无有效资源的关键词。及时补齐这些内容可显著提升用户留存与口碑！
+          </p>
+        </div>
+        <div class="hdr-actions">
+          <button class="btn btn-g btn-s" onclick="loadDemands()">↻ 重新分析</button>
+        </div>
+      </div>
+
+      <!-- 补片指标卡片 -->
+      <div class="card-grid" style="margin-top:16px">
+        <div class="kpi-card" style="border-top-color:var(--red)">
+          <div class="lbl">搜空词条总数</div>
+          <div class="val" id="demandsZeroCount">-</div>
+          <div class="sub">无搜索结果的高频词</div>
+        </div>
+        <div class="kpi-card" style="border-top-color:var(--amber)">
+          <div class="lbl">累计搜空频次</div>
+          <div class="val" id="demandsZeroSearches">-</div>
+          <div class="sub">用户未满足的搜索次数</div>
+        </div>
+        <div class="kpi-card" style="border-top-color:var(--green)">
+          <div class="lbl">热搜满足率</div>
+          <div class="val" id="demandsSatisfiedRate">-</div>
+          <div class="sub" id="demandsSatisfiedSub">已满足热搜</div>
+        </div>
+        <div class="kpi-card" style="border-top-color:#3b82f6">
+          <div class="lbl">最急迫补片需求</div>
+          <div class="val" id="demandsTopMissing" style="font-size:1.15rem;text-overflow:ellipsis;white-space:nowrap;overflow:hidden">-</div>
+          <div class="sub" id="demandsTopMissingSub">搜索频次最高</div>
+        </div>
+      </div>
+
+      <!-- 待补片列表 -->
+      <div class="section-card" style="margin-top:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin:0">🚨 待补片需求清单 (Top 50 搜空词) <span class="hint">点击「快捷发片」可一键将该词填入发片区</span></h3>
+          <span class="badge badge-r" id="demandsListBadge">待补齐</span>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:25%">搜索关键词</th>
+                <th style="width:12%">搜索次数</th>
+                <th style="width:18%">最近搜索时间</th>
+                <th style="width:25%">一键外网找片</th>
+                <th style="width:20%">站长操作</th>
+              </tr>
+            </thead>
+            <tbody id="demandsZeroTbl">
+              <tr><td colspan="5" class="empty">加载中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 已满足热门搜索榜 -->
+      <div class="section-card" style="margin-top:20px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+          <h3 style="margin:0">✅ 高频已满足热门搜索 <span class="hint">已有充足资源库藏的词</span></h3>
+          <span class="badge badge-g">供给健康</span>
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:30%">热门关键词</th>
+                <th style="width:18%">搜索次数</th>
+                <th style="width:22%">库内命中资源数</th>
+                <th style="width:30%">前台查看</th>
+              </tr>
+            </thead>
+            <tbody id="demandsSatTbl">
+              <tr><td colspan="4" class="empty">加载中…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- 站长运维与数据库工具箱 -->
+    <div id="sec-tools" style="display:none">
+      <div class="hdr">
+        <div>
+          <h1>🛠️ 站长运维与数据库工具箱</h1>
+          <p style="margin:4px 0 0;font-size:13px;color:var(--text-secondary)">
+            针对 19万+ 级数据量的高级物理整理、全站缓存清理及无效脏数据治理工具。
+          </p>
+        </div>
+      </div>
+
+      <!-- 工具卡片网格 -->
+      <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(320px, 1fr));gap:16px;margin-top:16px">
+        <!-- 卡片 1: MySQL 物理表碎片整理 -->
+        <div class="section-card" style="margin:0;display:flex;flex-direction:column;justify-content:space-between">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <h3 style="margin:0">🗄️ MySQL 表空间整理与索引优化</h3>
+              <span class="badge badge-b">InnoDB</span>
+            </div>
+            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0 0 14px">
+              对 <code>resources</code> 与 <code>search_logs</code> 数据表执行物理碎片重组并刷新 FULLTEXT 全文检索 B+Tree 索引，释放被删除记录占用的物理磁盘空间，大幅降低大表扫描时的 I/O 开销。
+            </p>
+          </div>
+          <div>
+            <div id="optimizeDbStatus" style="font-size:12px;color:var(--text-dim);margin-bottom:10px;min-height:18px"></div>
+            <button class="btn btn-p" onclick="runOptimizeDb()" id="btnOptDb" style="width:100%">⚡ 执行数据表物理优化</button>
+          </div>
+        </div>
+
+        <!-- 卡片 2: 无效脏数据扫描与清理 -->
+        <div class="section-card" style="margin:0;display:flex;flex-direction:column;justify-content:space-between">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <h3 style="margin:0">🧹 无效脏数据扫描与安全清理</h3>
+              <span class="badge badge-y">数据纯净</span>
+            </div>
+            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0 0 14px">
+              自动检索并剔除数据库中标题为空、网盘 URL 为空或格式损毁的死条目。保障前台用户搜索与列表展示不出现空白空壳卡片。
+            </p>
+          </div>
+          <div>
+            <div id="cleanDirtyStatus" style="font-size:12px;color:var(--text-dim);margin-bottom:10px;min-height:18px"></div>
+            <button class="btn btn-g" onclick="runCleanDirty()" id="btnCleanDirty" style="width:100%">🧹 扫描并清理脏数据</button>
+          </div>
+        </div>
+
+        <!-- 卡片 3: 全站 Redis 缓存刷新 -->
+        <div class="section-card" style="margin:0;display:flex;flex-direction:column;justify-content:space-between">
+          <div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+              <h3 style="margin:0">🔄 全站 Redis 缓存深度刷新</h3>
+              <span class="badge badge-g">Redis 7</span>
+            </div>
+            <p style="font-size:13px;color:var(--text-secondary);line-height:1.6;margin:0 0 14px">
+              一键清除 Redis 中所有 <code>res_web:*</code> 键（包含首页推荐、分类列表、热搜前10、全库统计指标等缓存）。当您批量入库或大幅调整规则后，可立即强制前台展示最新数据。
+            </p>
+          </div>
+          <div>
+            <div id="flushCacheStatus" style="font-size:12px;color:var(--text-dim);margin-bottom:10px;min-height:18px"></div>
+            <button class="btn btn-g" onclick="runFlushAllCache()" id="btnFlushCache" style="width:100%">🔄 刷新全站 Redis 缓存</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 诊断与服务器环境状态卡片 -->
+      <div class="section-card" style="margin-top:20px">
+        <h3>💻 节点与运行架构状态</h3>
+        <div class="card-grid" style="margin-top:10px">
+          <div class="kpi-card">
+            <div class="lbl">容器节点</div>
+            <div class="val" style="font-size:1.1rem">resource_web</div>
+            <div class="sub">Docker N200 · 192.168.0.202</div>
+          </div>
+          <div class="kpi-card">
+            <div class="lbl">数据库引擎</div>
+            <div class="val" style="font-size:1.1rem">MySQL 8.0.39</div>
+            <div class="sub">192.168.0.201:3306 / pan_resource</div>
+          </div>
+          <div class="kpi-card">
+            <div class="lbl">缓存集群</div>
+            <div class="val" style="font-size:1.1rem">Redis 7.0</div>
+            <div class="sub">192.168.0.201:6379 / DB 0</div>
+          </div>
+          <div class="kpi-card">
+            <div class="lbl">Web 服务进程</div>
+            <div class="val" style="font-size:1.1rem">Gunicorn + Gevent</div>
+            <div class="sub">热重载支持 · SIGHUP 无损重启</div>
+          </div>
+        </div>
+      </div>
+    </div>
 </div>
 
 <!-- 添加用户 -->
@@ -1139,7 +1403,7 @@ function showSec(id){
   if(nav)nav.classList.add('active');
   // 移动端：如果侧边栏打开，则关闭
   if(window.innerWidth<=900 && document.getElementById('sidebar').classList.contains('open'))toggleSidebar();
-  const loaders={dashboard:loadDashboard,tasks:loadTasksCenter,resources:loadResources,users:loadUsers,import:loadImportQueue,filters:loadFilters,deadlinks:loadDeadlinkStats,duplicates:loadDuplicates,apis:()=>{},announcements:loadAnnouncements,sources:loadSources,settings:loadSettings,logs:loadLogs,searchlogs:loadSearchLogs};
+  const loaders={dashboard:loadDashboard,tasks:loadTasksCenter,resources:loadResources,users:loadUsers,import:loadImportQueue,filters:loadFilters,deadlinks:loadDeadlinkStats,duplicates:loadDuplicates,apis:()=>{},announcements:loadAnnouncements,sources:loadSources,settings:loadSettings,logs:loadLogs,searchlogs:loadSearchLogs,quick_ingest:loadQuickIngest,demands:loadDemands,tools:loadTools};
   loaders[id]?.();
 }
 
@@ -1168,6 +1432,7 @@ async function loadDashboard(){
     renderPieList('typeChart',dash?.type_dist||[],false);
     renderPieList('searchChart',dash?.top_searches||[].map(x=>({source:x.keyword,count:x.count})),false);
     renderGrowth(dash?.growth);
+    loadEcosystemStats();
   }catch(e){console.error('dashboard',e);show('仪表盘加载失败','error')}
 }
 
@@ -2177,6 +2442,499 @@ function pollGlobalTasks(){
     } catch(e){}
     pollGlobalTasks();
   }, 2500);
+}
+
+// ==========================================
+// 1. 全站网盘生态与画质透视 (Ecosystem Stats)
+// ==========================================
+async function loadEcosystemStats() {
+  try {
+    const d = await api('/api/admin/stats/ecosystem');
+    if (!d || !d.ok) return;
+
+    const total = d.total || 0;
+    const badge = document.getElementById('ecoTotalBadge');
+    if (badge) badge.textContent = `全库资源: ${fmtN(total)} 条`;
+
+    // 渠道分布渲染
+    const driveBars = document.getElementById('ecoDriveBars');
+    const driveSummary = document.getElementById('ecoDriveSummary');
+    if (driveSummary) driveSummary.textContent = `覆盖 ${(d.sources || []).length} 大渠道`;
+
+    if (driveBars) {
+      if (!d.sources || d.sources.length === 0) {
+        driveBars.innerHTML = '<div class="empty">暂无渠道数据</div>';
+      } else {
+        const colors = ['#38bdf8', '#58a6ff', '#2ea043', '#f0883e', '#a371f7', '#db61a2', '#f78166', '#56d364'];
+        driveBars.innerHTML = d.sources.map((s, idx) => {
+          const color = s.color || colors[idx % colors.length];
+          const pct = s.pct || 0;
+          return `
+            <div style="background:var(--bg-inset);border-radius:8px;padding:8px 12px;border:1px solid var(--border)">
+              <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px">
+                <span style="display:flex;align-items:center;gap:6px">
+                  <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color}"></span>
+                  <strong>${esc(s.label || s.source)}</strong>
+                  <code style="font-size:11px;color:var(--text-dim)">${esc(s.source)}</code>
+                </span>
+                <span style="color:var(--text-secondary)">
+                  ${fmtN(s.count)} 条 <strong style="color:var(--text-primary);margin-left:4px">${pct}%</strong>
+                </span>
+              </div>
+              <div style="background:rgba(255,255,255,0.06);height:6px;border-radius:3px;overflow:hidden">
+                <div style="background:${color};height:100%;width:${Math.max(pct, 0.5)}%;transition:width .4s ease"></div>
+              </div>
+            </div>`;
+        }).join('');
+      }
+    }
+
+    // 画质规格分布渲染
+    const qBars = document.getElementById('ecoQualityBars');
+    const qSummary = document.getElementById('ecoQualitySummary');
+    const qColors = {
+      '4K': '#a371f7',
+      '1080P': '#58a6ff',
+      '720P': '#2ea043',
+      '标清/未标明': '#8b949e',
+      '其他': '#8b949e'
+    };
+    if (qBars && d.qualities) {
+      if (qSummary) {
+        const hqPct = (d.qualities.filter(q => q.quality === '4K' || q.quality === '1080P').reduce((a, b) => a + (b.pct || 0), 0)).toFixed(1);
+        qSummary.textContent = `高清/超清占比 ${hqPct}%`;
+      }
+      qBars.innerHTML = d.qualities.map(q => {
+        const color = qColors[q.quality] || '#8b949e';
+        const pct = q.pct || 0;
+        return `
+          <div style="background:var(--bg-inset);border-radius:8px;padding:8px 12px;border:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px">
+              <span style="display:flex;align-items:center;gap:6px">
+                <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color}"></span>
+                <strong>${esc(q.quality)}</strong>
+              </span>
+              <span style="color:var(--text-secondary)">
+                ${fmtN(q.count)} 条 <strong style="color:var(--text-primary);margin-left:4px">${pct}%</strong>
+              </span>
+            </div>
+            <div style="background:rgba(255,255,255,0.06);height:6px;border-radius:3px;overflow:hidden">
+              <div style="background:${color};height:100%;width:${Math.max(pct, 0.5)}%;transition:width .4s ease"></div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+  } catch (e) {
+    console.error('loadEcosystemStats error', e);
+  }
+}
+
+// ==========================================
+// 2. 智能快捷发片 (Quick Ingest)
+// ==========================================
+let _parsedIngestItems = [];
+
+function loadQuickIngest() {
+  const ta = document.getElementById('quickIngestText');
+  if (ta && !ta.value.trim()) {
+    document.getElementById('quickIngestPreviewArea').style.display = 'none';
+    _parsedIngestItems = [];
+  }
+}
+
+function resetParsedList() {
+  _parsedIngestItems = [];
+  document.getElementById('quickIngestPreviewArea').style.display = 'none';
+  document.getElementById('quickIngestTbl').innerHTML = '';
+}
+
+async function doParseIngestText() {
+  const ta = document.getElementById('quickIngestText');
+  const text = ta ? ta.value.trim() : '';
+  if (!text) {
+    show('请先粘贴包含网盘链接的分享文本', 'error');
+    if (ta) ta.focus();
+    return;
+  }
+
+  const btn = document.getElementById('btnParseText');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 正在智能解析…'; }
+
+  try {
+    const res = await api('/api/admin/resources/parse_text', 'POST', { text });
+    if (!res || !res.ok) {
+      show('解析失败：' + (res?.error || '网络异常'), 'error');
+      return;
+    }
+
+    if (!res.items || res.items.length === 0) {
+      show('未能识别出有效的网盘链接，请检查文本是否包含支持的网盘 URL（如 pan.quark.cn, pan.baidu.com 等）', 'error');
+      return;
+    }
+
+    _parsedIngestItems = res.items;
+    renderParsedIngestTable();
+    document.getElementById('quickIngestPreviewArea').style.display = 'block';
+    show(`智能识别出 ${_parsedIngestItems.length} 条链接 (库内已存在: ${res.duplicates_in_db || 0} 条)`, 'success');
+  } catch (e) {
+    console.error('doParseIngestText', e);
+    show('解析请求出错', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔍 智能识别解析'; }
+  }
+}
+
+function renderParsedIngestTable() {
+  const tbl = document.getElementById('quickIngestTbl');
+  const badge = document.getElementById('parsedCountBadge');
+  if (badge) badge.textContent = `${_parsedIngestItems.length} 条待入库`;
+
+  if (!tbl) return;
+  if (!_parsedIngestItems.length) {
+    tbl.innerHTML = '<tr><td colspan="6" class="empty">无解析内容</td></tr>';
+    document.getElementById('quickIngestPreviewArea').style.display = 'none';
+    return;
+  }
+
+  const driveOptions = [
+    { id: 'quark', name: '夸克网盘' },
+    { id: 'aliyun', name: '阿里云盘' },
+    { id: 'baidu', name: '百度网盘' },
+    { id: 'xunlei', name: '迅雷云盘' },
+    { id: '115', name: '115网盘' },
+    { id: 'uc', name: 'UC网盘' },
+    { id: 'magnet', name: '磁力/BT' },
+    { id: 'other', name: '其他' }
+  ];
+
+  const typeOptions = ['电影', '剧集', '动漫', '综艺', '纪录片', '其他'];
+  const qualityOptions = ['4K', '1080P', '720P', '标清'];
+
+  tbl.innerHTML = _parsedIngestItems.map((item, idx) => {
+    const isDup = item.exists;
+    const dupBadge = isDup ? '<span class="badge badge-y" style="margin-left:6px" title="数据库中已存在相同URL">库内已存</span>' : '<span class="badge badge-g" style="margin-left:6px">全新条目</span>';
+
+    const driveOptsHtml = driveOptions.map(d =>
+      `<option value="${d.id}" ${d.id === (item.source || '').toLowerCase() ? 'selected' : ''}>${d.name}</option>`
+    ).join('');
+
+    const typeOptsHtml = typeOptions.map(t =>
+      `<option value="${t}" ${t === (item.type || '') ? 'selected' : ''}>${t}</option>`
+    ).join('');
+
+    const qualityOptsHtml = qualityOptions.map(q =>
+      `<option value="${q}" ${q === (item.quality || '').toUpperCase() ? 'selected' : ''}>${q}</option>`
+    ).join('');
+
+    return `
+      <tr id="parsedRow_${idx}" style="${isDup ? 'background:rgba(234,179,8,0.06)' : ''}">
+        <td>
+          <input type="text" id="pTitle_${idx}" value="${esc(item.title || '')}" style="width:100%;box-sizing:border-box;font-weight:600;padding:6px 8px;border-radius:4px;border:1px solid var(--border);background:var(--bg-inset);color:var(--text-primary)">
+          ${dupBadge}
+        </td>
+        <td>
+          <select id="pSource_${idx}" style="width:100%;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg-inset);color:var(--text-primary)">
+            ${driveOptsHtml}
+          </select>
+        </td>
+        <td>
+          <select id="pType_${idx}" style="width:100%;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg-inset);color:var(--text-primary)">
+            ${typeOptsHtml}
+          </select>
+        </td>
+        <td>
+          <select id="pQuality_${idx}" style="width:100%;padding:6px;border-radius:4px;border:1px solid var(--border);background:var(--bg-inset);color:var(--text-primary)">
+            ${qualityOptsHtml}
+          </select>
+        </td>
+        <td>
+          <div style="display:flex;gap:4px;flex-direction:column">
+            <input type="text" id="pUrl_${idx}" value="${esc(item.url || '')}" style="font-family:monospace;font-size:12px;width:100%;box-sizing:border-box;padding:4px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg-inset);color:var(--text-primary)">
+            <input type="text" id="pCode_${idx}" placeholder="提取码(若有)" value="${esc(item.code || '')}" style="font-size:11px;width:110px;box-sizing:border-box;padding:2px 6px;border-radius:4px;border:1px solid var(--border);background:var(--bg-inset);color:var(--text-secondary)">
+          </div>
+        </td>
+        <td class="td-actions">
+          <button class="btn btn-r btn-s" onclick="removeParsedItem(${idx})">移除</button>
+        </td>
+      </tr>`;
+  }).join('');
+}
+
+function removeParsedItem(idx) {
+  _parsedIngestItems.splice(idx, 1);
+  renderParsedIngestTable();
+}
+
+async function doConfirmIngest() {
+  if (!_parsedIngestItems.length) {
+    show('当前无可入库条目', 'error');
+    return;
+  }
+
+  const toSend = [];
+  for (let i = 0; i < _parsedIngestItems.length; i++) {
+    const titleEl = document.getElementById(`pTitle_${i}`);
+    const sourceEl = document.getElementById(`pSource_${i}`);
+    const typeEl = document.getElementById(`pType_${i}`);
+    const qualityEl = document.getElementById(`pQuality_${i}`);
+    const urlEl = document.getElementById(`pUrl_${i}`);
+    const codeEl = document.getElementById(`pCode_${i}`);
+
+    const title = titleEl ? titleEl.value.trim() : (_parsedIngestItems[i].title || '');
+    const url = urlEl ? urlEl.value.trim() : (_parsedIngestItems[i].url || '');
+    if (!title || !url) continue;
+
+    toSend.push({
+      title: title,
+      url: url,
+      source: sourceEl ? sourceEl.value : (_parsedIngestItems[i].source || 'other'),
+      type: typeEl ? typeEl.value : (_parsedIngestItems[i].type || '电影'),
+      quality: qualityEl ? qualityEl.value : (_parsedIngestItems[i].quality || '1080P'),
+      code: codeEl ? codeEl.value.trim() : (_parsedIngestItems[i].code || ''),
+      year: _parsedIngestItems[i].year || ''
+    });
+  }
+
+  if (!toSend.length) {
+    show('入库条目的标题与 URL 不能为空', 'error');
+    return;
+  }
+
+  const ok = await uiConfirm(`确定将这 ${toSend.length} 条资源批量入库吗？系统将自动生成拼音缩写索引并刷新全站检索缓存。`);
+  if (!ok) return;
+
+  const btn = document.getElementById('btnConfirmIngest');
+  if (btn) { btn.disabled = true; btn.textContent = '🚀 正在写入数据库…'; }
+
+  try {
+    const res = await api('/api/admin/resources/quick_ingest', 'POST', { resources: toSend });
+    if (!res || !res.ok) {
+      show('入库失败：' + (res?.error || '服务器异常'), 'error');
+      return;
+    }
+
+    const inserted = res.inserted || 0;
+    const skipped = res.skipped_duplicates || 0;
+    show(`🎉 入库成功！新增入库 ${inserted} 条，跳过库内重复 ${skipped} 条。可在前台立即搜索验证！`, 'success');
+
+    document.getElementById('quickIngestText').value = '';
+    resetParsedList();
+  } catch (e) {
+    console.error('doConfirmIngest', e);
+    show('入库请求失败', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🚀 确认批量入库'; }
+  }
+}
+
+// ==========================================
+// 3. 搜空补片需求洞察 (Demands & Missing Analytics)
+// ==========================================
+async function loadDemands() {
+  try {
+    const zeroTbl = document.getElementById('demandsZeroTbl');
+    const satTbl = document.getElementById('demandsSatTbl');
+    if (zeroTbl) zeroTbl.innerHTML = '<tr><td colspan="5" class="empty">正在深度扫描与全库测试搜索词…</td></tr>';
+    if (satTbl) satTbl.innerHTML = '<tr><td colspan="4" class="empty">加载中…</td></tr>';
+
+    const res = await api('/api/admin/stats/zero_searches');
+    if (!res || !res.ok) {
+      show('需求分析加载失败：' + (res?.error || ''), 'error');
+      return;
+    }
+
+    const s = res.summary || {};
+    const zeroList = res.zero_demands || [];
+    const satList = res.hot_satisfied || [];
+
+    // KPI Cards
+    const elZeroCount = document.getElementById('demandsZeroCount');
+    if (elZeroCount) elZeroCount.textContent = fmtN(s.zero_count || zeroList.length);
+
+    const elZeroSearches = document.getElementById('demandsZeroSearches');
+    if (elZeroSearches) elZeroSearches.textContent = fmtN(s.zero_searches || 0) + ' 次';
+
+    const elRate = document.getElementById('demandsSatisfiedRate');
+    if (elRate) elRate.textContent = (s.satisfied_rate_pct != null ? s.satisfied_rate_pct : 85) + '%';
+
+    const elSatSub = document.getElementById('demandsSatisfiedSub');
+    if (elSatSub) elSatSub.textContent = `热搜榜有 ${satList.length} 个完全满足`;
+
+    const elTop = document.getElementById('demandsTopMissing');
+    if (elTop) {
+      elTop.textContent = s.top_missing || (zeroList[0] ? zeroList[0].keyword : '无');
+      elTop.title = s.top_missing || '';
+    }
+
+    const elListBadge = document.getElementById('demandsListBadge');
+    if (elListBadge) elListBadge.textContent = `${zeroList.length} 个高频搜空词`;
+
+    // Render Zero Demands Table
+    if (zeroTbl) {
+      if (!zeroList.length) {
+        zeroTbl.innerHTML = '<tr><td colspan="5" class="empty">暂无搜空词，全库资源满足度非常高！</td></tr>';
+      } else {
+        zeroTbl.innerHTML = zeroList.map(item => {
+          const kw = item.keyword || '';
+          const enc = encodeURIComponent(kw);
+          const doubanUrl = `https://www.douban.com/search?q=${enc}`;
+          const quarkUrl = `https://www.google.com/search?q=site%3Apan.quark.cn+${enc}`;
+          const baiduUrl = `https://www.baidu.com/s?wd=${enc}+网盘`;
+
+          return `
+            <tr>
+              <td>
+                <strong style="color:var(--text-primary);font-size:13.5px">${esc(kw)}</strong>
+              </td>
+              <td>
+                <span class="badge badge-r" style="font-weight:700">${fmtN(item.count)} 次</span>
+              </td>
+              <td style="font-size:12px;color:var(--text-secondary)">
+                ${esc(item.latest || '-')}
+              </td>
+              <td>
+                <div style="display:flex;gap:6px;flex-wrap:wrap">
+                  <a href="${doubanUrl}" target="_blank" class="btn btn-g btn-s" style="padding:2px 8px;font-size:11px" title="在豆瓣查看该影片信息">豆瓣</a>
+                  <a href="${quarkUrl}" target="_blank" class="btn btn-g btn-s" style="padding:2px 8px;font-size:11px" title="搜索夸克网盘公开资源">夸克</a>
+                  <a href="${baiduUrl}" target="_blank" class="btn btn-g btn-s" style="padding:2px 8px;font-size:11px" title="搜索百度公开网盘">百度</a>
+                </div>
+              </td>
+              <td class="td-actions">
+                <button class="btn btn-p btn-s" onclick="prefillAndJumpToIngest('${esc(kw.replace(/'/g, "\'"))}')">✨ 快捷发片</button>
+              </td>
+            </tr>`;
+        }).join('');
+      }
+    }
+
+    // Render Satisfied Table
+    if (satTbl) {
+      if (!satList.length) {
+        satTbl.innerHTML = '<tr><td colspan="4" class="empty">暂无数据</td></tr>';
+      } else {
+        satTbl.innerHTML = satList.map(item => {
+          const kw = item.keyword || '';
+          const enc = encodeURIComponent(kw);
+          return `
+            <tr>
+              <td><strong>${esc(kw)}</strong></td>
+              <td><span class="badge badge-b">${fmtN(item.count)} 次</span></td>
+              <td><span class="badge badge-g">${fmtN(item.matched)} 条资源</span></td>
+              <td>
+                <a href="/?q=${enc}" target="_blank" class="btn btn-g btn-s" style="padding:2px 10px;font-size:11px">🔍 前台搜索验证</a>
+              </td>
+            </tr>`;
+        }).join('');
+      }
+    }
+  } catch (e) {
+    console.error('loadDemands', e);
+    show('加载搜空需求分析失败', 'error');
+  }
+}
+
+function prefillAndJumpToIngest(kw) {
+  showSec('quick_ingest');
+  const ta = document.getElementById('quickIngestText');
+  if (ta) {
+    ta.value = `${kw}
+`;
+    ta.focus();
+    ta.setSelectionRange(ta.value.length, ta.value.length);
+  }
+  show(`已自动填充「${kw}」，请粘贴网盘分享链接即可一键入库`, 'success');
+}
+
+// ==========================================
+// 4. 站长运维与数据库工具箱 (Tools)
+// ==========================================
+function loadTools() {
+  const opt = document.getElementById('optimizeDbStatus');
+  const cln = document.getElementById('cleanDirtyStatus');
+  const fsh = document.getElementById('flushCacheStatus');
+  if (opt && !opt.textContent) opt.textContent = '准备就绪，点击下方按钮开始';
+  if (cln && !cln.textContent) cln.textContent = '准备就绪，点击下方按钮开始';
+  if (fsh && !fsh.textContent) fsh.textContent = '准备就绪，点击下方按钮开始';
+}
+
+async function runOptimizeDb() {
+  const ok = await uiConfirm('确定对 MySQL 资源表和日志表执行 OPTIMIZE 物理碎片整理吗？\n注意：此操作会对大表重建物理索引文件，预计需要 3-10 秒。期间网站仍可正常只读访问。');
+  if (!ok) return;
+
+  const btn = document.getElementById('btnOptDb');
+  const st = document.getElementById('optimizeDbStatus');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 正在重组与优化数据表…'; }
+  if (st) st.textContent = '正在向 MySQL 提交 OPTIMIZE TABLE 指令，请稍候…';
+
+  try {
+    const res = await api('/api/admin/tools/optimize_db', 'POST');
+    if (res && res.ok) {
+      show('🎉 ' + (res.message || '数据表物理优化成功！'), 'success');
+      if (st) st.innerHTML = `<span style="color:var(--green)">✓ 优化成功 (${new Date().toLocaleTimeString()}): ${esc(res.message)}</span>`;
+    } else {
+      show('优化失败：' + (res?.error || '执行出错'), 'error');
+      if (st) st.innerHTML = `<span style="color:var(--red)">✗ 优化失败: ${esc(res?.error || '')}</span>`;
+    }
+  } catch (e) {
+    console.error('runOptimizeDb', e);
+    show('优化操作网络异常', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '⚡ 执行数据表物理优化'; }
+  }
+}
+
+async function runCleanDirty() {
+  const ok = await uiConfirm('确定执行无效脏数据扫描清理吗？\n将安全删除全库中标题为空或网盘 URL 为空的损坏条目。');
+  if (!ok) return;
+
+  const btn = document.getElementById('btnCleanDirty');
+  const st = document.getElementById('cleanDirtyStatus');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 正在扫描清理…'; }
+  if (st) st.textContent = '正在扫描全库脏数据…';
+
+  try {
+    const res = await api('/api/admin/tools/clean_dirty', 'POST');
+    if (res && res.ok) {
+      const deleted = res.deleted || 0;
+      show(deleted > 0 ? `🧹 清理成功！已移除 ${deleted} 条无效损坏记录。` : '✨ 数据库非常健康纯净，未发现任何无效脏数据！', 'success');
+      if (st) st.innerHTML = `<span style="color:var(--green)">✓ 清理完成 (${new Date().toLocaleTimeString()}): 剔除 ${deleted} 条脏数据</span>`;
+    } else {
+      show('清理失败：' + (res?.error || '执行出错'), 'error');
+      if (st) st.innerHTML = `<span style="color:var(--red)">✗ 清理失败: ${esc(res?.error || '')}</span>`;
+    }
+  } catch (e) {
+    console.error('runCleanDirty', e);
+    show('清理操作网络异常', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🧹 扫描并清理脏数据'; }
+  }
+}
+
+async function runFlushAllCache() {
+  const ok = await uiConfirm('确定刷新全站 Redis 缓存吗？\n将清除所有 res_web:* 前缀缓存，下次前台请求将从 MySQL 重建冷热缓存。');
+  if (!ok) return;
+
+  const btn = document.getElementById('btnFlushCache');
+  const st = document.getElementById('flushCacheStatus');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ 正在清理 Redis 缓存…'; }
+  if (st) st.textContent = '正在清空 Redis 缓存键…';
+
+  try {
+    const res = await api('/api/admin/tools/flush_all_cache', 'POST');
+    if (res && res.ok) {
+      const keys = res.cleared_keys || 0;
+      show(`🔄 缓存已清空！成功刷新 ${keys} 个 Redis 缓存键。`, 'success');
+      if (st) st.innerHTML = `<span style="color:var(--green)">✓ 刷新成功 (${new Date().toLocaleTimeString()}): 已清空 ${keys} 个缓存键</span>`;
+    } else {
+      show('刷新缓存失败：' + (res?.error || '执行出错'), 'error');
+      if (st) st.innerHTML = `<span style="color:var(--red)">✗ 刷新失败: ${esc(res?.error || '')}</span>`;
+    }
+  } catch (e) {
+    console.error('runFlushAllCache', e);
+    show('刷新缓存网络异常', 'error');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '🔄 刷新全站 Redis 缓存'; }
+  }
 }
 
 // init

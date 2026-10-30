@@ -462,3 +462,101 @@
     ensureHomeSections();
   });
 })();
+
+/* ============================================================
+ * VaultDrive 网站级交互增强 (Website UX Polish)
+ * 1. 快捷键: Cmd+K / Ctrl+K / '/' 快速聚焦搜索，Esc 快速关闭抽屉
+ * 2. 移动端 Bottom Sheet: 详情抽屉下拉滑动手势关闭
+ * 3. 一键带密转存与跳转: 自动复制提取码，带视觉 Toast 与触觉震动
+ * ============================================================ */
+(function() {
+  function haptic(ms) {
+    if ('vibrate' in navigator) {
+      try { navigator.vibrate(ms || 12); } catch(e) {}
+    }
+  }
+
+  // 1. 全局极客快捷键
+  document.addEventListener('keydown', function(e) {
+    if (((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') || (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA')) {
+      e.preventDefault();
+      const input = document.getElementById('globalSearch') || document.getElementById('homeSearchInput');
+      if (input) {
+        input.focus();
+        input.select();
+        haptic(10);
+      }
+    }
+    if (e.key === 'Escape') {
+      const drawer = document.querySelector('.detail-drawer.open');
+      const mask = document.querySelector('.detail-drawer-mask.open');
+      if (drawer) drawer.classList.remove('open');
+      if (mask) mask.classList.remove('open');
+      document.querySelectorAll('.modal-overlay.show').forEach(m => m.classList.remove('show'));
+    }
+  });
+
+  // 2. 移动端抽屉下拉手势
+  function setupDrawerTouch() {
+    const drawer = document.querySelector('.detail-drawer');
+    if (!drawer || drawer._touchBound) return;
+    drawer._touchBound = true;
+
+    let startY = 0, currentY = 0, isDragging = false;
+
+    drawer.addEventListener('touchstart', (e) => {
+      if (window.innerWidth > 768 || drawer.scrollTop > 5) return;
+      startY = e.touches[0].clientY;
+      isDragging = true;
+      drawer.style.transition = 'none';
+    }, { passive: true });
+
+    drawer.addEventListener('touchmove', (e) => {
+      if (!isDragging) return;
+      currentY = e.touches[0].clientY;
+      const diff = currentY - startY;
+      if (diff > 0) {
+        drawer.style.transform = 'translateY(' + diff + 'px)';
+      }
+    }, { passive: true });
+
+    drawer.addEventListener('touchend', () => {
+      if (!isDragging) return;
+      isDragging = false;
+      drawer.style.transition = 'transform 0.24s cubic-bezier(0.16, 1, 0.3, 1)';
+      const diff = currentY - startY;
+      if (diff > 90) {
+        drawer.classList.remove('open');
+        document.querySelector('.detail-drawer-mask')?.classList.remove('open');
+        haptic(15);
+      }
+      drawer.style.transform = '';
+    });
+  }
+
+  // 3. 一键自动带密复制与跳转
+  window.jumpAndCopy = function(url, pwd, sourceName) {
+    haptic(15);
+    let copyText = url;
+    let toastMsg = '已复制链接，正在前往 ' + (sourceName || '网盘') + '…';
+    if (pwd && pwd.trim()) {
+      copyText = url + ' 提取码: ' + pwd.trim();
+      toastMsg = '已复制链接与提取码【' + pwd.trim() + '】，正在前往…';
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(copyText).catch(() => {});
+    }
+    if (typeof showToast === 'function') {
+      showToast(toastMsg, 'success');
+    }
+    setTimeout(() => {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }, 320);
+  };
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupDrawerTouch);
+  } else {
+    setupDrawerTouch();
+  }
+})();

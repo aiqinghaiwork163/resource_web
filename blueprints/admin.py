@@ -2031,3 +2031,7 @@ def api_admin_tasks_stop():
     except Exception as e:
         app.logger.exception("api_admin_tasks_stop failed")
         return jsonify({"ok": False, "msg": str(e)}), 500
+
+# 自动载入站长实质性功能增强路由
+from . import admin_features
+

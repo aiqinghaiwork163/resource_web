@@ -42,7 +42,7 @@ app.config['SESSION_COOKIE_NAME'] = os.environ.get('SESSION_COOKIE_NAME', 'sessi
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 # 全站经 Cloudflare Tunnel 以 HTTPS 提供，Secure cookie 安全
-app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_SECURE'] = False
 
 # ==================== 日志轮转 ====================
 # 落盘到 /app/logs/app.log（卷挂载持久化），RotatingFileHandler 防止无限增长

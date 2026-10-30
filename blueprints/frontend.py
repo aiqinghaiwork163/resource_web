@@ -379,11 +379,12 @@ def api_resources():
         use_fulltext = False
 
         if query:
-            # FULLTEXT 命中 title/note（ft_title_note 索引）
-            # 不用 OR keyword LIKE —— OR 会让 MySQL 放弃 FULLTEXT 索引走全表扫描
+            # FULLTEXT 命中 title/note（ft_title_note 索引），支持多关键词空格切分 AND 交集检索
             use_fulltext = True
+            tokens = [t.strip() for t in query.split() if t.strip()]
+            boolean_expr = " ".join([f"+{t}*" for t in tokens]) if tokens else f"+{query}*"
             conditions.append("MATCH(title, note) AGAINST(%s IN BOOLEAN MODE)")
-            params.append(f"+{query}*")
+            params.append(boolean_expr)
 
             # 记录搜索日志
             try:
