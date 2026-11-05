@@ -21,6 +21,7 @@ PAN_LABELS = {
     "123": "123",
     "123pan": "123",
     "yidong": "移动",
+    "guangya": "光鸭",
 }
 
 # 兼容旧 source 字段
@@ -50,6 +51,7 @@ _PAN_URL_RULES = (
     ("123pan.com", "123"),
     ("123684.com", "123"),
     ("yun.139.com", "yidong"),
+    ("guangyapan.com", "guangya"),
 )
 
 
